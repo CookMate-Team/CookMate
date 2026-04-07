@@ -1,0 +1,14 @@
+# Global configuration shared by all services
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.cookmate: DEBUG
+    org.springframework.cloud: INFO

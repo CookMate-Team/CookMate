@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: main-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://config-service:8888}"
+
+# Fallback values (overridden by config-server)
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://discovery-service:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
