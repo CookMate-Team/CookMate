@@ -41,7 +41,7 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 
 ## Stos technologiczny
 
-- **Java 17** / **Spring Boot 3.4.0**
+- **Java 25** / **Spring Boot 4.0.5**
 - **Spring Cloud 2024.0.0** (Config, Eureka, OpenFeign, LoadBalancer)
 - **Spring Data JPA** + **PostgreSQL**
 - **Docker** (multi-stage build) + **Docker Compose**
