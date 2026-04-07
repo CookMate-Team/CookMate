@@ -1,0 +1,7 @@
+# Configuration specific to simulator-service
+server:
+  port: 8082
+
+simulator-service:
+  main-service-url: http://main-service:8081
+  greeting: "Welcome to CookMate Simulator Service"

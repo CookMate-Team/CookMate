@@ -1,0 +1,146 @@
+version: "3.9"
+
+networks:
+  cookmate-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: cookmate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cookmate
+      POSTGRES_USER: cookmate
+      POSTGRES_PASSWORD: cookmate
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cookmate -d cookmate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─────────────────────────────────────────────
+  # Config Service (port 8888)
+  # Startup order: 1st
+  # ─────────────────────────────────────────────
+  config-service:
+    build:
+      context: ./config-service
+      dockerfile: Dockerfile
+    container_name: cookmate-config
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      CONFIG_REPO_PATH: /config-repo
+    volumes:
+      - ./config-repo:/config-repo:ro
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+  # ─────────────────────────────────────────────
+  # Discovery Service / Eureka (port 8761)
+  # Startup order: 2nd (after config-service)
+  # ─────────────────────────────────────────────
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile
+    container_name: cookmate-discovery
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      HOSTNAME: discovery-service
+    depends_on:
+      config-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+  # ─────────────────────────────────────────────
+  # Main Service (port 8081)
+  # Startup order: 3rd (after discovery + postgres)
+  # ─────────────────────────────────────────────
+  main-service:
+    build:
+      context: ./main-service
+      dockerfile: Dockerfile
+    container_name: cookmate-main
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Simulator Service (port 8082)
+  # Startup order: 3rd (after discovery)
+  # ─────────────────────────────────────────────
+  simulator-service:
+    build:
+      context: ./simulator-service
+      dockerfile: Dockerfile
+    container_name: cookmate-simulator
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
