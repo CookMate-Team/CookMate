@@ -11,6 +11,9 @@ spring:
       server:
         native:
           search-locations: file://${CONFIG_REPO_PATH:/config-repo}
+  threads:
+    virtual:
+      enabled: true
 
 management:
   endpoints:
