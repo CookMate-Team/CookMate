@@ -1,7 +1,7 @@
 package com.cookmate.main.dto;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * Request DTO for updating an existing recipe.
@@ -11,7 +11,7 @@ public record RecipeUpdateRequest(
     /**
      * Recipe name (optional, non-blank if provided).
      */
-    @NotBlank(message = "Recipe name cannot be blank")
+    @Pattern(regexp = ".*\\S.*", message = "Recipe name cannot be blank")
     String name,
 
     /**
@@ -22,7 +22,7 @@ public record RecipeUpdateRequest(
     /**
      * List of ingredients (optional, non-blank if provided).
      */
-    @NotBlank(message = "Ingredients cannot be blank")
+    @Pattern(regexp = ".*\\S.*", message = "Ingredients cannot be blank")
     String ingredients,
 
     /**
