@@ -85,7 +85,7 @@ public class RecipeService {
         return new RecipeListResponse(
             recipeDTOs,
             (int) page.getTotalElements(),
-            pageNumber + 1,
+            pageNumber,
             pageSize,
             page.getTotalPages()
         );
