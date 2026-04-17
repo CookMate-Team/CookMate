@@ -61,6 +61,10 @@ docker compose up --build -d
 docker compose down
 ```
 
+> Dla `postgres:18+` dane są trzymane w nowym układzie katalogów.  
+> Jeśli wcześniej był używany wolumen z `postgres:17` lub starszym, wykonaj migrację (`pg_upgrade`) albo zresetuj środowisko developerskie:
+> `docker compose down -v && docker volume rm sumatywny_postgres-data` (lub odpowiedni wolumen dla projektu).
+
 Kolejność startu: **PostgreSQL → Config → Discovery → main-service / simulator-service**
 
 ### Lokalne uruchomienie (każdy serwis osobno)
@@ -68,7 +72,7 @@ Kolejność startu: **PostgreSQL → Config → Discovery → main-service / sim
 ```bash
 # 1. Uruchom PostgreSQL
 docker run -e POSTGRES_DB=cookmate -e POSTGRES_USER=cookmate \
-           -e POSTGRES_PASSWORD=cookmate -p 5432:5432 postgres:16-alpine
+           -e POSTGRES_PASSWORD=cookmate -p 5432:5432 postgres:18-alpine
 
 # 2. config-service
 cd config-service && mvn spring-boot:run
@@ -150,8 +154,12 @@ CookMate/
 │   └── src/main/java/com/cookmate/simulator/
 │       ├── SimulatorServiceApplication.java
 │       ├── client/MainServiceClient.java
+│       ├── config/SimulationConfig.java
 │       ├── controller/SimulatorController.java
-│       └── dto/RecipeDto.java
+│       ├── dto/*.java
+│       ├── exception/*.java
+│       ├── model/*.java
+│       └── service/SimulationService.java
 ├── docker-compose.yml
 └── pom.xml                         # Root Maven aggregator
 ```
