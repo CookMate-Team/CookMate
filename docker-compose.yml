@@ -118,7 +118,7 @@ services:
 
   # ─────────────────────────────────────────────
   # Simulator Service (port 8082)
-  # Startup order: 3rd (after discovery)
+  # Startup order: 3rd (after discovery + postgres)
   # ─────────────────────────────────────────────
   simulator-service:
     build:
@@ -131,7 +131,13 @@ services:
     environment:
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
     depends_on:
+      postgres:
+        condition: service_healthy
       discovery-service:
         condition: service_healthy
     networks:
