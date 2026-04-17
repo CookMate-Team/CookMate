@@ -3,10 +3,16 @@ spring:
     name: simulator-service
   config:
     import: "optional:configserver:${CONFIG_SERVER_URL:http://config-service:8888}"
+  threads:
+    virtual:
+      enabled: true
 
 # Fallback values (overridden by config-server)
 server:
   port: 8082
+  tomcat:
+    threads:
+      max: 200
 
 eureka:
   client:
@@ -18,6 +24,26 @@ eureka:
     prefer-ip-address: true
     lease-renewal-interval-in-seconds: 10
     lease-expiration-duration-in-seconds: 30
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: basic
+  compression:
+    request:
+      enabled: true
+      min-request-size: 2048
+    response:
+      enabled: true
+
+simulator:
+  meal-plan:
+    default-days: 3
+    min-days: 1
+    max-days: 365
 
 management:
   endpoints:
