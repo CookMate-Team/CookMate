@@ -21,6 +21,7 @@ import com.cookmate.simulator.repository.SimulationStepRepository;
 import feign.FeignException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -48,19 +49,22 @@ public class SimulationService {
     private final SimulationSessionRepository simulationSessionRepository;
     private final SimulationStepRepository simulationStepRepository;
     private final Random random;
+    private final TransactionTemplate transactionTemplate;
 
     public SimulationService(
             MainServiceClient mainServiceClient,
             SimulationProperties simulationProperties,
             SimulationSessionRepository simulationSessionRepository,
             SimulationStepRepository simulationStepRepository,
-            Random random
+            Random random,
+            TransactionTemplate transactionTemplate
     ) {
         this.mainServiceClient = mainServiceClient;
         this.simulationProperties = simulationProperties;
         this.simulationSessionRepository = simulationSessionRepository;
         this.simulationStepRepository = simulationStepRepository;
         this.random = random;
+        this.transactionTemplate = transactionTemplate;
     }
 
     public List<RecipeDto> listRecipes() {
@@ -93,11 +97,14 @@ public class SimulationService {
         return new MealPlanResponseDto(days, recipes.size(), null, plan);
     }
 
-    @Transactional
     public SimulationStatusResponseDto start(Integer requestedDays) {
         int days = normalizeDays(requestedDays);
         List<RecipeDto> recipes = listRecipes();
 
+        return transactionTemplate.execute(status -> startWithRecipes(days, recipes));
+    }
+
+    private SimulationStatusResponseDto startWithRecipes(int days, List<RecipeDto> recipes) {
         SimulationSession session = new SimulationSession();
         session.setId(UUID.randomUUID().toString());
         session.setCurrentStep(0);
