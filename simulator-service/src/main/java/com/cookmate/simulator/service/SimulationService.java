@@ -27,10 +27,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 @Service
 public class SimulationService {
+
+    private final ConcurrentMap<String, Object> sessionExecutionLocks = new ConcurrentHashMap<>();
+
+    private Object getExecutionLock(String sessionId) {
+        return sessionExecutionLocks.computeIfAbsent(sessionId, key -> new Object());
+    }
 
     private static final String EMPTY_RECIPES_MESSAGE = "No recipes available. Please add recipes to main-service first.";
     private static final String ONLY_RUNNING_ALLOWED = "Only RUNNING simulation can execute steps.";
@@ -136,30 +144,32 @@ public class SimulationService {
 
     @Transactional
     public SimulationStatusResponseDto executeStep(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-        validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
+        synchronized (getExecutionLock(sessionId)) {
+            SimulationSession session = getSessionOrThrow(sessionId);
+            validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
 
-        SimulationStep nextStep = simulationStepRepository
-                .findFirstBySessionIdAndStatusOrderByStepNumberAsc(sessionId, StepStatus.PENDING)
-                .orElse(null);
+            SimulationStep nextStep = simulationStepRepository
+                    .findFirstBySessionIdAndStatusOrderByStepNumberAsc(sessionId, StepStatus.PENDING)
+                    .orElse(null);
 
-        if (nextStep == null) {
-            completeInternal(session);
+            if (nextStep == null) {
+                completeInternal(session);
+                return getStatus(sessionId);
+            }
+
+            nextStep.setStatus(StepStatus.EXECUTED);
+            nextStep.setExecutedAt(LocalDateTime.now());
+            simulationStepRepository.save(nextStep);
+
+            session.setCurrentStep(session.getCurrentStep() + 1);
+            simulationSessionRepository.save(session);
+
+            if (session.getCurrentStep() >= session.getTotalSteps()) {
+                completeInternal(session);
+            }
+
             return getStatus(sessionId);
         }
-
-        nextStep.setStatus(StepStatus.EXECUTED);
-        nextStep.setExecutedAt(LocalDateTime.now());
-        simulationStepRepository.save(nextStep);
-
-        session.setCurrentStep(session.getCurrentStep() + 1);
-        simulationSessionRepository.save(session);
-
-        if (session.getCurrentStep() >= session.getTotalSteps()) {
-            completeInternal(session);
-        }
-
-        return getStatus(sessionId);
     }
 
     @Transactional
