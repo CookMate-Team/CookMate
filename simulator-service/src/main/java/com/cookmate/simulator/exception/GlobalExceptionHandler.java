@@ -19,4 +19,26 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
     }
+
+    @ExceptionHandler(SimulationSessionNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleSimulationSessionNotFoundException(
+            SimulationSessionNotFoundException exception
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "SIMULATION_NOT_FOUND",
+                exception.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(InvalidSimulationStateException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidSimulationStateException(
+            InvalidSimulationStateException exception
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "INVALID_SIMULATION_STATE",
+                exception.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
 }

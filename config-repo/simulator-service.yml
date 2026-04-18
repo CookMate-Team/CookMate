@@ -2,6 +2,21 @@
 server:
   port: 8082
 
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:cookmate}
+    username: ${DB_USER:cookmate}
+    password: ${DB_PASS:cookmate}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
 simulator-service:
   main-service-url: http://main-service:8081
   greeting: "Welcome to CookMate Simulator Service"
