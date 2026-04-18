@@ -40,6 +40,14 @@ Mikrousługa odpowiedzialna za generowanie planów posiłków na podstawie przep
 | `/api/simulator/recipes/{id}` | GET | `id` (Long) | Pobiera szczegóły konkretnego przepisu |
 | `/api/simulator/meal-plan` | GET | `days` (int, default=3) | Generuje losowy plan posiłków na X dni |
 | `/api/simulator/health-check` | GET | - | Sprawdza dostępność main-service i zwraca status |
+| `/api/simulator/sessions/start` | POST | `days` (int, optional) | Tworzy nową sesję symulacji i zapisuje kroki w bazie |
+| `/api/simulator/sessions/{sessionId}/status` | GET | `sessionId` | Zwraca status sesji (recovery po F5) |
+| `/api/simulator/sessions/{sessionId}/steps/execute` | POST | `sessionId` | Wykonuje kolejny krok symulacji |
+| `/api/simulator/sessions/{sessionId}/pause` | POST | `sessionId` | Pauzuje aktywną sesję |
+| `/api/simulator/sessions/{sessionId}/resume` | POST | `sessionId` | Wznawia zapauzowaną sesję |
+| `/api/simulator/sessions/{sessionId}/complete` | POST | `sessionId` | Kończy sesję symulacji |
+| `/api/simulator/sessions/{sessionId}/cancel` | POST | `sessionId` | Anuluje sesję symulacji |
+| `/api/simulator/sessions/{sessionId}/history` | GET | `sessionId` | Zwraca historię kroków sesji |
 | `/actuator/health` | GET | - | Health check serwisu |
 
 ### Przykładowe Odpowiedzi
@@ -88,6 +96,9 @@ spring:
   threads:
     virtual:
       enabled: true        # Włączenie Virtual Threads (Java 25)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:cookmate}
+    username: ${DB_USER:cookmate}
 
 server:
   port: 8082
@@ -139,6 +150,14 @@ Simulator Service komunikuje się z Main Service za pośrednictwem OpenFeign:
 - **Client**: `MainServiceClient` (src/main/java/com/cookmate/simulator/client/)
 - **Base URL**: Pobierana z Eureka Registry
 - **Endpoints**: `/api/recipes`, `/api/recipes/{id}`
+
+## Persistencja Sesji
+
+Simulator Service zapisuje sesje i kroki do PostgreSQL:
+- `simulation_sessions` - status i postęp sesji,
+- `simulation_steps` - historia kroków (`PENDING`, `EXECUTED`, `SKIPPED`).
+
+Szczegóły: **[PERSISTENCE.md](./PERSISTENCE.md)**.
 
 ## Obsługa Błędów
 
