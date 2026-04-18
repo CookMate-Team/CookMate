@@ -146,7 +146,31 @@ public class SimulationService {
     public SimulationStatusResponseDto getStatus(String sessionId) {
         SimulationSession session = getSessionOrThrow(sessionId);
         List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
-        return mapStatusResponse(session, steps);
+        return mapStatusResponseReadOnly(session, steps);
+    }
+
+    private SimulationStatusResponseDto mapStatusResponseReadOnly(SimulationSession session, List<SimulationStep> steps) {
+        int recalculatedCurrentStep = (int) steps.stream()
+                .filter(step -> step.getStatus() == StepStatus.EXECUTED)
+                .count();
+
+        if (session.getCurrentStep() == recalculatedCurrentStep) {
+            return mapStatusResponse(session, steps);
+        }
+
+        return mapStatusResponse(buildResponseOnlySession(session, recalculatedCurrentStep), steps);
+    }
+
+    private SimulationSession buildResponseOnlySession(SimulationSession session, int currentStep) {
+        SimulationSession responseSession = new SimulationSession();
+        responseSession.setId(session.getId());
+        responseSession.setCurrentStep(currentStep);
+        responseSession.setTotalRecipes(session.getTotalRecipes());
+        responseSession.setStatus(session.getStatus());
+        responseSession.setTotalSteps(session.getTotalSteps());
+        responseSession.setMessage(session.getMessage());
+        responseSession.setCompletedAt(session.getCompletedAt());
+        return responseSession;
     }
 
     @Transactional
