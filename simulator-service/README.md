@@ -99,6 +99,15 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:cookmate}
     username: ${DB_USER:cookmate}
+    password: ${DB_PASSWORD:cookmate}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 server:
   port: 8082
