@@ -7,13 +7,24 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "simulation_steps")
+@Table(
+    name = "simulation_steps",
+    indexes = {
+        @Index(name = "idx_simulation_steps_session_step", columnList = "session_id, step_number"),
+        @Index(name = "idx_simulation_steps_session_status", columnList = "session_id, status")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_simulation_steps_session_step", columnNames = {"session_id", "step_number"})
+    }
+)
 public class SimulationStep {
 
     @Id
