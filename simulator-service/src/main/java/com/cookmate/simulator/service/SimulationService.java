@@ -19,6 +19,7 @@ import com.cookmate.simulator.model.StepStatus;
 import com.cookmate.simulator.repository.SimulationSessionRepository;
 import com.cookmate.simulator.repository.SimulationStepRepository;
 import feign.FeignException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -33,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 @Service
+@RequiredArgsConstructor
 public class SimulationService {
 
     private final ConcurrentMap<String, Object> sessionExecutionLocks = new ConcurrentHashMap<>();
@@ -50,22 +52,6 @@ public class SimulationService {
     private final SimulationStepRepository simulationStepRepository;
     private final Random random;
     private final TransactionTemplate transactionTemplate;
-
-    public SimulationService(
-            MainServiceClient mainServiceClient,
-            SimulationProperties simulationProperties,
-            SimulationSessionRepository simulationSessionRepository,
-            SimulationStepRepository simulationStepRepository,
-            Random random,
-            TransactionTemplate transactionTemplate
-    ) {
-        this.mainServiceClient = mainServiceClient;
-        this.simulationProperties = simulationProperties;
-        this.simulationSessionRepository = simulationSessionRepository;
-        this.simulationStepRepository = simulationStepRepository;
-        this.random = random;
-        this.transactionTemplate = transactionTemplate;
-    }
 
     public List<RecipeDto> listRecipes() {
         return executeMainServiceCall(mainServiceClient::getAllRecipes);
@@ -88,9 +74,9 @@ public class SimulationService {
             RecipeDto recipe = recipes.get(random.nextInt(recipes.size()));
             plan.add(new MealPlanItemDto(
                     day,
-                    recipe.getId(),
-                    recipe.getName(),
-                    formatPreparationTime(recipe.getPreparationTimeMinutes())
+                    recipe.id(),
+                    recipe.name(),
+                    formatPreparationTime(recipe.preparationTimeMinutes())
             ));
         }
 
@@ -131,9 +117,9 @@ public class SimulationService {
             SimulationStep simulationStep = new SimulationStep();
             simulationStep.setSessionId(session.getId());
             simulationStep.setStepNumber(step);
-            simulationStep.setRecipeId(recipe.getId());
-            simulationStep.setRecipeName(recipe.getName());
-            simulationStep.setPreparationTime(formatPreparationTime(recipe.getPreparationTimeMinutes()));
+            simulationStep.setRecipeId(recipe.id());
+            simulationStep.setRecipeName(recipe.name());
+            simulationStep.setPreparationTime(formatPreparationTime(recipe.preparationTimeMinutes()));
             simulationStep.setStatus(StepStatus.PENDING);
 
             steps.add(simulationStep);
