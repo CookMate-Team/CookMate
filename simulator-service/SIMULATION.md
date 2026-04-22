@@ -1,206 +1,348 @@
-# Simulation - Algorytm Planowania Posiłków
+# Simulation - Symulator Gotowania (Guided Cooking)
 
-## Algorytm Symulacji
+## Algorytm Symulacji Kroków Gotowania
 
-### Generowanie Planu Posiłków
+Simulator Service odbiera kroki gotowania z main-service i symuluje ich wykonanie poprzez:
+1. Wyświetlenie instrukcji kroku
+2. Oczekiwanie na interakcję użytkownika
+3. Odczekanie określonego czasu
+4. Zwrócenie statusu "krok ukończony"
 
-Simulator Service generuje losowe plany posiłków na podstawie dostępnych przepisów w main-service.
-
-#### Algorytm: Random Selection
+## Flow Komunikacji
 
 ```
-1. Pobierz listę wszystkich dostępnych przepisów z main-service
-2. Dla każdego dnia w planie (default 3 dni, maksymalnie 365 dni):
-   a. Losowo wybierz przepis z listy dostępnych
-   b. Zapisz: dzień, ID przepisu, nazwę, czas przygotowania
-3. Zwróć struktur z całym planem posiłków
-```
-
-#### Pseudokod
-
-```java
-List<Recipe> allRecipes = getRecipesFromMainService();
-List<MealDay> plan = new ArrayList<>();
-
-for (int day = 1; day <= numberOfDays; day++) {
-    Recipe selected = allRecipes.get(random.nextInt(allRecipes.size()));
-    plan.add(new MealDay(
-        day,
-        selected.getId(),
-        selected.getName(),
-        selected.getPreparationTime()
-    ));
-}
-
-return plan;
+┌──────────────────┐
+│ Main Service     │
+│ (Recipe Provider)│
+└────────┬─────────┘
+         │
+         │ 1. Użytkownik wybiera "Guided Cooking"
+         │ 2. Main-service tworzy sesję w simulator
+         ▼
+      POST /sessions/start
+         │
+         │ 3. Main-service przesyła krok #1
+         ▼
+  POST /sessions/{id}/step
+      Step: {
+        stepNumber: 1,
+        description: "Podgrzej patelnię",
+        durationSeconds: 5
+      }
+         │
+         │ (Simulator odczekuje 5 sekund)
+         │
+         ▼
+   RecipeStepResponseDto
+      {
+        completed: true,
+        stepNumber: 1
+      }
+         │
+         │ 4. Main-service przesyła krok #2
+         ▼
+  POST /sessions/{id}/step
+    (kolejny krok)
+         │
+         └─► Powtarza się aż do końca przepisu
 ```
 
 ## API Kontrakty
 
-### GET /api/simulator/meal-plan?days=N
+### POST /api/simulator/sessions/start
 
-**Parametry**:
-- `days` (int, optional, default=3, range: 1-365)
+Tworzy nową sesję gotowania.
 
-**Request**:
+**Request**: (puste ciało)
+
+**Response (201 Created)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "RUNNING",
+  "currentStep": 0,
+  "totalSteps": 0,
+  "message": null,
+  "history": []
+}
 ```
-GET /api/simulator/meal-plan?days=7
+
+### POST /api/simulator/sessions/{sessionId}/step
+
+Odbiera krok gotowania i go przetwarza.
+
+**Path Parameters**:
+- `sessionId` (String) - ID sesji
+
+**Request Body**:
+```json
+{
+  "stepNumber": 1,
+  "description": "Podgrzej patelnię do temperatury 180°C",
+  "durationSeconds": 5,
+  "temperature": "180°C",
+  "weight": "200g",
+  "additionalNotes": "Używaj oliwy z oliwek extra virgin"
+}
 ```
 
 **Response (200 OK)**:
 ```json
 {
-  "days": 7,
-  "totalRecipes": 42,
-  "plan": [
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "stepNumber": 1,
+  "completed": true,
+  "status": "COMPLETED",
+  "message": "Step completed successfully"
+}
+```
+
+**Response (400 Bad Request - sesja nie w stanie RUNNING)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "stepNumber": 1,
+  "completed": false,
+  "status": "ERROR",
+  "message": "Only RUNNING simulation can execute steps."
+}
+```
+
+### GET /api/simulator/sessions/{sessionId}/status
+
+Zwraca aktualny status sesji.
+
+**Response (200 OK)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "RUNNING",
+  "currentStep": 3,
+  "totalSteps": 10,
+  "message": null,
+  "history": [
     {
-      "day": 1,
-      "recipeId": 5,
-      "recipeName": "Pasta Primavera",
-      "preparationTime": "25 minutes"
+      "stepNumber": 1,
+      "recipeId": null,
+      "recipeName": "Podgrzej patelnię do temperatury 180°C",
+      "preparationTime": "5 seconds",
+      "status": "EXECUTED",
+      "executedAt": "2026-04-22T12:30:15.123"
     },
     {
-      "day": 2,
-      "recipeId": 12,
-      "recipeName": "Grilled Chicken",
-      "preparationTime": "40 minutes"
+      "stepNumber": 2,
+      "recipeId": null,
+      "recipeName": "Dodaj składniki",
+      "preparationTime": "3 seconds",
+      "status": "EXECUTED",
+      "executedAt": "2026-04-22T12:30:21.456"
     },
     {
-      "day": 3,
-      "recipeId": 8,
-      "recipeName": "Vegetable Soup",
-      "preparationTime": "35 minutes"
-    },
-    {
-      "day": 4,
-      "recipeId": 15,
-      "recipeName": "Spaghetti Carbonara",
-      "preparationTime": "30 minutes"
-    },
-    {
-      "day": 5,
-      "recipeId": 3,
-      "recipeName": "Caesar Salad",
-      "preparationTime": "15 minutes"
-    },
-    {
-      "day": 6,
-      "recipeId": 22,
-      "recipeName": "Beef Stew",
-      "preparationTime": "120 minutes"
-    },
-    {
-      "day": 7,
-      "recipeId": 18,
-      "recipeName": "Fish Tacos",
-      "preparationTime": "35 minutes"
+      "stepNumber": 3,
+      "recipeId": null,
+      "recipeName": "Mieszaj przez 2 minuty",
+      "preparationTime": "120 seconds",
+      "status": "EXECUTED",
+      "executedAt": "2026-04-22T12:32:25.789"
     }
   ]
 }
 ```
 
-**Response (OK, brak przepisów)**:
+### POST /api/simulator/sessions/{sessionId}/pause
+
+Pauzuje aktywną sesję.
+
+**Response (200 OK)**:
 ```json
 {
-  "message": "No recipes available. Please add recipes to main-service first.",
-  "days": 3
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "PAUSED",
+  "currentStep": 3,
+  "totalSteps": 10,
+  "message": null,
+  "history": [...]
 }
 ```
 
-### GET /api/simulator/recipes
+### POST /api/simulator/sessions/{sessionId}/resume
 
-Pobiera listę wszystkich przepisów z main-service (pass-through).
+Wznawia zapauzowaną sesję.
+
+**Response (200 OK)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "RUNNING",
+  "currentStep": 3,
+  "totalSteps": 10,
+  "message": null,
+  "history": [...]
+}
+```
+
+### POST /api/simulator/sessions/{sessionId}/complete
+
+Kończy sesję (oznacza pozostałe kroki jako SKIPPED).
+
+**Response (200 OK)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "COMPLETED",
+  "currentStep": 3,
+  "totalSteps": 10,
+  "message": null,
+  "history": [...]
+}
+```
+
+### POST /api/simulator/sessions/{sessionId}/cancel
+
+Anuluje sesję.
+
+**Response (200 OK)**:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "CANCELLED",
+  "currentStep": 3,
+  "totalSteps": 10,
+  "message": null,
+  "history": [...]
+}
+```
+
+### GET /api/simulator/sessions/{sessionId}/history
+
+Zwraca historię wszystkich kroków w sesji.
 
 **Response (200 OK)**:
 ```json
 [
   {
-    "id": 1,
-    "name": "Pasta Primavera",
-    "description": "Fresh vegetables with pasta",
-    "ingredients": "pasta, tomato, basil, garlic",
-    "instructions": "Boil pasta...",
-    "preparationTimeMinutes": 25,
-    "createdAt": "2026-04-10T14:30:00"
+    "stepNumber": 1,
+    "recipeId": null,
+    "recipeName": "Podgrzej patelnię do temperatury 180°C",
+    "preparationTime": "5 seconds",
+    "status": "EXECUTED",
+    "executedAt": "2026-04-22T12:30:15.123"
+  },
+  {
+    "stepNumber": 2,
+    "recipeId": null,
+    "recipeName": "Dodaj składniki",
+    "preparationTime": "3 seconds",
+    "status": "EXECUTED",
+    "executedAt": "2026-04-22T12:30:21.456"
   }
 ]
 ```
 
-### GET /api/simulator/recipes/{id}
+## Stany Sesji
 
-Pobiera szczegóły konkretnego przepisu z main-service.
+- **RUNNING**: Sesja jest aktywna i może odbierać kroki
+- **PAUSED**: Sesja jest zapauzowana, nie może odbierać nowych kroków
+- **COMPLETED**: Sesja zakończona normalnie
+- **CANCELLED**: Sesja anulowana przez użytkownika
 
-**Path Parameters**:
-- `id` (Long) - ID przepisu
+## Stany Kroków
 
-**Response (200 OK)**:
-```json
+- **PENDING**: Krok czeka na wykonanie
+- **EXECUTED**: Krok został wykonany
+- **SKIPPED**: Krok został pominięty (sesja przerwana)
+
+## Obsługa Błędów
+
+### Sesja nie znaleziona
+- Status: 404 Not Found
+- Exception: `SimulationSessionNotFoundException`
+
+### Nieprawidłowy stan sesji
+- Status: 400 Bad Request
+- Exception: `InvalidSimulationStateException`
+- Przykłady:
+  - Próba wykonania kroku na sesji w stanie PAUSED
+  - Próba wznawiania sesji w stanie RUNNING
+
+## Limitacje i Cechy
+
+- **Virtual Threads**: Każde żądanie HTTP przetwarzane w lekkim virtual thread
+- **Persistence**: Wszystkie sesje i kroki przechowywane w PostgreSQL
+- **Concurrency**: Użycie lock'ów ensures thread-safety na sesję
+- **Timeout**: Jeśli czekanie na krok przerwane, zwraca status INTERRUPTED
+
+## Przykładowy Scenariusz Użytkownika
+
+### Użytkownik gotuje Spaghetti Carbonara
+
+```bash
+# 1. Główna aplikacja tworzy sesję
+POST /api/simulator/sessions/start
+→ sessionId: "abc123"
+
+# 2. Main-service przesyła krok 1
+POST /api/simulator/sessions/abc123/step
 {
-  "id": 1,
-  "name": "Pasta Primavera",
-  "description": "Fresh vegetables with pasta",
-  "ingredients": "pasta, tomato, basil, garlic",
-  "instructions": "Boil pasta...",
-  "preparationTimeMinutes": 25,
-  "createdAt": "2026-04-10T14:30:00"
+  "stepNumber": 1,
+  "description": "Zagotuj wodę w garnku (5L)",
+  "durationSeconds": 10
+}
+→ completed: true
+
+# 3. Main-service przesyła krok 2
+POST /api/simulator/sessions/abc123/step
+{
+  "stepNumber": 2,
+  "description": "Dodaj spaghetti do gotującej się wody",
+  "durationSeconds": 3
+}
+→ completed: true
+
+# 4. Main-service przesyła krok 3
+POST /api/simulator/sessions/abc123/step
+{
+  "stepNumber": 3,
+  "description": "Mieszaj przez 2 minuty",
+  "durationSeconds": 120
+}
+→ (czeka 120 sekund) completed: true
+
+# 5. Użytkownik może sprawdzić postęp
+GET /api/simulator/sessions/abc123/status
+→ currentStep: 3, totalSteps: 5, status: RUNNING
+
+# 6. Użytkownik chce przerwać
+POST /api/simulator/sessions/abc123/cancel
+→ status: CANCELLED
+
+# 7. Sprawdzenie historii
+GET /api/simulator/sessions/abc123/history
+→ [step1: EXECUTED, step2: EXECUTED, step3: EXECUTED, step4: SKIPPED, step5: SKIPPED]
+```
+
+## Techniczne Szczegóły
+
+### Synchronizacja
+
+Każda sesja ma własny lock, który zapobiega równoczesnym operacjom na tej samej sesji:
+```java
+synchronized (getExecutionLock(sessionId)) {
+    // Przetwarzanie kroku
 }
 ```
 
-### GET /api/simulator/health-check
+### Czekanie na Krok
 
-Sprawdza dostępność main-service i zwraca statystyki.
-
-**Response (200 OK - dostępny)**:
-```json
-{
-  "status": "OK",
-  "mainService": "REACHABLE",
-  "recipeCount": "42"
-}
+Simulator czeka używając `Thread.sleep()`:
+```java
+Thread.sleep(stepDto.durationSeconds() * 1000L);
 ```
 
-**Response (200 OK - niedostępny)**:
-```json
-{
-  "status": "DEGRADED",
-  "mainService": "UNREACHABLE",
-  "error": "Connection refused: no further information"
-}
-```
+Jeśli wątek zostanie przerwany, zwraca status `INTERRUPTED`.
 
-## Logika Obsługi Błędów
+### Persistencja
 
-### Brak Przepisów
-Jeśli main-service nie zwraca żadnych przepisów:
-- Endpoint `/api/simulator/meal-plan` zwraca 200 OK z komunikatem informacyjnym
-- Nie są generowane dni w planie
-
-### Niedostępność Main Service
-- OpenFeign automatycznie próbuje się połączyć poprzez Eureka
-- Timeout po 10 sekundach
-- Zwraca `RuntimeException` ze szczegółową informacją o błędzie
-
-### Virtual Threads
-Każde żądanie HTTP jest przetwarzane w lekkim Virtual Thread, co umożliwia obsługę tysięcy równoczesnych połączeń z minimalnym zużyciem zasobów.
-
-## Statystyki Wydajności
-
-- **Avg. Response Time**: ~200ms (dla planu 7-dniowego)
-- **Memory per Request**: < 1MB (Virtual Thread)
-- **Max Concurrent Requests**: ~10,000 (bez overload)
-- **Throughput**: ~5,000 req/sec (przy max recipe list)
-
-## Przykładowy Przypadek Użycia
-
-### Scenariusz: Użytkownik chce plan na tydzień
-
-```
-1. GET http://localhost:8082/api/simulator/meal-plan?days=7
-2. Simulator Service:
-   - Połączy się z main-service via Eureka (discovery)
-   - Pobierze 42 przepisy
-   - Losowo wybierze 7 dla każdego dnia
-   - Zwróci JSON z pełnym planem
-3. Czas odpowiedzi: ~300ms
-4. Zwracany status: 200 OK
-```
+Po każdej operacji sesja i kroki są zapisywane do bazy:
+- Dodanie nowego kroku: `simulationStepRepository.save(step)`
+- Zmiana statusu: `simulationSessionRepository.save(session)`
