@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @Getter
-@RequiredArgsConstructor
 public enum ActionType {
     WEIGH("Ważenie"),
     POUR("Nalewanie"),
@@ -21,4 +20,8 @@ public enum ActionType {
     MARINATE("Marynowanie");
 
     private final String displayName;
+
+    ActionType(String displayName) {
+        this.displayName = displayName;
+    }
 }

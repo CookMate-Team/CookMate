@@ -1,27 +1,31 @@
 package com.cookmate.main.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import javax.accessibility.AccessibleIcon;
 import java.time.LocalDateTime;
-@Entity
-@Table(name = "steps")
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "steps")
 @EntityListeners(AuditingEntityListener.class)
 public class Step {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     @Column(name = "step_number", nullable = false)
-    private int stepNumber;
+    private Integer stepNumber;
 
     @Column(nullable = false, length = 1000)
     private String description;
@@ -30,12 +34,10 @@ public class Step {
     @Column(nullable = false)
     private ActionType action;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT") // Obsługa długich parametrów JSON
     private String parameters;
 
-    @Column(name = "duration_seconds")
-    @PositiveOrZero
-    private Integer duration;
+    private Integer duration; // Czas w sekundach
 
     @Column(name = "recipe_id", nullable = false)
     private String recipeId;
@@ -44,8 +46,7 @@ public class Step {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }
