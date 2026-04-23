@@ -1,11 +1,11 @@
-# Simulator Service - Symulator Planowania Posiłków
+# Simulator Service - Symulator Gotowania
 
-Mikrousługa odpowiedzialna za generowanie planów posiłków na podstawie przepisów dostępnych w main-service. Wykorzystuje architekturę mikroserwisową z Eureka i OpenFeign do komunikacji.
+Mikrosługa odpowiedzialna za symulowanie kroków gotowania w trybie "guided cooking". Użytkownik przegląda przepisy, a gdy wybierze "guided cooking", main-service rozbija przepis na kroki i przesyła je sekwencyjnie do simulator-service.
 
 ## Charakterystyka
 
 - **Port**: 8082
-- **Java**: 25 (Virtual Threads Preview)
+- **Java**: 25 (Virtual Threads)
 - **Spring Boot**: 4.0.5
 - **Spring Cloud**: 2025.1.1
 - **Komunikacja**: OpenFeign (Eureka-aware)
@@ -13,77 +13,71 @@ Mikrousługa odpowiedzialna za generowanie planów posiłków na podstawie przep
 ## Architektura
 
 ```
-┌─────────────────────────────────────┐
-│    Simulator Service (:8082)        │
-│  ┌─────────────────────────────┐   │
-│  │   SimulatorController       │   │
-│  │ - /api/simulator/recipes    │   │
-│  │ - /api/simulator/meal-plan  │   │
-│  │ - /api/simulator/health-..  │   │
-│  └────────────┬────────────────┘   │
-└───────────────┼───────────────────┘
-                │ OpenFeign
-                ▼
-       ┌─────────────────────┐
-       │   Main Service      │
-       │ (Recipe Provider)   │
-       └─────────────────────┘
+┌─────────────────────────────────────────┐
+│    Simulator Service (:8082)            │
+│  ┌───────────────────────────────────┐ │
+│  │   SimulatorController             │ │
+│  │ - POST /sessions/start            │ │
+│  │ - POST /sessions/{id}/step        │ │
+│  │ - GET  /sessions/{id}/status      │ │
+│  │ - POST /sessions/{id}/pause       │ │
+│  │ - POST /sessions/{id}/resume      │ │
+│  │ - POST /sessions/{id}/complete    │ │
+│  │ - POST /sessions/{id}/cancel      │ │
+│  │ - GET  /sessions/{id}/history     │ │
+│  └───────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+              ▲                  │
+              │ Reports          │ Sends steps
+              │ completion       │
+              │                  ▼
+       ┌──────────────────────────────┐
+       │    Main Service              │
+       │ (Recipe & Cooking Provider)  │
+       └──────────────────────────────┘
 ```
 
 ## Funkcjonalność
 
+### Flow Gotowania (Guided Cooking)
+
+1. **Użytkownik w main-service**
+   - Przegląda przepisy
+   - Wybiera "guided cooking"
+
+2. **Main-service przesyła kroki do simulator-service**
+   - POST `/api/simulator/sessions/{sessionId}/step` z danymi kroku
+
+3. **Simulator Service**
+   - Odbiera krok z parametrami: opis, czas trwania, temperatura, waga itp.
+   - Wyświetla instrukcje
+   - Czeka na interakcję użytkownika
+   - Odczekuje określony czas (np. 5 sekund)
+   - Zwraca odpowiedź "krok ukończony"
+
+4. **Main-service wysyła kolejny krok**
+   - Proces powtarza się aż do końca przepisu
+
 ### Endpoints
 
-| Endpoint | Metoda | Parametry | Opis |
-|----------|--------|-----------|------|
-| `/api/simulator/recipes` | GET | - | Pobiera listę wszystkich przepisów z main-service |
-| `/api/simulator/recipes/{id}` | GET | `id` (Long) | Pobiera szczegóły konkretnego przepisu |
-| `/api/simulator/meal-plan` | GET | `days` (int, default=3) | Generuje losowy plan posiłków na X dni |
-| `/api/simulator/health-check` | GET | - | Sprawdza dostępność main-service i zwraca status |
-| `/api/simulator/sessions/start` | POST | `days` (int, optional) | Tworzy nową sesję symulacji i zapisuje kroki w bazie |
-| `/api/simulator/sessions/{sessionId}/status` | GET | `sessionId` | Zwraca status sesji (recovery po F5) |
-| `/api/simulator/sessions/{sessionId}/steps/execute` | POST | `sessionId` | Wykonuje kolejny krok symulacji |
-| `/api/simulator/sessions/{sessionId}/pause` | POST | `sessionId` | Pauzuje aktywną sesję |
-| `/api/simulator/sessions/{sessionId}/resume` | POST | `sessionId` | Wznawia zapauzowaną sesję |
-| `/api/simulator/sessions/{sessionId}/complete` | POST | `sessionId` | Kończy sesję symulacji |
-| `/api/simulator/sessions/{sessionId}/cancel` | POST | `sessionId` | Anuluje sesję symulacji |
-| `/api/simulator/sessions/{sessionId}/history` | GET | `sessionId` | Zwraca historię kroków sesji |
-| `/actuator/health` | GET | - | Health check serwisu |
+| Endpoint | Metoda | Opis |
+|----------|--------|------|
+| `/api/simulator/sessions/start` | POST | Tworzy nową sesję gotowania |
+| `/api/simulator/sessions/{sessionId}/step` | POST | Odbiera i przetwarza krok gotowania |
+| `/api/simulator/sessions/{sessionId}/status` | GET | Zwraca status sesji |
+| `/api/simulator/sessions/{sessionId}/pause` | POST | Pauzuje aktywną sesję |
+| `/api/simulator/sessions/{sessionId}/resume` | POST | Wznawia sesję |
+| `/api/simulator/sessions/{sessionId}/complete` | POST | Kończy sesję |
+| `/api/simulator/sessions/{sessionId}/cancel` | POST | Anuluje sesję |
+| `/api/simulator/sessions/{sessionId}/history` | GET | Zwraca historię kroków |
 
-### Przykładowe Odpowiedzi
+## Persistencja Sesji
 
-**GET /api/simulator/meal-plan?days=5**
+Simulator Service zapisuje sesje i kroki do PostgreSQL:
+- `simulation_sessions` - Status i postęp sesji
+- `simulation_steps` - Historia kroków (`PENDING`, `EXECUTED`, `SKIPPED`)
 
-```json
-{
-  "days": 5,
-  "totalRecipes": 42,
-  "plan": [
-    {
-      "day": 1,
-      "recipeId": 15,
-      "recipeName": "Spaghetti Carbonara",
-      "preparationTime": "30 minutes"
-    },
-    {
-      "day": 2,
-      "recipeId": 23,
-      "recipeName": "Chicken Stir Fry",
-      "preparationTime": "25 minutes"
-    }
-  ]
-}
-```
-
-**GET /api/simulator/health-check**
-
-```json
-{
-  "status": "OK",
-  "mainService": "REACHABLE",
-  "recipeCount": "42"
-}
-```
+Szczegóły: **[PERSISTENCE.md](./PERSISTENCE.md)**.
 
 ## Konfiguracja
 
@@ -113,7 +107,7 @@ server:
   port: 8082
   tomcat:
     threads:
-      max: 200            # Max thread pool
+      max: 200
 
 feign:
   client:
@@ -152,28 +146,57 @@ mvn spring-boot:run
 
 Serwis będzie dostępny pod: `http://localhost:8082`
 
-## Integracja z Main Service
+## Przykładowe Żądania
 
-Simulator Service komunikuje się z Main Service za pośrednictwem OpenFeign:
+### Utworzenie nowej sesji
 
-- **Client**: `MainServiceClient` (src/main/java/com/cookmate/simulator/client/)
-- **Base URL**: Pobierana z Eureka Registry
-- **Endpoints**: `/api/recipes`, `/api/recipes/{id}`
+```bash
+POST http://localhost:8082/api/simulator/sessions/start
+```
 
-## Persistencja Sesji
+Response:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "RUNNING",
+  "currentStep": 0,
+  "totalSteps": 0,
+  "message": null,
+  "history": []
+}
+```
 
-Simulator Service zapisuje sesje i kroki do PostgreSQL:
-- `simulation_sessions` - status i postęp sesji,
-- `simulation_steps` - historia kroków (`PENDING`, `EXECUTED`, `SKIPPED`).
+### Przesłanie kroku gotowania
 
-Szczegóły: **[PERSISTENCE.md](./PERSISTENCE.md)**.
+```bash
+POST http://localhost:8082/api/simulator/sessions/550e8400-e29b-41d4-a716-446655440000/step
 
-## Obsługa Błędów
+{
+  "stepNumber": 1,
+  "description": "Podgrzej patelnię do temperatury 180°C",
+  "durationSeconds": 5,
+  "temperature": "180°C",
+  "weight": "200g",
+  "additionalNotes": "Używaj oliwy z oliwek extra virgin"
+}
+```
 
-Serwis obsługuje scenariusze awaryjne:
+Response:
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "stepNumber": 1,
+  "completed": true,
+  "status": "COMPLETED",
+  "message": "Step completed successfully"
+}
+```
 
-- **Main Service Niedostępny**: Endpoint `/api/simulator/health-check` zwraca status "DEGRADED"
-- **Brak Przepisów**: Endpoint `/api/simulator/meal-plan` zwraca wiadomość: "No recipes available"
+### Pobranie statusu sesji
+
+```bash
+GET http://localhost:8082/api/simulator/sessions/550e8400-e29b-41d4-a716-446655440000/status
+```
 
 ## Technologia
 
@@ -181,6 +204,12 @@ Serwis obsługuje scenariusze awaryjne:
 - **OpenFeign**: Deklaratywne HTTP Client dla komunikacji międzyusługowej
 - **Eureka**: Service Discovery
 - **Spring Actuator**: Monitorowanie i metryki
+
+## Obsługa Błędów
+
+- **Sesja nie znaleziona**: 404 SimulationSessionNotFoundException
+- **Nieprawidłowy stan**: 400 InvalidSimulationStateException
+- **Komunikacja z main-service**: Logowanie i retry logic
 
 ## Pliki Dokumentacji
 

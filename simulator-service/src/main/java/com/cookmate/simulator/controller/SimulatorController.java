@@ -1,11 +1,11 @@
 package com.cookmate.simulator.controller;
 
-import com.cookmate.simulator.dto.HealthCheckResponseDto;
-import com.cookmate.simulator.dto.MealPlanResponseDto;
-import com.cookmate.simulator.dto.RecipeDto;
+import com.cookmate.simulator.dto.RecipeStepRequestDto;
+import com.cookmate.simulator.dto.RecipeStepResponseDto;
 import com.cookmate.simulator.dto.SimulationStatusResponseDto;
 import com.cookmate.simulator.dto.SimulationStepHistoryItemDto;
 import com.cookmate.simulator.service.SimulationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,37 +14,19 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/simulator")
+@RequiredArgsConstructor
 public class SimulatorController {
 
     private final SimulationService simulationService;
 
-    public SimulatorController(SimulationService simulationService) {
-        this.simulationService = simulationService;
-    }
-
-    @GetMapping("/recipes")
-    public ResponseEntity<List<RecipeDto>> listRecipes() {
-        return ResponseEntity.ok(simulationService.listRecipes());
-    }
-
-    @GetMapping("/recipes/{id}")
-    public ResponseEntity<RecipeDto> getRecipe(@PathVariable Long id) {
-        return ResponseEntity.ok(simulationService.getRecipe(id));
-    }
-
-    @GetMapping("/meal-plan")
-    public ResponseEntity<MealPlanResponseDto> generateMealPlan(@RequestParam(required = false) Integer days) {
-        return ResponseEntity.ok(simulationService.generateMealPlan(days));
-    }
-
-    @GetMapping("/health-check")
-    public ResponseEntity<HealthCheckResponseDto> serviceHealthCheck() {
-        return ResponseEntity.ok(simulationService.serviceHealthCheck());
-    }
-
     @PostMapping("/sessions/start")
-    public ResponseEntity<SimulationStatusResponseDto> startSimulation(@RequestParam(required = false) Integer days) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(simulationService.start(days));
+    public ResponseEntity<SimulationStatusResponseDto> startSimulation() {
+        return ResponseEntity.status(HttpStatus.CREATED).body(simulationService.startSession());
+    }
+
+    @PostMapping("/sessions/{sessionId}/step")
+    public ResponseEntity<RecipeStepResponseDto> receiveStep(@PathVariable String sessionId, @RequestBody RecipeStepRequestDto stepDto) {
+        return ResponseEntity.ok(simulationService.processStep(sessionId, stepDto));
     }
 
     @GetMapping("/sessions/{sessionId}/status")

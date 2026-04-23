@@ -8,11 +8,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "simulation_sessions")
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
 public class SimulationSession {
 
     @Id
@@ -54,77 +62,5 @@ public class SimulationSession {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public SimulationStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(SimulationStatus status) {
-        this.status = status;
-    }
-
-    public int getCurrentStep() {
-        return currentStep;
-    }
-
-    public void setCurrentStep(int currentStep) {
-        this.currentStep = currentStep;
-    }
-
-    public int getTotalSteps() {
-        return totalSteps;
-    }
-
-    public void setTotalSteps(int totalSteps) {
-        this.totalSteps = totalSteps;
-    }
-
-    public int getTotalRecipes() {
-        return totalRecipes;
-    }
-
-    public void setTotalRecipes(int totalRecipes) {
-        this.totalRecipes = totalRecipes;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public LocalDateTime getCompletedAt() {
-        return completedAt;
-    }
-
-    public void setCompletedAt(LocalDateTime completedAt) {
-        this.completedAt = completedAt;
     }
 }

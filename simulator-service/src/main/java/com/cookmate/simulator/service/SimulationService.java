@@ -1,38 +1,29 @@
 package com.cookmate.simulator.service;
 
-import com.cookmate.simulator.client.MainServiceClient;
-import com.cookmate.simulator.config.SimulationProperties;
-import com.cookmate.simulator.dto.HealthCheckResponseDto;
-import com.cookmate.simulator.dto.MealPlanItemDto;
-import com.cookmate.simulator.dto.MealPlanResponseDto;
-import com.cookmate.simulator.dto.RecipeDto;
+import com.cookmate.simulator.dto.RecipeStepRequestDto;
+import com.cookmate.simulator.dto.RecipeStepResponseDto;
 import com.cookmate.simulator.dto.SimulationStatusResponseDto;
 import com.cookmate.simulator.dto.SimulationStepHistoryItemDto;
 import com.cookmate.simulator.exception.InvalidSimulationStateException;
-import com.cookmate.simulator.exception.MainServiceCommunicationException;
 import com.cookmate.simulator.exception.SimulationSessionNotFoundException;
-import com.cookmate.simulator.model.HealthStatus;
 import com.cookmate.simulator.model.SimulationSession;
 import com.cookmate.simulator.model.SimulationStatus;
 import com.cookmate.simulator.model.SimulationStep;
 import com.cookmate.simulator.model.StepStatus;
 import com.cookmate.simulator.repository.SimulationSessionRepository;
 import com.cookmate.simulator.repository.SimulationStepRepository;
-import feign.FeignException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 
 @Service
+@RequiredArgsConstructor
 public class SimulationService {
 
     private final ConcurrentMap<String, Object> sessionExecutionLocks = new ConcurrentHashMap<>();
@@ -41,106 +32,56 @@ public class SimulationService {
         return sessionExecutionLocks.computeIfAbsent(sessionId, key -> new Object());
     }
 
-    private static final String EMPTY_RECIPES_MESSAGE = "No recipes available. Please add recipes to main-service first.";
     private static final String ONLY_RUNNING_ALLOWED = "Only RUNNING simulation can execute steps.";
 
-    private final MainServiceClient mainServiceClient;
-    private final SimulationProperties simulationProperties;
     private final SimulationSessionRepository simulationSessionRepository;
     private final SimulationStepRepository simulationStepRepository;
-    private final Random random;
-    private final TransactionTemplate transactionTemplate;
 
-    public SimulationService(
-            MainServiceClient mainServiceClient,
-            SimulationProperties simulationProperties,
-            SimulationSessionRepository simulationSessionRepository,
-            SimulationStepRepository simulationStepRepository,
-            Random random,
-            TransactionTemplate transactionTemplate
-    ) {
-        this.mainServiceClient = mainServiceClient;
-        this.simulationProperties = simulationProperties;
-        this.simulationSessionRepository = simulationSessionRepository;
-        this.simulationStepRepository = simulationStepRepository;
-        this.random = random;
-        this.transactionTemplate = transactionTemplate;
-    }
-
-    public List<RecipeDto> listRecipes() {
-        return executeMainServiceCall(mainServiceClient::getAllRecipes);
-    }
-
-    public RecipeDto getRecipe(Long id) {
-        return executeMainServiceCall(() -> mainServiceClient.getRecipeById(id));
-    }
-
-    public MealPlanResponseDto generateMealPlan(Integer requestedDays) {
-        int days = normalizeDays(requestedDays);
-        List<RecipeDto> recipes = listRecipes();
-        List<MealPlanItemDto> plan = new ArrayList<>();
-
-        if (recipes.isEmpty()) {
-            return new MealPlanResponseDto(days, 0, EMPTY_RECIPES_MESSAGE, plan);
-        }
-
-        for (int day = 1; day <= days; day++) {
-            RecipeDto recipe = recipes.get(random.nextInt(recipes.size()));
-            plan.add(new MealPlanItemDto(
-                    day,
-                    recipe.getId(),
-                    recipe.getName(),
-                    formatPreparationTime(recipe.getPreparationTimeMinutes())
-            ));
-        }
-
-        return new MealPlanResponseDto(days, recipes.size(), null, plan);
-    }
-
-    public SimulationStatusResponseDto start(Integer requestedDays) {
-        int days = normalizeDays(requestedDays);
-        List<RecipeDto> recipes = listRecipes();
-
-        return transactionTemplate.execute(status -> startWithRecipes(days, recipes));
-    }
-
-    private SimulationStatusResponseDto startWithRecipes(int days, List<RecipeDto> recipes) {
+    public SimulationStatusResponseDto startSession() {
         SimulationSession session = new SimulationSession();
         session.setId(UUID.randomUUID().toString());
         session.setCurrentStep(0);
-        session.setTotalRecipes(recipes.size());
-
-        if (recipes.isEmpty()) {
-            session.setStatus(SimulationStatus.COMPLETED);
-            session.setTotalSteps(0);
-            session.setMessage(EMPTY_RECIPES_MESSAGE);
-            session.setCompletedAt(LocalDateTime.now());
-            simulationSessionRepository.save(session);
-            return mapStatusResponse(session, List.of());
-        }
-
+        session.setTotalSteps(0);
         session.setStatus(SimulationStatus.RUNNING);
-        session.setTotalSteps(days);
         session.setMessage(null);
         simulationSessionRepository.save(session);
 
-        List<SimulationStep> steps = new ArrayList<>(days);
-        for (int step = 1; step <= days; step++) {
-            RecipeDto recipe = recipes.get(random.nextInt(recipes.size()));
+        return mapStatusResponse(session, List.of());
+    }
 
-            SimulationStep simulationStep = new SimulationStep();
-            simulationStep.setSessionId(session.getId());
-            simulationStep.setStepNumber(step);
-            simulationStep.setRecipeId(recipe.getId());
-            simulationStep.setRecipeName(recipe.getName());
-            simulationStep.setPreparationTime(formatPreparationTime(recipe.getPreparationTimeMinutes()));
-            simulationStep.setStatus(StepStatus.PENDING);
+    @Transactional
+    public RecipeStepResponseDto processStep(String sessionId, RecipeStepRequestDto stepDto) {
+        synchronized (getExecutionLock(sessionId)) {
+            SimulationSession session = getSessionOrThrow(sessionId);
+            validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
 
-            steps.add(simulationStep);
+            SimulationStep step = new SimulationStep();
+            step.setSessionId(sessionId);
+            step.setStepNumber(stepDto.stepNumber());
+            step.setRecipeName(stepDto.description());
+            step.setPreparationTime(stepDto.durationSeconds() + " seconds");
+            step.setStatus(StepStatus.PENDING);
+            simulationStepRepository.save(step);
+
+            session.setTotalSteps(stepDto.stepNumber());
+            simulationSessionRepository.save(session);
+
+            try {
+                Thread.sleep(stepDto.durationSeconds() * 1000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return new RecipeStepResponseDto(sessionId, stepDto.stepNumber(), false, "INTERRUPTED", "Step was interrupted");
+            }
+
+            step.setStatus(StepStatus.EXECUTED);
+            step.setExecutedAt(LocalDateTime.now());
+            simulationStepRepository.save(step);
+
+            session.setCurrentStep(stepDto.stepNumber());
+            simulationSessionRepository.save(session);
+
+            return new RecipeStepResponseDto(sessionId, stepDto.stepNumber(), true, "COMPLETED", "Step completed successfully");
         }
-
-        simulationStepRepository.saveAll(steps);
-        return mapStatusResponse(session, steps);
     }
 
     public SimulationStatusResponseDto getStatus(String sessionId) {
@@ -165,7 +106,6 @@ public class SimulationService {
         SimulationSession responseSession = new SimulationSession();
         responseSession.setId(session.getId());
         responseSession.setCurrentStep(currentStep);
-        responseSession.setTotalRecipes(session.getTotalRecipes());
         responseSession.setStatus(session.getStatus());
         responseSession.setTotalSteps(session.getTotalSteps());
         responseSession.setMessage(session.getMessage());
@@ -265,50 +205,6 @@ public class SimulationService {
         return mapHistory(simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId));
     }
 
-    public HealthCheckResponseDto serviceHealthCheck() {
-        try {
-            int recipeCount = mainServiceClient.getAllRecipes().size();
-            return new HealthCheckResponseDto(HealthStatus.OK.name(), "REACHABLE", String.valueOf(recipeCount), null);
-        } catch (FeignException exception) {
-            return new HealthCheckResponseDto(
-                    HealthStatus.DEGRADED.name(),
-                    "UNREACHABLE",
-                    null,
-                    resolveErrorMessage(exception)
-            );
-        }
-    }
-
-    private <T> T executeMainServiceCall(Supplier<T> call) {
-        try {
-            return call.get();
-        } catch (FeignException exception) {
-            throw new MainServiceCommunicationException("Main service is currently unavailable.", exception);
-        }
-    }
-
-    private int normalizeDays(Integer requestedDays) {
-        if (requestedDays == null || requestedDays < simulationProperties.getMinDays()) {
-            return simulationProperties.getDefaultDays();
-        }
-
-        return Math.min(requestedDays, simulationProperties.getMaxDays());
-    }
-
-    private String formatPreparationTime(Integer preparationTimeMinutes) {
-        if (preparationTimeMinutes == null) {
-            return "N/A";
-        }
-        return preparationTimeMinutes + " minutes";
-    }
-
-    private String resolveErrorMessage(Exception exception) {
-        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
-            return "Connection failed";
-        }
-        return exception.getMessage();
-    }
-
     private SimulationSession getSessionOrThrow(String sessionId) {
         return simulationSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new SimulationSessionNotFoundException(sessionId));
@@ -354,7 +250,7 @@ public class SimulationService {
                 session.getStatus().name(),
                 session.getCurrentStep(),
                 session.getTotalSteps(),
-                session.getTotalRecipes(),
+                0,
                 session.getMessage(),
                 mapHistory(steps)
         );
