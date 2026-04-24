@@ -39,14 +39,15 @@ class StepMapperTest {
 
         // then
         assertNotNull(dto);
-        assertEquals(entity.getId(), dto.getId());
-        assertEquals(entity.getStepNumber(), dto.getStepNumber());
-        assertEquals(entity.getDescription(), dto.getDescription());
-        assertEquals(entity.getAction(), dto.getAction());
-        assertEquals(entity.getRecipeId(), dto.getRecipeId());
-        assertEquals(entity.getDuration(), dto.getDuration());
-        assertEquals(entity.getParameters(), dto.getParameters());
-        assertEquals(entity.getCreatedAt(), dto.getCreatedAt());
+        // Zmiana: używamy nazw pól bezpośrednio (składnia rekordu)
+        assertEquals(entity.getId(), dto.id());
+        assertEquals(entity.getStepNumber(), dto.stepNumber());
+        assertEquals(entity.getDescription(), dto.description());
+        assertEquals(entity.getAction(), dto.action());
+        assertEquals(entity.getRecipeId(), dto.recipeId());
+        assertEquals(entity.getDuration(), dto.duration());
+        assertEquals(entity.getParameters(), dto.parameters());
+        assertEquals(entity.getCreatedAt(), dto.createdAt());
     }
 
     @Test
@@ -66,12 +67,13 @@ class StepMapperTest {
 
         // then
         assertNotNull(entity);
-        assertEquals(dto.getStepNumber(), entity.getStepNumber());
-        assertEquals(dto.getDescription(), entity.getDescription());
-        assertEquals(dto.getAction(), entity.getAction());
-        assertEquals(dto.getRecipeId(), entity.getRecipeId());
-        assertEquals(dto.getDuration(), entity.getDuration());
-        assertEquals(dto.getParameters(), entity.getParameters());
+        // Przy mapowaniu DTO (Record) -> Entity (Lombok) nadal używamy get... dla encji
+        assertEquals(dto.stepNumber(), entity.getStepNumber());
+        assertEquals(dto.description(), entity.getDescription());
+        assertEquals(dto.action(), entity.getAction());
+        assertEquals(dto.recipeId(), entity.getRecipeId());
+        assertEquals(dto.duration(), entity.getDuration());
+        assertEquals(dto.parameters(), entity.getParameters());
 
         assertNull(entity.getId());
         assertNull(entity.getCreatedAt());
