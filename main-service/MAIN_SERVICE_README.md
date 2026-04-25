@@ -1,10 +1,13 @@
 # Main Service - Zarządzanie Przepisami
 
-🔗 **Integracja z Zewnętrznym API**
-- Wyszukiwanie posiłków z TheMealDB po pierwszej literze (a-z)
+**Integracja z Zewnętrznym API**
 - Wyszukiwanie szczegółów posiłku po ID
+- Wyszukiwanie po nazwie: Umożliwia odnalezienie potraw na podstawie frazy
+- Filtrowanie po składniku: Możliwość listowania wszystkich dań, w których dany produkt jest składnikiem głównym.
+- Dynamiczne listy: Pobieranie aktualnych list kategorii, obszarów (kuchni świata) oraz wszystkich dostępnych składników
 - Automatyczne wyodrębnianie i formatowanie składników (do 20 składników)
 - Asynchroniczne wywołania HTTP poprzez Spring WebClient
+- Reaktywne typy danych: Serwis operuje na obiektach Mono i Flux, co ułatwia dalszą integrację z frontendem lub innymi mikroserwisami.
 
 #### Obiekty Transferu Danych (Java Records)
 
@@ -13,73 +16,118 @@
 - `RecipeCreateRequest` - Body żądania dla POST /api/recipes
 - `RecipeUpdateRequest` - Body żądania dla PUT /api/recipes/{id}
 - `RecipeListResponse` - Paginowana lista z metadanymi
-
+- `StepDTO` – Reprezentuje pojedynczy krok w procesie przygotowania dania. Zawiera numer kroku, opis, typ akcji oraz czas trwania.
+- 
 **DTO dla TheMealDB:**
 - `Meal` - Model posiłku z API TheMealDB (20 składników + wymiary, kategoria, kraj, instrukcje, tagi, link YouTube)
 - `MealSearchResponse` - Wrapper odpowiedzi zawierający listę posiłków
-
+- `MealSearchResponse` – Kontener dla listy obiektów Meal zwracanych przez wyszukiwarkę i endpointy filtrujące.
+- `CategoryResponse` – Zawiera pełną listę kategorii wraz z ich opisami i linkami do miniatur graficznych (idCategory, strCategory, strCategoryThumb, strCategoryDescription).
+- `CommonListResponse` – Uniwersalny rekord do obsługi list słownikowych (Area, Ingredients, Categories). 
+- 
 #### Serwisy
-
 **MealDbClient** (Integracja z Zewnętrznym API)
 ```
 Lokalizacja: src/main/java/com/cookmate/main/service/MealDbClient.java
 
 Odpowiedzialność:
-- Komunikacja z API TheMealDB
-- Obsługa reaktywnych (asynchronicznych) żądań HTTP poprzez WebClient
-- Mapowanie odpowiedzi JSON na record Meal
+- Komunikacja z API TheMealDB przy użyciu stosu reaktywnego.
+- Obsługa asynchronicznych żądań HTTP poprzez WebClient (non-blocking).
+- Mapowanie surowych odpowiedzi JSON na ujednolicone rekordy Java (Meal, Category, CommonList).
 
 Metody Publiczne:
-- searchByLetter(String letter) → Mono<MealSearchResponse>
-  * Wywołanie: GET https://www.themealdb.com/api/json/v1/1/search.php?f={letter}
-  * Zwraca posiłki zaczynające się od danej litery (a-z)
-  
+- searchByName(String name) → Mono<MealSearchResponse>
+  * Wywołanie: GET /search.php?s={name}
+  * Zwraca listę posiłków pasujących do nazwy.
 - lookupById(String mealId) → Mono<MealSearchResponse>
-  * Wywołanie: GET https://www.themealdb.com/api/json/v1/1/lookup.php?i={mealId}
-  * Zwraca pełne szczegóły posiłku z 20 składnikami
+  * Wywołanie: GET /lookup.php?i={mealId}
+  * Pobiera pełne szczegóły dania, w tym 20 pól składników.
+- filterByIngredient(String ingredient) → Mono<MealSearchResponse>
+  * Wywołanie: GET /filter.php?i={ingredient}
+  * Filtruje przepisy według głównego składnika.
+- listFullCategories() → Mono<CategoryResponse>
+  * Wywołanie: GET /categories.php
+  * Zwraca rozszerzone informacje o kategoriach (zdjęcia, opisy).
+- listAllBy(String type) → Mono<CommonListResponse>
+  * Wywołanie: GET /list.php?{type}=list
+  * Pobiera słowniki: 'a' (kuchnie świata), 'i' (składniki), 'c' (kategorie).
 
 Obsługa Błędów:
-- Walidacja parametrów wejściowych (litera musi być znakiem, mealId nie może być pusty)
-- Pakowanie błędów API w RuntimeException z opisowymi komunikatami
+- Centralizacja zapytań w prywatnej metodzie fetch().
+- Reaktywna obsługa błędów (doOnError) i pakowanie ich w RuntimeException z opisem.
 ```
 
 **RecipeService** (Logika Biznesowa)
 ```
 Lokalizacja: src/main/java/com/cookmate/main/service/RecipeService.java
 
-Lokalne Operacje CRUD:
+Lokalne Operacje CRUD (Baza Danych):
 - findAll() → List<Recipe>
 - findById(Long id) → Optional<Recipe>
-- findByName(String name) → List<Recipe>
-- findPaginated(int page, int size) → RecipeListResponse
-- save(RecipeCreateRequest) → Recipe
-- update(Long id, Recipe) → Optional<Recipe>
-- deleteById(Long id) → boolean
+- findByName(String name) → List<Recipe> (wyszukiwanie ignore-case w bazie lokalnej).
+- findPaginated(int page, int size) → RecipeListResponse (paginacja Spring Data JPA).
+- save(RecipeCreateRequest) → Recipe.
+- update(Long id, Recipe) → Optional<Recipe> (pełna aktualizacja encji).
+- deleteById(Long id) → boolean.
 
-Integracja z Zewnętrznym API:
-- searchMealsByLetter(String letter) → Mono<MealSearchResponse>
-  * Delegowanie do MealDbClient
-  
-- lookupMeal(String mealId) → Mono<MealSearchResponse>
-  * Delegowanie do MealDbClient
-  
+Integracja z Discovery API (Delegacja):
+- searchMealsByName(String name) → Mono<MealSearchResponse>.
+- lookupMeal(String mealId) → Mono<MealSearchResponse>.
+- filterByIngredient(String ingredient) → Mono<MealSearchResponse>.
+- getAllCategories() → Mono<CategoryResponse>.
+- getDictionaryList(String type) → Mono<CommonListResponse>.
+
+Synchronizacja i Transformacja:
 - syncMealFromTheMealDB(Meal meal) → Recipe
-  * Konwersja posiłku z TheMealDB na lokalną encję Recipe
-  * Wyodrębnianie kategorii, kraju i sformatowanych składników
-  * Zapis do bazy danych
+  * Konwersja obiektu Meal (Discovery) na lokalną encję Recipe.
+  * Agregacja metadanych (kategoria, kraj) do opisu.
+  * Uruchomienie parsera składników i zapis do bazy.
 
 Metody Pomocnicze:
 - buildIngredientsString(Meal) → String
-  * Łączenie do 20 składników z wymiarami
-  * Pomijanie pustych/null składników
-  * Format: "składnik (wymiar), składnik2 (wymiar2), ..."
-  
+  * Automatyczne wyodrębnianie danych z 20 par pól (strIngredientX + strMeasureX).
+  * Tworzenie jednego, sformatowanego ciągu znaków dla bazy danych.
 - addIngredient(StringBuilder, String, String)
-  * Dodawanie pojedynczego składnika z walidacją
+  * Walidacja null/empty dla każdego z 20 składników.
+  * Formatowanie: "Nazwa (Miara)" z poprawną interpunkcją.
+- toDTO(Recipe) → RecipeDTO
+  * Mapowanie encji JPA na niemodyfikowalny rekord wyjściowy.
 ```
 
 #### Kontrolery
+**RecipeController**
+```
+Lokalizacja: src/main/java/com/cookmate/main/controller/RecipeController.java
+Endpoint bazowy: /api/recipes
 
+Odpowiedzialność:
+- Obsługa operacji CRUD na przepisach zapisanych w lokalnej bazie danych.
+- Walidacja danych wejściowych (Bean Validation).
+
+Metody:
+- GET / – Pobieranie wszystkich przepisów lub wyszukiwanie po nazwie (?name=).
+- GET /paginated – Paginowana lista przepisów z metadanymi (?page=0&size=10).
+- GET /{id} – Pobieranie szczegółów konkretnego przepisu.
+- POST / – Tworzenie nowego przepisu na podstawie RecipeCreateRequest.
+- PUT /{id} – Aktualizacja istniejącego przepisu (RecipeUpdateRequest).
+- DELETE /{id} – Usuwanie przepisu z bazy danych.
+```
+**DiscoveryController**
+```
+Lokalizacja: src/main/java/com/cookmate/main/controller/DiscoveryController.java
+Endpoint bazowy: /api/v1/discovery
+
+Odpowiedzialność:
+- Udostępnianie danych z TheMealDB w sposób asynchroniczny (WebFlux).
+- Zastępuje przestarzały RecipeSearchController.
+
+Metody:
+- GET /search – Wyszukiwanie potraw po nazwie (?name=Arrabiata).
+- GET /lookup/{id} – Pobieranie kompletnych danych potrawy z API zewnętrznego.
+- GET /filter/ingredient – Filtrowanie po głównym składniku (?i=chicken_breast).
+- GET /categories – Pobieranie pełnej listy kategorii z opisami i zdjęciami.
+- GET /list – Pobieranie słowników pomocniczych (?type=a|i|c).
+```
 
 #### Konfiguracja
 
@@ -112,7 +160,7 @@ Odpowiedź: Record ErrorResponse z timestamp, status, message, details
 ```
 Żądanie HTTP
     ↓
-RecipeController / RecipeSearchController
+RecipeController / DiscoveryController
     ↓
 RecipeService
     ├─ Lokalne: RecipeRepository (JPA) → PostgreSQL
@@ -121,33 +169,7 @@ RecipeService
 Odpowiedź JSON z DTO/Record
 ```
 
-### Integracja TheMealDB
-
-**Wyszukiwanie posiłków po pierwszej literze:**
-```bash
-GET /api/recipes/search/themealdb/letter?letter=a
-
-Odpowiedź:
-{
-  "meals": [
-    {
-      "idMeal": "52771",
-      "strMeal": "Arrabiata",
-      "strCategory": "Owoce Morza",
-      "strArea": "Włochy",
-      "strInstructions": "Ugotuj pastę...",
-      "strMealThumb": "https://www.themealdb.com/images/...",
-      "strIngredient1": "spaghetti",
-      "strMeasure1": "500g",
-      "strIngredient2": "czosnek",
-      "strMeasure2": "3 ząbki",
-      ...
-      "strIngredient20": null,
-      "strMeasure20": null
-    }
-  ]
-}
-```
+### Integracja TheMealDB - przykładowe
 
 **Wyszukiwanie szczegółów posiłku po ID:**
 ```bash
@@ -220,9 +242,16 @@ Endpoints API są dokumentowane w klasach kontrolerów z komentarzami JavaDoc ob
 - **TheMealDB**: https://www.themealdb.com/api.php
   - Publiczne API, bez wymagania autentykacji
 
-przykładowe wywołanie:
-- curl https://www.themealdb.com/api/json/v1/1/search.php?f=a
+przykładowe wywołania przez curla:
+**Wyszukiwanie po ID**
 - curl https://www.themealdb.com/api/json/v1/1/lookup.php?i=52772
+**Wyszukiwanie po nazwie**
+- curl http://localhost:8080/api/v1/discovery/search?name=Arrabiata
+**Filtrowanie po głównym składniku**
+- curl http://localhost:8080/api/v1/discovery/filter/ingredient?i=chicken_breast
+**Pobieranie słownika kuchni świata:**
+- curl http://localhost:8080/api/v1/discovery/list?type=a
+
 
 ## Struktura Projektu
 
@@ -233,26 +262,32 @@ main-service/
 │   ├── config/
 │   │   └── WebClientConfig.java
 │   ├── controller/
-│   │   ├── RecipeController.java
-│   │   └── RecipeSearchController.java
-│   ├── dto/
+│   │   ├── RecipeController.java      
+│   │   ├── DiscoveryController.java   
+│   │   └── GlobalExceptionHandler.java
+│   ├── dto/                          
 │   │   ├── RecipeDTO.java
 │   │   ├── RecipeCreateRequest.java
 │   │   ├── RecipeUpdateRequest.java
 │   │   ├── RecipeListResponse.java
-│   │   ├── Meal.java
-│   │   └── MealSearchResponse.java
-│   ├── exception/
-│   │   └── GlobalExceptionHandler.java
+│   │   ├── StepDTO.java               
+│   │   ├── Meal.java                  
+│   │   ├── MealSearchResponse.java    
+│   │   ├── CategoryResponse.java      
+│   │   └── CommonListResponse.java    
 │   ├── model/
-│   │   └── Recipe.java
+│   │   ├── Recipe.java                
+│   │   └── ActionType.java            
 │   ├── repository/
 │   │   └── RecipeRepository.java
 │   └── service/
-│       ├── RecipeService.java
-│       └── MealDbClient.java
+│       ├── RecipeService.java         
+│       └── MealDbClient.java          
+├── src/test/java/com/cookmate/main/
+│   └── controller/
+│       └── DiscoveryControllerTest.java 
 ├── src/main/resources/
 │   └── application.yml
-├── pom.xml
-└── README.md
+├── pom.xml                            
+└── MAIN_SERVICE_README.md
 ```
