@@ -161,17 +161,6 @@ public class RecipeService {
     }
 
     /**
-     * Search for meals from TheMealDB API by first letter.
-     * Performs non-blocking reactive search.
-     *
-     * @param letter first letter to search for (a-z)
-     * @return Mono containing search response from TheMealDB
-     */
-    public Mono<MealSearchResponse> searchMealsByLetter(String letter) {
-        return mealDbClient.searchByLetter(letter);
-    }
-
-    /**
      * Lookup full meal details from TheMealDB API by meal ID.
      *
      * @param mealId meal ID from TheMealDB

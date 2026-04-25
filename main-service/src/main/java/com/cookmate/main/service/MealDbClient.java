@@ -1,5 +1,7 @@
 package com.cookmate.main.service;
 
+import com.cookmate.main.dto.CategoryResponse;
+import com.cookmate.main.dto.CommonListResponse;
 import com.cookmate.main.dto.MealSearchResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,8 +17,6 @@ import reactor.core.publisher.Mono;
 public class MealDbClient {
 
     private static final String BASE_URL = "https://www.themealdb.com/api/json/v1/1";
-    private static final String SEARCH_BY_LETTER = "/search.php";
-    private static final String LOOKUP_BY_ID = "/lookup.php";
 
     private final WebClient webClient;
 
@@ -29,53 +29,40 @@ public class MealDbClient {
         this.webClient = webClient;
     }
 
-    /**
-     * Search for meals by first letter.
-     * 
-     * API: GET /search.php?f={letter}
-     * Returns all meals whose name begins with the given letter.
-     *
-     * @param letter first letter to search for (a-z)
-     * @return Mono containing search response with meals list
-     */
-    public Mono<MealSearchResponse> searchByLetter(String letter) {
-        if (letter == null || letter.length() != 1) {
-            return Mono.error(new IllegalArgumentException("Letter must be a single character"));
-        }
 
-        String url = BASE_URL + SEARCH_BY_LETTER + "?f=" + letter.toLowerCase();
-
-        return webClient.get()
-            .uri(url)
-            .retrieve()
-            .bodyToMono(MealSearchResponse.class)
-            .doOnError(error -> {
-                throw new RuntimeException("Error calling TheMealDB API: " + error.getMessage(), error);
-            });
+    // 1. Search meal by name
+    public Mono<MealSearchResponse> searchByName(String name) {
+        return fetch("/search.php?s=" + name, MealSearchResponse.class);
     }
 
-    /**
-     * Lookup full meal details by meal ID.
-     * 
-     * API: GET /lookup.php?i={id}
-     * Returns complete meal information including all ingredients and measurements.
-     *
-     * @param mealId meal ID from TheMealDB
-     * @return Mono containing search response with meal details
-     */
+    // 2. Lookup full meal details by id
     public Mono<MealSearchResponse> lookupById(String mealId) {
-        if (mealId == null || mealId.isBlank()) {
-            return Mono.error(new IllegalArgumentException("Meal ID cannot be blank"));
-        }
+        return fetch("/lookup.php?i=" + mealId, MealSearchResponse.class);
+    }
 
-        String url = BASE_URL + LOOKUP_BY_ID + "?i=" + mealId;
+    // 3. List all meal categories (with details)
+    public Mono<CategoryResponse> listFullCategories() {
+        return fetch("/categories.php", CategoryResponse.class);
+    }
 
+    // 4. Filter by main ingredient
+    public Mono<MealSearchResponse> filterByIngredient(String ingredient) {
+        return fetch("/filter.php?i=" + ingredient, MealSearchResponse.class);
+    }
+
+    // 5. List all Categories, Area, Ingredients (Dictionaries)
+    public Mono<CommonListResponse> listAllBy(String type) {
+        // type: "c" for category, "a" for area, "i" for ingredients
+        return fetch("/list.php?" + type + "=list", CommonListResponse.class);
+    }
+
+    private <T> Mono<T> fetch(String endpoint, Class<T> responseType) {
         return webClient.get()
-            .uri(url)
-            .retrieve()
-            .bodyToMono(MealSearchResponse.class)
-            .doOnError(error -> {
-                throw new RuntimeException("Error calling TheMealDB API: " + error.getMessage(), error);
-            });
+                .uri(BASE_URL + endpoint)
+                .retrieve()
+                .bodyToMono(responseType)
+                .doOnError(error -> {
+                    throw new RuntimeException("Error calling TheMealDB API: " + error.getMessage(), error);
+                });
     }
 }
