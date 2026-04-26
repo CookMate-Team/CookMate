@@ -53,13 +53,11 @@ public class MealDbClient {
         return fetch("/list.php?" + type + "=list", CommonListResponse.class);
     }
 
-    private <T> Mono<T> fetch(String endpoint, Class<T> responseType) {
+    private <T> Mono<T> fetch(String url, Class<T> responseType) {
         return webClient.get()
-                .uri(BASE_URL + endpoint)
+                .uri(url)
                 .retrieve()
                 .bodyToMono(responseType)
-                .doOnError(error -> {
-                    throw new RuntimeException("Błąd podczas wywołania API TheMealDB: " + error.getMessage(), error);
-                });
+                .onErrorMap(ex -> new RuntimeException("Error calling TheMealDB API: " + ex.getMessage())); // To mapowanie jest kluczowe!
     }
 }
