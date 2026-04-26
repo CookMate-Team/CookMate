@@ -3,6 +3,8 @@ package com.cookmate.main.cucumber;
 import com.cookmate.main.controller.RecipeSearchController;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.service.RecipeService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
@@ -29,6 +31,7 @@ public class RecipeSearchSteps {
     private RecipeService recipeService;
     private MockMvc mockMvc;
     private MvcResult lastResult;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Before
     public void setUp() {
@@ -68,7 +71,9 @@ public class RecipeSearchSteps {
     @And("the response should contain a meals array")
     public void theResponseShouldContainAMealsArray() throws Exception {
         String body = lastResult.getResponse().getContentAsString();
-        assertTrue(body.contains("\"meals\":"));
+        JsonNode responseJson = objectMapper.readTree(body);
+        assertTrue(responseJson.has("meals"));
+        assertTrue(responseJson.get("meals").isArray());
     }
 
     @And("recipe service should be called to search by letter {string}")
