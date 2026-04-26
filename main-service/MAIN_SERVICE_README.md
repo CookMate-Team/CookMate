@@ -91,7 +91,17 @@ Metody Pomocnicze:
   * Walidacja null/empty dla każdego z 20 składników.
   * Formatowanie: "Nazwa (Miara)" z poprawną interpunkcją.
 - toDTO(Recipe) → RecipeDTO
-  * Mapowanie encji JPA na niemodyfikowalny rekord wyjściowy.
+   * Mapowanie encji JPA na niemodyfikowalny rekord wyjściowy.
+```
+
+**StepService** (Logika kroków przepisu)
+```
+Lokalizacja: src/main/java/com/cookmate/main/service/StepService.java
+
+Metody Publiczne:
+- getStep(Long stepId) → StepDTO
+  * Pobiera pojedynczy krok na podstawie ID.
+  * Dla nieistniejącego kroku rzuca StepNotFoundException.
 ```
 
 #### Kontrolery
@@ -129,6 +139,15 @@ Metody:
 - GET /list – Pobieranie słowników pomocniczych (?type=a|i|c).
 ```
 
+**StepController**
+```
+Lokalizacja: src/main/java/com/cookmate/main/controller/StepController.java
+Endpoint bazowy: /steps
+
+Metody:
+- GET /{stepId} – Pobieranie pojedynczego kroku (StepDTO).
+```
+
 #### Konfiguracja
 
 **WebClientConfig**
@@ -148,6 +167,8 @@ Lokalizacja: src/main/java/com/cookmate/main/exception/GlobalExceptionHandler.ja
 Obsługa:
 - MethodArgumentNotValidException (HTTP 400)
   * Zwraca błędy walidacji na poziomie pól
+- StepNotFoundException (HTTP 404)
+  * Zwraca informację o braku kroku dla podanego ID
   
 - RuntimeException (HTTP 500)
   * Ogólna obsługa błędów
