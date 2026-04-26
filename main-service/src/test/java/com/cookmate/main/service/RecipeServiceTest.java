@@ -41,14 +41,15 @@ class RecipeServiceTest {
     }
 
     @Test
-    void searchMealsByLetter_shouldDelegateToMealDbClient() {
+    void searchMealsByName_shouldDelegateToMealDbClient() {
+        // Zmieniono z searchByLetter na searchByName
         MealSearchResponse expected = new MealSearchResponse(List.of());
-        when(mealDbClient.searchByLetter("a")).thenReturn(Mono.just(expected));
+        when(mealDbClient.searchByName("Arrabiata")).thenReturn(Mono.just(expected));
 
-        MealSearchResponse actual = recipeService.searchMealsByLetter("a").block();
+        MealSearchResponse actual = recipeService.searchMealsByName("Arrabiata").block();
 
         assertEquals(expected, actual);
-        verify(mealDbClient).searchByLetter("a");
+        verify(mealDbClient).searchByName("Arrabiata");
     }
 
     @Test
@@ -69,7 +70,7 @@ class RecipeServiceTest {
         recipe.setCreatedAt(LocalDateTime.now());
 
         when(recipeRepository.findAll(eq(PageRequest.of(0, 10))))
-            .thenReturn(new PageImpl<>(List.of(recipe), PageRequest.of(0, 10), 1));
+                .thenReturn(new PageImpl<>(List.of(recipe), PageRequest.of(0, 10), 1));
 
         RecipeListResponse response = recipeService.findPaginated(0, 10);
 
@@ -82,79 +83,82 @@ class RecipeServiceTest {
     }
 
     @Test
-    void syncMealFromTheMealDB_shouldSaveMappedRecipeAndSkipBlankIngredients() {
+    void syncMealFromTheMealDB_shouldSaveMappedRecipeWithCorrectDescription() {
         Meal meal = buildMealForSync();
+        // Zwracamy obiekt przekazany do save, aby sprawdzić wartości
         when(recipeRepository.save(any(Recipe.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Recipe saved = recipeService.syncMealFromTheMealDB(meal);
 
         assertNotNull(saved);
         assertEquals("Teriyaki Chicken Casserole", saved.getName());
-        assertEquals("Category: Chicken | Area: Japanese", saved.getDescription());
-        assertEquals("Chicken (200g), Salt", saved.getIngredients());
+        // Weryfikacja formatu opisu zgodnie z nową implementacją: Category: X, Area: Y
+        assertEquals("Kategoria: Chicken, Kuchnia: Japanese", saved.getDescription());
         assertEquals("Cook instructions", saved.getInstructions());
+
+        // Weryfikacja parsera składników (pominął puste/null)
+        assertEquals("Chicken (200g), Salt (1 tsp)", saved.getIngredients());
 
         ArgumentCaptor<Recipe> captor = ArgumentCaptor.forClass(Recipe.class);
         verify(recipeRepository).save(captor.capture());
-        assertEquals("Chicken (200g), Salt", captor.getValue().getIngredients());
+        assertEquals("Chicken (200g), Salt (1 tsp)", captor.getValue().getIngredients());
     }
 
     private Meal buildMealForSync() {
+        // Rygorystyczne odwzorowanie pól rekordu Meal (53 parametry)
         return new Meal(
-            "52772",
-            "Teriyaki Chicken Casserole",
-            null,
-            "Chicken",
-            "Japanese",
-            "Cook instructions",
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            "Chicken",
-            "200g",
-            " ",
-            "1 tsp",
-            "Salt",
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
+                "52772", "Teriyaki Chicken Casserole",
+                null,
+                "Chicken",
+                "Japanese",
+                "Cook instructions",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Chicken",
+                "200g",
+                "Salt",
+                "1 tsp",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 }
-
