@@ -41,7 +41,7 @@ class StepControllerTest {
             .createdAt(LocalDateTime.now())
             .build());
 
-        mockMvc.perform(get("/steps/{stepId}", savedStep.getId())
+        mockMvc.perform(get("/api/steps/{stepId}", savedStep.getId())
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -57,7 +57,7 @@ class StepControllerTest {
 
     @Test
     void shouldReturn404ForUnknownStep() throws Exception {
-        mockMvc.perform(get("/steps/{stepId}", 999999L))
+        mockMvc.perform(get("/api/steps/{stepId}", 999999L))
             .andExpect(status().isNotFound())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.timestamp").exists())
