@@ -96,7 +96,7 @@ cd simulator-service && mvn spring-boot:run
 | GET    | `/api/recipes`        | Lista wszystkich przepisów|
 | GET    | `/api/recipes?name=X` | Szukaj przepisu po nazwie|
 | GET    | `/api/recipes/{id}`   | Pobierz przepis           |
-| GET    | `/steps/{stepId}`     | Pobierz pojedynczy krok   |
+| GET    | `/api/steps/{stepId}`     | Pobierz pojedynczy krok   |
 | POST   | `/api/recipes`        | Utwórz przepis            |
 | PUT    | `/api/recipes/{id}`   | Zaktualizuj przepis       |
 | DELETE | `/api/recipes/{id}`   | Usuń przepis              |
