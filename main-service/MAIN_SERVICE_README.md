@@ -142,7 +142,7 @@ Metody:
 **StepController**
 ```
 Lokalizacja: src/main/java/com/cookmate/main/controller/StepController.java
-Endpoint bazowy: /steps
+Endpoint bazowy: /api/steps
 
 Metody:
 - GET /{stepId} – Pobieranie pojedynczego kroku (StepDTO).
