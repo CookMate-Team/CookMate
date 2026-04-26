@@ -133,10 +133,6 @@ class MealDbClientTest {
     @Test
     void searchByLetter_shouldRejectInvalidLetter() {
         assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByLetter("ab").block());
-    }
-
-    @Test
-    void searchByLetter_shouldRejectBlankLetter() {
         assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByLetter(" ").block());
     }
 
