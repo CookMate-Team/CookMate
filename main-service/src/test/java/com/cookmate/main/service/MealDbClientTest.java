@@ -136,6 +136,11 @@ class MealDbClientTest {
     }
 
     @Test
+    void searchByLetter_shouldRejectBlankLetter() {
+        assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByLetter(" ").block());
+    }
+
+    @Test
     void lookupById_shouldRejectBlankMealId() {
         assertThrows(IllegalArgumentException.class, () -> mealDbClient.lookupById(" ").block());
     }

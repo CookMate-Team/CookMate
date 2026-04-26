@@ -122,6 +122,14 @@ class RecipeSearchIntegrationTest {
     }
 
     @Test
+    void searchByLetter_withBlankValue_shouldReturnBadRequest() throws Exception {
+        MvcResult result = performRequest(
+            get("/api/recipes/search/themealdb/letter").param("letter", " ")
+        );
+        assertEquals(400, result.getResponse().getStatus());
+    }
+
+    @Test
     void lookupById_withBlankValue_shouldReturnBadRequest() throws Exception {
         MvcResult result = performRequest(
             get("/api/recipes/search/themealdb/meal").param("mealId", " ")

@@ -39,8 +39,8 @@ public class MealDbClient {
      * @return Mono containing search response with meals list
      */
     public Mono<MealSearchResponse> searchByLetter(String letter) {
-        if (letter == null || letter.length() != 1) {
-            return Mono.error(new IllegalArgumentException("Letter must be a single character"));
+        if (letter == null || letter.isBlank() || letter.length() != 1) {
+            return Mono.error(new IllegalArgumentException("Letter must be a single non-blank character"));
         }
 
         String url = BASE_URL + SEARCH_BY_LETTER + "?f=" + letter.toLowerCase();
