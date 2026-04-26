@@ -44,6 +44,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle invalid input parameters.
+     *
+     * @param ex IllegalArgumentException
+     * @return error response
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    /**
      * Handle general runtime exceptions.
      *
      * @param ex RuntimeException
