@@ -26,7 +26,7 @@ public record StepDTO(
         String parameters,
 
         @PositiveOrZero(message = "Czas trwania nie może być wartością ujemną")
-        Integer duration,
+        Integer durationMinutes,
 
         @NotBlank(message = "ID przepisu jest wymagane")
         String recipeId,

@@ -36,7 +36,7 @@ public class StepController {
     public ResponseEntity<StepGenerationResponse> generateSteps(
             @Valid @RequestBody StepGenerationRequest request,
             HttpSession session) {
-        StepGenerationResponse response = stepService.generateSteps(request, session);
+        StepGenerationResponse response = stepService.generateSteps(request);
         return ResponseEntity.ok(response);
     }
 }
