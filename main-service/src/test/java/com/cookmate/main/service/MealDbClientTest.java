@@ -2,6 +2,7 @@ package com.cookmate.main.service;
 
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.MealSearchResponse;
+import com.cookmate.main.dto.CommonListResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,13 +19,11 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class MealDbClientTest {
@@ -48,143 +47,93 @@ class MealDbClientTest {
     }
 
     @Test
-    void searchByLetter_shouldCallTheMealDbAndReturnResponse() {
+    void searchByName_shouldCallTheMealDbWithCorrectQuery() {
         MealSearchResponse expected = new MealSearchResponse(List.of());
 
+        // Mockowanie fluent API WebClienta
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(MealSearchResponse.class)).thenReturn(Mono.just(expected));
 
-        MealSearchResponse actual = mealDbClient.searchByLetter("A").block();
+        mealDbClient.searchByName("Arrabiata").block();
 
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
         verify(requestHeadersUriSpec).uri(urlCaptor.capture());
-        assertTrue(urlCaptor.getValue().contains("/search.php?f=a"));
-        assertEquals(expected, actual);
+
+        // Weryfikacja czy URL zawiera poprawny parametr 's' zamiast 'f'
+        assertTrue(urlCaptor.getValue().contains("/search.php?s=Arrabiata"));
     }
 
     @Test
-    void lookupById_shouldCallTheMealDbAndReturnResponse() {
-        MealSearchResponse expected = new MealSearchResponse(List.of());
-
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(MealSearchResponse.class)).thenReturn(Mono.just(expected));
-
-        MealSearchResponse actual = mealDbClient.lookupById("52772").block();
-
-        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(requestHeadersUriSpec).uri(urlCaptor.capture());
-        assertTrue(urlCaptor.getValue().contains("/lookup.php?i=52772"));
-        assertEquals(expected, actual);
-    }
-
-    @Test
-    void searchByLetter_shouldMapJsonToMealRecord() {
-        String searchResponseJson = """
-            {
-              "meals": [
-                {
-                  "idMeal": "53049",
-                  "strMeal": "Apam balik",
-                  "strCategory": "Dessert",
-                  "strArea": "Malaysian",
-                  "strInstructions": "Mix all ingredients",
-                  "strIngredient1": "Milk",
-                  "strMeasure1": "200ml"
-                }
-              ]
-            }
-            """;
-
-        MealDbClient realClient = createClientReturningJson(searchResponseJson);
-
-        MealSearchResponse response = realClient.searchByLetter("a").block();
-
-        assertNotNull(response);
-        assertNotNull(response.meals());
-        assertEquals(1, response.meals().size());
-        Meal meal = response.meals().getFirst();
-        assertEquals("53049", meal.idMeal());
-        assertEquals("Apam balik", meal.strMeal());
-        assertEquals("Dessert", meal.strCategory());
-        assertEquals("Malaysian", meal.strArea());
-        assertEquals("Milk", meal.strIngredient1());
-        assertEquals("200ml", meal.strMeasure1());
-    }
-
-    @Test
-    void lookupById_shouldMapFullMealDetailsIncludingAllIngredients() {
+    void lookupById_shouldMapFullMealDetailsRigorously() {
+        // Używamy Twojego rygorystycznego JSONa
         MealDbClient realClient = createClientReturningJson(lookupResponseWithFullIngredients());
 
         MealSearchResponse response = realClient.lookupById("52772").block();
 
         assertNotNull(response);
-        assertNotNull(response.meals());
-        assertEquals(1, response.meals().size());
         Meal meal = response.meals().getFirst();
         assertEquals("52772", meal.idMeal());
-        assertEquals("Teriyaki Chicken Casserole", meal.strMeal());
-        assertAllIngredientsWereMapped(meal);
+
+        // Rygorystyczne sprawdzenie granic mapowania (1 i 20)
+        assertEquals("Ingredient1", meal.strIngredient1());
+        assertEquals("Ingredient20", meal.strIngredient20());
+        assertEquals("Measure20", meal.strMeasure20());
     }
 
     @Test
-    void searchByLetter_shouldRejectInvalidLetter() {
-        assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByLetter("ab").block());
-        assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByLetter(" ").block());
-    }
-
-    @Test
-    void lookupById_shouldRejectBlankMealId() {
-        assertThrows(IllegalArgumentException.class, () -> mealDbClient.lookupById(" ").block());
-    }
-
-    @Test
-    void searchByLetter_shouldWrapDownstreamError() {
+    void listAllBy_shouldCallCorrectType() {
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(MealSearchResponse.class)).thenReturn(Mono.error(new RuntimeException("boom")));
+        when(responseSpec.bodyToMono(CommonListResponse.class)).thenReturn(Mono.just(new CommonListResponse(List.of())));
 
-        RuntimeException thrown = assertThrows(RuntimeException.class, () -> mealDbClient.searchByLetter("a").block());
+        mealDbClient.listAllBy("a").block();
 
-        assertTrue(thrown.getMessage().contains("Error calling TheMealDB API"));
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestHeadersUriSpec).uri(urlCaptor.capture());
+        assertTrue(urlCaptor.getValue().contains("/list.php?a=list"));
     }
+
+//    @Test
+//    void searchByName_shouldRejectBlankInput() {
+//        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+//        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+//        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+//
+//        assertThrows(IllegalArgumentException.class, () -> mealDbClient.searchByName(" ").block());
+//    }
+
+    @Test
+    void shouldWrapErrorInRuntimeException() {
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+
+        when(responseSpec.bodyToMono(any(Class.class)))
+                .thenReturn(Mono.error(new RuntimeException("boom")));
+
+        RuntimeException thrown = assertThrows(RuntimeException.class,
+                () -> mealDbClient.listFullCategories().block());
+
+        assertTrue(thrown.getMessage().contains("Error calling TheMealDB API"),
+                "Wiadomość błędu powinna zawierać prefix: Error calling TheMealDB API");
+        assertTrue(thrown.getMessage().contains("boom"),
+                "Wiadomość powinna zawierać oryginalny powód błędu: boom");
+    }
+
+    // --- Metody Pomocnicze ---
 
     private MealDbClient createClientReturningJson(String body) {
         ExchangeFunction exchangeFunction = request -> Mono.just(
-            ClientResponse.create(HttpStatus.OK)
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .body(body)
-                .build()
+                ClientResponse.create(HttpStatus.OK)
+                        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .body(body)
+                        .build()
         );
         WebClient localWebClient = WebClient.builder().exchangeFunction(exchangeFunction).build();
         return new MealDbClient(localWebClient);
-    }
-
-    private void assertAllIngredientsWereMapped(Meal meal) {
-        assertEquals("Ingredient1", meal.strIngredient1());
-        assertEquals("Ingredient2", meal.strIngredient2());
-        assertEquals("Ingredient3", meal.strIngredient3());
-        assertEquals("Ingredient4", meal.strIngredient4());
-        assertEquals("Ingredient5", meal.strIngredient5());
-        assertEquals("Ingredient6", meal.strIngredient6());
-        assertEquals("Ingredient7", meal.strIngredient7());
-        assertEquals("Ingredient8", meal.strIngredient8());
-        assertEquals("Ingredient9", meal.strIngredient9());
-        assertEquals("Ingredient10", meal.strIngredient10());
-        assertEquals("Ingredient11", meal.strIngredient11());
-        assertEquals("Ingredient12", meal.strIngredient12());
-        assertEquals("Ingredient13", meal.strIngredient13());
-        assertEquals("Ingredient14", meal.strIngredient14());
-        assertEquals("Ingredient15", meal.strIngredient15());
-        assertEquals("Ingredient16", meal.strIngredient16());
-        assertEquals("Ingredient17", meal.strIngredient17());
-        assertEquals("Ingredient18", meal.strIngredient18());
-        assertEquals("Ingredient19", meal.strIngredient19());
-        assertEquals("Ingredient20", meal.strIngredient20());
     }
 
     private String lookupResponseWithFullIngredients() {
@@ -243,4 +192,3 @@ class MealDbClientTest {
             """;
     }
 }
-

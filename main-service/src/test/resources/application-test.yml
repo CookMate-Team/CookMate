@@ -1,0 +1,9 @@
+spring:
+  cloud:
+    config:
+      enabled: false  # Wyłącza szukanie Config Servera
+    discovery:
+      enabled: false # Wyłącza Discovery
+eureka:
+  client:
+    enabled: false   # Wyłącza klienta Eureka

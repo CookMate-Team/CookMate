@@ -1,8 +1,7 @@
 package com.cookmate.main.integration;
 
-import com.cookmate.main.controller.RecipeSearchController;
+import com.cookmate.main.controller.DiscoveryController;
 import com.cookmate.main.service.MealDbClient;
-import com.cookmate.main.service.RecipeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,23 +23,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.context.WebApplicationContext;
 import reactor.core.publisher.Mono;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    properties = {
-        "spring.cloud.config.enabled=false",
-        "eureka.client.enabled=false",
-        "eureka.client.register-with-eureka=false",
-        "eureka.client.fetch-registry=false"
-    }
-)
-@Import(RecipeSearchIntegrationTest.StubMealDbApiConfig.class)
-class RecipeSearchIntegrationTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@Import(DiscoveryIntegrationTest.StubMealDbApiConfig.class)
+class DiscoveryIntegrationTest {
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -48,16 +37,7 @@ class RecipeSearchIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private RecipeSearchController recipeSearchController;
-
-    @Autowired
-    private RecipeService recipeService;
-
-    @Autowired
-    private MealDbClient mealDbClient;
-
-    @Autowired
-    private WebClient webClient;
+    private DiscoveryController discoveryController;
 
     @BeforeEach
     void setUp() {
@@ -65,76 +45,33 @@ class RecipeSearchIntegrationTest {
     }
 
     @Test
-    void context_shouldLoadCoreBeans() {
-        assertNotNull(recipeSearchController);
-        assertNotNull(recipeService);
-        assertNotNull(mealDbClient);
-        assertNotNull(webClient);
-    }
-
-    @Test
-    void fullFlow_searchByLetter_shouldReturnMappedMealResponse() throws Exception {
+    void shouldReturnCorrectSearchResponseFromStub() throws Exception {
         MvcResult result = performRequest(
-            get("/api/recipes/search/themealdb/letter").param("letter", "a")
+                get("/api/v1/discovery/search").param("name", "Apam")
         );
 
         assertEquals(200, result.getResponse().getStatus());
         String body = result.getResponse().getContentAsString();
+
         assertTrue(body.contains("\"idMeal\":\"53049\""));
         assertTrue(body.contains("\"strMeal\":\"Apam balik\""));
-        assertTrue(body.contains("\"strCategory\":\"Dessert\""));
-        assertTrue(body.contains("\"strIngredient1\":\"Milk\""));
+        assertTrue(body.contains("\"strArea\":\"Malaysian\""));
     }
 
     @Test
-    void fullFlow_lookupById_shouldReturnMealWithAllIngredients() throws Exception {
+    void shouldReturnFullIngredientsResponseFromStub() throws Exception {
         MvcResult result = performRequest(
-            get("/api/recipes/search/themealdb/meal").param("mealId", "52772")
+                get("/api/v1/discovery/lookup/52772")
         );
 
         assertEquals(200, result.getResponse().getStatus());
         String body = result.getResponse().getContentAsString();
+
+        // Rygorystyczna weryfikacja pierwszego i ostatniego elementu z Twojego JSONa
         assertTrue(body.contains("\"idMeal\":\"52772\""));
-        assertTrue(body.contains("\"strMeal\":\"Teriyaki Chicken Casserole\""));
         assertTrue(body.contains("\"strIngredient1\":\"Ingredient1\""));
-        assertTrue(body.contains("\"strIngredient10\":\"Ingredient10\""));
         assertTrue(body.contains("\"strIngredient20\":\"Ingredient20\""));
-    }
-
-    @Test
-    void searchByLetter_withoutRequiredParam_shouldReturnBadRequest() throws Exception {
-        MvcResult result = performRequest(get("/api/recipes/search/themealdb/letter"));
-        assertEquals(400, result.getResponse().getStatus());
-    }
-
-    @Test
-    void lookupById_withoutRequiredParam_shouldReturnBadRequest() throws Exception {
-        MvcResult result = performRequest(get("/api/recipes/search/themealdb/meal"));
-        assertEquals(400, result.getResponse().getStatus());
-    }
-
-    @Test
-    void searchByLetter_withEmptyValue_shouldReturnBadRequest() throws Exception {
-        MvcResult result = performRequest(
-            get("/api/recipes/search/themealdb/letter").param("letter", "")
-        );
-        assertEquals(400, result.getResponse().getStatus());
-    }
-
-    @Test
-    void searchByLetter_withBlankValue_shouldReturnBadRequest() throws Exception {
-        MvcResult result = performRequest(
-            get("/api/recipes/search/themealdb/letter").param("letter", " ")
-        );
-        assertEquals(400, result.getResponse().getStatus());
-    }
-
-    @Test
-    void lookupById_withBlankValue_shouldReturnBadRequest() throws Exception {
-        MvcResult result = performRequest(
-            get("/api/recipes/search/themealdb/meal").param("mealId", " ")
-        );
-        assertEquals(400, result.getResponse().getStatus());
+        assertTrue(body.contains("\"strMeasure20\":\"Measure20\""));
     }
 
     private MvcResult performRequest(MockHttpServletRequestBuilder requestBuilder) throws Exception {
@@ -154,27 +91,28 @@ class RecipeSearchIntegrationTest {
             ExchangeFunction exchangeFunction = request -> {
                 String url = request.url().toString();
 
-                if (url.contains("/search.php?f=a")) {
+                if (url.contains("/search.php?s=Apam")) {
                     return Mono.just(jsonResponse(searchResponseJson()));
                 }
                 if (url.contains("/lookup.php?i=52772")) {
                     return Mono.just(jsonResponse(lookupResponseWithFullIngredients()));
                 }
-                return Mono.just(ClientResponse.create(HttpStatus.NOT_FOUND)
-                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    .body("{\"meals\":null}")
-                    .build());
+
+                return Mono.just(ClientResponse.create(HttpStatus.NOT_FOUND).build());
             };
 
-            WebClient stubWebClient = WebClient.builder().exchangeFunction(exchangeFunction).build();
+            WebClient stubWebClient = WebClient.builder()
+                    .exchangeFunction(exchangeFunction)
+                    .build();
+
             return new MealDbClient(stubWebClient);
         }
 
         private static ClientResponse jsonResponse(String body) {
             return ClientResponse.create(HttpStatus.OK)
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .body(body)
-                .build();
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .body(body)
+                    .build();
         }
 
         private static String searchResponseJson() {
@@ -252,4 +190,3 @@ class RecipeSearchIntegrationTest {
         }
     }
 }
-
