@@ -1,6 +1,5 @@
 package com.cookmate.main.controller;
 
-import com.cookmate.main.dto.CategoryResponse;
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.service.MealDbClient;
