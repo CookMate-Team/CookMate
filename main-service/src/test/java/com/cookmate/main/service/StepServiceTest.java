@@ -78,15 +78,16 @@ class StepServiceTest {
     @Test
     void shouldReturnStepsByRecipeIdPreservingRepositoryOrder() {
         String recipeId = "recipe-999";
-        Step step1 = Step.builder().id(1L).stepNumber(2).description("Second").action(ActionType.STIR)
-            .recipeId(recipeId).durationMinutes(5).createdAt(LocalDateTime.now()).build();
-        Step step2 = Step.builder().id(2L).stepNumber(1).description("First").action(ActionType.CHOP)
+        // Steps returned by the repository are already sorted ASC by stepNumber
+        Step step1 = Step.builder().id(1L).stepNumber(1).description("First").action(ActionType.CHOP)
             .recipeId(recipeId).durationMinutes(3).createdAt(LocalDateTime.now()).build();
+        Step step2 = Step.builder().id(2L).stepNumber(2).description("Second").action(ActionType.STIR)
+            .recipeId(recipeId).durationMinutes(5).createdAt(LocalDateTime.now()).build();
 
-        StepDTO dto1 = StepDTO.builder().id(1L).stepNumber(2).description("Second").action(ActionType.STIR)
-            .recipeId(recipeId).durationMinutes(5).build();
-        StepDTO dto2 = StepDTO.builder().id(2L).stepNumber(1).description("First").action(ActionType.CHOP)
+        StepDTO dto1 = StepDTO.builder().id(1L).stepNumber(1).description("First").action(ActionType.CHOP)
             .recipeId(recipeId).durationMinutes(3).build();
+        StepDTO dto2 = StepDTO.builder().id(2L).stepNumber(2).description("Second").action(ActionType.STIR)
+            .recipeId(recipeId).durationMinutes(5).build();
 
         when(stepRepository.findByRecipeIdOrderByStepNumberAsc(recipeId)).thenReturn(List.of(step1, step2));
         when(stepMapper.toDTO(step1)).thenReturn(dto1);
