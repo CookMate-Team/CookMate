@@ -39,7 +39,7 @@ class StepServiceTest {
             .description("Pokroj cebule")
             .action(ActionType.CHOP)
             .recipeId("recipe-123")
-            .duration(60)
+            .durationMinutes(60)
             .createdAt(LocalDateTime.now())
             .build();
         StepDTO expectedDto = StepDTO.builder()
@@ -48,7 +48,7 @@ class StepServiceTest {
             .description(step.getDescription())
             .action(step.getAction())
             .recipeId(step.getRecipeId())
-            .duration(step.getDuration())
+            .durationMinutes(step.getDurationMinutes())
             .createdAt(step.getCreatedAt())
             .build();
 

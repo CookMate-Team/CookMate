@@ -41,6 +41,23 @@ public class RecipeService {
         return recipeRepository.findByNameContainingIgnoreCase(name);
     }
 
+    public RecipeListResponse findByNamePaginated(String name, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Recipe> recipePage = recipeRepository.findByNameContainingIgnoreCase(name, pageable);
+
+        List<RecipeDTO> dtos = recipePage.getContent().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return new RecipeListResponse(
+                dtos,
+                (int) recipePage.getTotalElements(),
+                page,
+                size,
+                recipePage.getTotalPages()
+        );
+    }
+
     public RecipeListResponse findPaginated(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Recipe> recipePage = recipeRepository.findAll(pageable);
