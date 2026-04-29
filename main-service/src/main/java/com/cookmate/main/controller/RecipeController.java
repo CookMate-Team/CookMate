@@ -9,8 +9,11 @@ import com.cookmate.main.model.Recipe;
 import com.cookmate.main.service.RecipeService;
 import com.cookmate.main.service.StepService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +24,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/recipes")
+@Validated
 public class RecipeController {
 
     private final RecipeService recipeService;
@@ -48,8 +52,8 @@ public class RecipeController {
      */
     @GetMapping
     public ResponseEntity<RecipeListResponse> getAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
             @RequestParam(required = false) String name) {
         if (name != null && !name.isBlank()) {
             // For search results, apply pagination on filtered results
@@ -68,8 +72,8 @@ public class RecipeController {
      */
     @GetMapping("/paginated")
     public ResponseEntity<RecipeListResponse> getPaginated(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size) {
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         return ResponseEntity.ok(recipeService.findPaginated(page, size));
     }
 
