@@ -21,14 +21,14 @@ public class Step {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Version
-    private Long version;
-
     @Column(name = "step_number", nullable = false)
     private Integer stepNumber;
 
     @Column(nullable = false, length = 1000)
     private String description;
+
+    @Column(name = "main_ingredient")
+    private String mainIngredient;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -37,7 +37,8 @@ public class Step {
     @Column(columnDefinition = "TEXT") // Obsługa długich parametrów JSON
     private String parameters;
 
-    private Integer duration; // Czas w sekundach
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes; // Czas w minutach
 
     @Column(name = "recipe_id", nullable = false)
     private String recipeId;

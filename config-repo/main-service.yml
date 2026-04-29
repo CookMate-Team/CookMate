@@ -17,5 +17,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+groq:
+  api-key: ${GROQ_API_KEY:}
+
 main-service:
   greeting: "Welcome to CookMate Main Service"
