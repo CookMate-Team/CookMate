@@ -6,6 +6,7 @@ import com.cookmate.main.repository.RecipeRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -41,8 +42,25 @@ public class RecipeService {
         return recipeRepository.findByNameContainingIgnoreCase(name);
     }
 
+    public RecipeListResponse findByNamePaginated(String name, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
+        Page<Recipe> recipePage = recipeRepository.findByNameContainingIgnoreCase(name, pageable);
+
+        List<RecipeDTO> dtos = recipePage.getContent().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return new RecipeListResponse(
+                dtos,
+                (int) recipePage.getTotalElements(),
+                page,
+                size,
+                recipePage.getTotalPages()
+        );
+    }
+
     public RecipeListResponse findPaginated(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
         Page<Recipe> recipePage = recipeRepository.findAll(pageable);
 
         List<RecipeDTO> dtos = recipePage.getContent().stream()

@@ -1,5 +1,6 @@
 package com.cookmate.main.exception;
 
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -53,6 +54,30 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    /**
+     * Handle bean validation constraint violations on request parameters.
+     *
+     * @param ex ConstraintViolationException with constraint failures
+     * @return error response with constraint details
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(cv -> {
+            String field = cv.getPropertyPath().toString();
+            errors.put(field, cv.getMessage());
+        });
+
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            "Validation failed",
+            errors
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     /**

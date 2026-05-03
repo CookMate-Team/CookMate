@@ -46,7 +46,7 @@ class StepRepositoryTest {
         stepRepository.save(step1);
 
         // when
-        List<Step> results = stepRepository.findByRecipeIdOrderByStepNumber(recipeId);
+        List<Step> results = stepRepository.findByRecipeIdOrderByStepNumberAsc(recipeId);
 
         // then
         assertThat(results).hasSize(2);

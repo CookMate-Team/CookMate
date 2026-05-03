@@ -11,11 +11,10 @@ import java.util.Optional;
 @Repository
 public interface StepRepository extends JpaRepository<Step, Long> {
 
-    // Pobiera wszystkie kroki
-    //SELECT * FROM steps WHERE recipe_id = ?
-    List<Step> findByRecipeIdOrderByStepNumber(String recipeId);
+    // Pobiera wszystkie kroki, posortowane rosnąco po numerze kroku
+    List<Step> findByRecipeIdOrderByStepNumberAsc(String recipeId);
 
-    // Popiera konkretny krok - upewniając sie że należy do odpowiedniego przepisu
-    //SELECT * FROM steps WHERE recipe_id = ? WHERE id = ? AND recipe_id = ?.
+    // Pobiera konkretny krok - upewniając się, że należy do odpowiedniego przepisu
+    // SELECT * FROM steps WHERE id = ? AND recipe_id = ?.
     Optional<Step> findByIdAndRecipeId(Long id, String recipeId);
 }

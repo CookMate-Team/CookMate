@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -69,8 +70,8 @@ class RecipeServiceTest {
         recipe.setId(10L);
         recipe.setCreatedAt(LocalDateTime.now());
 
-        when(recipeRepository.findAll(eq(PageRequest.of(0, 10))))
-                .thenReturn(new PageImpl<>(List.of(recipe), PageRequest.of(0, 10), 1));
+        when(recipeRepository.findAll(eq(PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "name")))))
+                .thenReturn(new PageImpl<>(List.of(recipe), PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "name")), 1));
 
         RecipeListResponse response = recipeService.findPaginated(0, 10);
 

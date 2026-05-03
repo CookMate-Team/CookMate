@@ -36,7 +36,7 @@ class StepControllerTest {
             .description("Mieszaj przez 2 minuty")
             .action(ActionType.MIX)
             .parameters("{\"speed\":\"medium\"}")
-            .duration(120)
+            .durationMinutes(120)
             .recipeId("recipe-001")
             .createdAt(LocalDateTime.now())
             .build());
@@ -50,7 +50,7 @@ class StepControllerTest {
             .andExpect(jsonPath("$.description").value("Mieszaj przez 2 minuty"))
             .andExpect(jsonPath("$.action").value("MIX"))
             .andExpect(jsonPath("$.parameters").value("{\"speed\":\"medium\"}"))
-            .andExpect(jsonPath("$.duration").value(120))
+            .andExpect(jsonPath("$.durationMinutes").value(120))
             .andExpect(jsonPath("$.recipeId").value("recipe-001"))
             .andExpect(jsonPath("$.createdAt").exists());
     }

@@ -29,7 +29,7 @@ class StepMapperTest {
                 .description("Krojenie cebuli")
                 .action(ActionType.CHOP)
                 .recipeId("recipe-123")
-                .duration(60)
+                .durationMinutes(60)
                 .parameters("{\"size\": \"small\"}")
                 .createdAt(now)
                 .build();
@@ -45,7 +45,7 @@ class StepMapperTest {
         assertEquals(entity.getDescription(), dto.description());
         assertEquals(entity.getAction(), dto.action());
         assertEquals(entity.getRecipeId(), dto.recipeId());
-        assertEquals(entity.getDuration(), dto.duration());
+        assertEquals(entity.getDurationMinutes(), dto.durationMinutes());
         assertEquals(entity.getParameters(), dto.parameters());
         assertEquals(entity.getCreatedAt(), dto.createdAt());
     }
@@ -58,7 +58,7 @@ class StepMapperTest {
                 .description("Smażenie na patelni")
                 .action(ActionType.FRYING_PAN)
                 .recipeId("recipe-456")
-                .duration(300)
+                .durationMinutes(300)
                 .parameters("{\"temp\": 180}")
                 .build();
 
@@ -72,7 +72,7 @@ class StepMapperTest {
         assertEquals(dto.description(), entity.getDescription());
         assertEquals(dto.action(), entity.getAction());
         assertEquals(dto.recipeId(), entity.getRecipeId());
-        assertEquals(dto.duration(), entity.getDuration());
+        assertEquals(dto.durationMinutes(), entity.getDurationMinutes());
         assertEquals(dto.parameters(), entity.getParameters());
 
         assertNull(entity.getId());

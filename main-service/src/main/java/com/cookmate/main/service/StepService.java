@@ -36,6 +36,20 @@ public class StepService {
     }
 
     /**
+     * Pobiera wszystkie kroki przypisane do konkretnego przepisu.
+     * Kroki są posortowane rosnąco po numerze kroku.
+     *
+     * @param recipeId ID przepisu
+     * @return lista StepDTO dla danego przepisu, posortowana po stepNumber
+     */
+    public List<StepDTO> getStepsByRecipeId(String recipeId) {
+        return stepRepository.findByRecipeIdOrderByStepNumberAsc(recipeId)
+            .stream()
+            .map(stepMapper::toDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
      * Generuje kroki do przepisu z TheMealDB.
      * Jeśli kroki już istnieją dla danego mealId, zwraca istniejące.
      * W przeciwnym razie pobiera przepis z TheMealDB, wysyła do LLM i zapisuje kroki.
@@ -48,7 +62,7 @@ public class StepService {
         String mealId = request.mealId();
         
         // 1. Sprawdzić czy kroki już istnieją dla tego mealId
-        List<Step> existingSteps = stepRepository.findByRecipeIdOrderByStepNumber(mealId);
+        List<Step> existingSteps = stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId);
         
         if (!existingSteps.isEmpty()) {
             logger.info("Zwracanie istniejących kroków dla mealId: {}", mealId);
