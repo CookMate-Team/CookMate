@@ -1,217 +1,51 @@
-# Simulator Service - Symulator Gotowania
+# Simulator Service
 
-Mikrosługa odpowiedzialna za symulowanie kroków gotowania w trybie "guided cooking". Użytkownik przegląda przepisy, a gdy wybierze "guided cooking", main-service rozbija przepis na kroki i przesyła je sekwencyjnie do simulator-service.
+Lekki serwis do symulacji gotowania krok po kroku dla urządzenia wielofunkcyjnego.
 
-## Charakterystyka
+## Założenia
 
-- **Port**: 8082
-- **Java**: 25 (Virtual Threads)
-- **Spring Boot**: 4.0.5
-- **Spring Cloud**: 2025.1.1
-- **Komunikacja**: OpenFeign (Eureka-aware)
+- komunikacja z `main-service` jest prosta,
+- sesja trzyma postęp i umożliwia wznowienie po awarii aplikacji,
+- wykonanie kroku odbywa się przez jedno wywołanie endpointu,
+- odpowiedź wykonania kroku zawiera tylko:
+  - `stepNumber`
+  - `success`
 
-## Architektura
+## Flow
 
-```
-┌─────────────────────────────────────────┐
-│    Simulator Service (:8082)            │
-│  ┌───────────────────────────────────┐ │
-│  │   SimulatorController             │ │
-│  │ - POST /sessions/start            │ │
-│  │ - POST /sessions/{id}/step        │ │
-│  │ - GET  /sessions/{id}/status      │ │
-│  │ - POST /sessions/{id}/pause       │ │
-│  │ - POST /sessions/{id}/resume      │ │
-│  │ - POST /sessions/{id}/complete    │ │
-│  │ - POST /sessions/{id}/cancel      │ │
-│  │ - GET  /sessions/{id}/history     │ │
-│  └───────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-              ▲                  │
-              │ Reports          │ Sends steps
-              │ completion       │
-              │                  ▼
-       ┌──────────────────────────────┐
-       │    Main Service              │
-       │ (Recipe & Cooking Provider)  │
-       └──────────────────────────────┘
-```
+1. `POST /api/simulator/sessions/start` z `recipeId`
+2. Simulator pobiera kroki z `main-service` (`GET /api/recipes/{recipeId}/steps`) i zapisuje je jako `PENDING`
+3. UI wykonuje kolejne kroki przez:
+   - `POST /api/simulator/sessions/{sessionId}/steps/execute`
+4. Po restarcie aplikacji UI pobiera:
+   - `GET /api/simulator/sessions/{sessionId}/status`
+   - `GET /api/simulator/sessions/{sessionId}/history`
+5. Jeśli trzeba wrócić do etapu:
+   - `POST /api/simulator/sessions/{sessionId}/rewind?stepNumber=N`
 
-## Funkcjonalność
+## Endpointy
 
-### Flow Gotowania (Guided Cooking)
+| Metoda | Endpoint | Opis |
+|---|---|---|
+| POST | `/api/simulator/sessions/start` | start sesji dla `recipeId` |
+| POST | `/api/simulator/sessions/{sessionId}/steps/execute` | wykonaj kolejny krok (one click) |
+| POST | `/api/simulator/sessions/{sessionId}/step` | fallback: wykonanie konkretnego kroku przesłanego z zewnątrz |
+| POST | `/api/simulator/sessions/{sessionId}/rewind?stepNumber=N` | cofnięcie/wznowienie od etapu |
+| GET | `/api/simulator/sessions/{sessionId}/status` | status sesji |
+| GET | `/api/simulator/sessions/{sessionId}/history` | historia kroków |
 
-1. **Użytkownik w main-service**
-   - Przegląda przepisy
-   - Wybiera "guided cooking"
+## Przykładowe odpowiedzi
 
-2. **Main-service przesyła kroki do simulator-service**
-   - POST `/api/simulator/sessions/{sessionId}/step` z danymi kroku
+### execute step
 
-3. **Simulator Service**
-   - Odbiera krok z parametrami: opis, czas trwania, temperatura, waga itp.
-   - Wyświetla instrukcje
-   - Czeka na interakcję użytkownika
-   - Odczekuje określony czas (np. 5 sekund)
-   - Zwraca odpowiedź "krok ukończony"
-
-4. **Main-service wysyła kolejny krok**
-   - Proces powtarza się aż do końca przepisu
-
-### Endpoints
-
-| Endpoint | Metoda | Opis |
-|----------|--------|------|
-| `/api/simulator/sessions/start` | POST | Tworzy nową sesję gotowania |
-| `/api/simulator/sessions/{sessionId}/step` | POST | Odbiera i przetwarza krok gotowania |
-| `/api/simulator/sessions/{sessionId}/status` | GET | Zwraca status sesji |
-| `/api/simulator/sessions/{sessionId}/pause` | POST | Pauzuje aktywną sesję |
-| `/api/simulator/sessions/{sessionId}/resume` | POST | Wznawia sesję |
-| `/api/simulator/sessions/{sessionId}/complete` | POST | Kończy sesję |
-| `/api/simulator/sessions/{sessionId}/cancel` | POST | Anuluje sesję |
-| `/api/simulator/sessions/{sessionId}/history` | GET | Zwraca historię kroków |
-
-## Persistencja Sesji
-
-Simulator Service zapisuje sesje i kroki do PostgreSQL:
-- `simulation_sessions` - Status i postęp sesji
-- `simulation_steps` - Historia kroków (`PENDING`, `EXECUTED`, `SKIPPED`)
-
-Szczegóły: **[PERSISTENCE.md](./PERSISTENCE.md)**.
-
-## Konfiguracja
-
-### Application.yml
-
-```yaml
-spring:
-  application:
-    name: simulator-service
-  threads:
-    virtual:
-      enabled: true        # Włączenie Virtual Threads (Java 25)
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:cookmate}
-    username: ${DB_USER:cookmate}
-    password: ${DB_PASSWORD:cookmate}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
-server:
-  port: 8082
-  tomcat:
-    threads:
-      max: 200
-
-feign:
-  client:
-    config:
-      default:
-        connect-timeout: 5000
-        read-timeout: 10000
-        logger-level: basic
-  compression:
-    request:
-      enabled: true
-    response:
-      enabled: true
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://discovery-service:8761/eureka/
-```
-
-## Uruchomienie
-
-### Docker Compose (zalecane)
-
-```bash
-# Z głównego katalogu projektu
-docker compose up --build simulator-service
-```
-
-### Lokalne uruchomienie
-
-```bash
-cd simulator-service
-mvn spring-boot:run
-```
-
-Serwis będzie dostępny pod: `http://localhost:8082`
-
-## Przykładowe Żądania
-
-### Utworzenie nowej sesji
-
-```bash
-POST http://localhost:8082/api/simulator/sessions/start
-```
-
-Response:
 ```json
 {
-  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "RUNNING",
-  "currentStep": 0,
-  "totalSteps": 0,
-  "message": null,
-  "history": []
+  "stepNumber": 3,
+  "success": true
 }
 ```
 
-### Przesłanie kroku gotowania
+## OpenAPI
 
-```bash
-POST http://localhost:8082/api/simulator/sessions/550e8400-e29b-41d4-a716-446655440000/step
-
-{
-  "stepNumber": 1,
-  "description": "Podgrzej patelnię do temperatury 180°C",
-  "durationSeconds": 5,
-  "temperature": "180°C",
-  "weight": "200g",
-  "additionalNotes": "Używaj oliwy z oliwek extra virgin"
-}
-```
-
-Response:
-```json
-{
-  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
-  "stepNumber": 1,
-  "completed": true,
-  "status": "COMPLETED",
-  "message": "Step completed successfully"
-}
-```
-
-### Pobranie statusu sesji
-
-```bash
-GET http://localhost:8082/api/simulator/sessions/550e8400-e29b-41d4-a716-446655440000/status
-```
-
-## Technologia
-
-- **Virtual Threads**: Lightweight threading dla wysokiej skalowlaności
-- **OpenFeign**: Deklaratywne HTTP Client dla komunikacji międzyusługowej
-- **Eureka**: Service Discovery
-- **Spring Actuator**: Monitorowanie i metryki
-
-## Obsługa Błędów
-
-- **Sesja nie znaleziona**: 404 SimulationSessionNotFoundException
-- **Nieprawidłowy stan**: 400 InvalidSimulationStateException
-- **Komunikacja z main-service**: Logowanie i retry logic
-
-## Pliki Dokumentacji
-
-- **[SIMULATION.md](./SIMULATION.md)** - Szczegóły algorytmu symulacji
-- **[PERSISTENCE.md](./PERSISTENCE.md)** - Strategia przechowywania stanu
+- JSON: `/v3/api-docs`
+- Swagger UI: `/swagger-ui.html`

@@ -37,6 +37,9 @@ public class SimulationSession {
     @Column(name = "total_steps", nullable = false)
     private int totalSteps;
 
+    @Column(name = "recipe_id", nullable = false)
+    private String recipeId;
+
     @Column(name = "total_recipes", nullable = false)
     private int totalRecipes;
 

@@ -1,10 +1,14 @@
 package com.cookmate.simulator.service;
 
+import com.cookmate.simulator.client.MainServiceClient;
+import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.dto.RecipeStepRequestDto;
-import com.cookmate.simulator.dto.RecipeStepResponseDto;
 import com.cookmate.simulator.dto.SimulationStatusResponseDto;
 import com.cookmate.simulator.dto.SimulationStepHistoryItemDto;
+import com.cookmate.simulator.dto.StartSimulationRequestDto;
+import com.cookmate.simulator.dto.StepExecutionResultDto;
 import com.cookmate.simulator.exception.InvalidSimulationStateException;
+import com.cookmate.simulator.exception.MainServiceCommunicationException;
 import com.cookmate.simulator.exception.SimulationSessionNotFoundException;
 import com.cookmate.simulator.model.SimulationSession;
 import com.cookmate.simulator.model.SimulationStatus;
@@ -17,104 +21,79 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
 public class SimulationService {
 
-    private final ConcurrentMap<String, Object> sessionExecutionLocks = new ConcurrentHashMap<>();
-
-    private Object getExecutionLock(String sessionId) {
-        return sessionExecutionLocks.computeIfAbsent(sessionId, key -> new Object());
-    }
-
     private static final String ONLY_RUNNING_ALLOWED = "Only RUNNING simulation can execute steps.";
+    private final ConcurrentMap<String, Object> sessionExecutionLocks = new ConcurrentHashMap<>();
 
     private final SimulationSessionRepository simulationSessionRepository;
     private final SimulationStepRepository simulationStepRepository;
+    private final MainServiceClient mainServiceClient;
 
-    public SimulationStatusResponseDto startSession() {
+    public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
+        List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
+        if (recipeSteps.isEmpty()) {
+            throw new InvalidSimulationStateException("Recipe has no steps to simulate.");
+        }
+        validateMainServiceSteps(recipeSteps);
+        List<MainServiceStepDto> normalizedSteps = normalizeStepsForSession(recipeSteps);
+
         SimulationSession session = new SimulationSession();
         session.setId(UUID.randomUUID().toString());
-        session.setCurrentStep(0);
-        session.setTotalSteps(0);
         session.setStatus(SimulationStatus.RUNNING);
+        session.setCurrentStep(0);
+        session.setTotalSteps(normalizedSteps.size());
+        session.setRecipeId(request.recipeId());
+        session.setTotalRecipes(1);
         session.setMessage(null);
         simulationSessionRepository.save(session);
 
-        return mapStatusResponse(session, List.of());
+        List<SimulationStep> steps = normalizedSteps.stream()
+                .map(step -> toPendingStep(session.getId(), step))
+                .toList();
+        simulationStepRepository.saveAll(steps);
+
+        return mapStatusResponse(session, steps);
     }
 
     @Transactional
-    public RecipeStepResponseDto processStep(String sessionId, RecipeStepRequestDto stepDto) {
+    public StepExecutionResultDto processStep(String sessionId, RecipeStepRequestDto stepDto) {
         synchronized (getExecutionLock(sessionId)) {
             SimulationSession session = getSessionOrThrow(sessionId);
             validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
 
-            SimulationStep step = new SimulationStep();
+            SimulationStep step = simulationStepRepository.findBySessionIdAndStepNumber(sessionId, stepDto.stepNumber())
+                    .orElseGet(SimulationStep::new);
             step.setSessionId(sessionId);
             step.setStepNumber(stepDto.stepNumber());
             step.setRecipeName(stepDto.description());
             step.setPreparationTime(stepDto.durationSeconds() + " seconds");
-            step.setStatus(StepStatus.PENDING);
-            simulationStepRepository.save(step);
-
-            session.setTotalSteps(stepDto.stepNumber());
-            simulationSessionRepository.save(session);
-
-            try {
-                Thread.sleep(stepDto.durationSeconds() * 1000L);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return new RecipeStepResponseDto(sessionId, stepDto.stepNumber(), false, "INTERRUPTED", "Step was interrupted");
-            }
-
             step.setStatus(StepStatus.EXECUTED);
             step.setExecutedAt(LocalDateTime.now());
             simulationStepRepository.save(step);
 
-            session.setCurrentStep(stepDto.stepNumber());
-            simulationSessionRepository.save(session);
+            session.setCurrentStep(Math.max(session.getCurrentStep(), stepDto.stepNumber()));
+            session.setTotalSteps(Math.max(session.getTotalSteps(), stepDto.stepNumber()));
+            finalizeIfLastStep(sessionId, session);
 
-            return new RecipeStepResponseDto(sessionId, stepDto.stepNumber(), true, "COMPLETED", "Step completed successfully");
+            return StepExecutionResultDto.builder()
+                    .stepNumber(stepDto.stepNumber())
+                    .success(true)
+                    .build();
         }
-    }
-
-    public SimulationStatusResponseDto getStatus(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-        List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
-        return mapStatusResponseReadOnly(session, steps);
-    }
-
-    private SimulationStatusResponseDto mapStatusResponseReadOnly(SimulationSession session, List<SimulationStep> steps) {
-        int recalculatedCurrentStep = (int) steps.stream()
-                .filter(step -> step.getStatus() == StepStatus.EXECUTED)
-                .count();
-
-        if (session.getCurrentStep() == recalculatedCurrentStep) {
-            return mapStatusResponse(session, steps);
-        }
-
-        return mapStatusResponse(buildResponseOnlySession(session, recalculatedCurrentStep), steps);
-    }
-
-    private SimulationSession buildResponseOnlySession(SimulationSession session, int currentStep) {
-        SimulationSession responseSession = new SimulationSession();
-        responseSession.setId(session.getId());
-        responseSession.setCurrentStep(currentStep);
-        responseSession.setStatus(session.getStatus());
-        responseSession.setTotalSteps(session.getTotalSteps());
-        responseSession.setMessage(session.getMessage());
-        responseSession.setCompletedAt(session.getCompletedAt());
-        return responseSession;
     }
 
     @Transactional
-    public SimulationStatusResponseDto executeStep(String sessionId) {
+    public StepExecutionResultDto executeNextStep(String sessionId) {
         synchronized (getExecutionLock(sessionId)) {
             SimulationSession session = getSessionOrThrow(sessionId);
             validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
@@ -122,87 +101,78 @@ public class SimulationService {
             SimulationStep nextStep = simulationStepRepository
                     .findFirstBySessionIdAndStatusOrderByStepNumberAsc(sessionId, StepStatus.PENDING)
                     .orElse(null);
-
             if (nextStep == null) {
-                completeInternal(session);
-                return getStatus(sessionId);
+                finalizeIfLastStep(sessionId, session);
+                return StepExecutionResultDto.builder()
+                        .stepNumber(session.getCurrentStep())
+                        .success(false)
+                        .build();
             }
 
             nextStep.setStatus(StepStatus.EXECUTED);
             nextStep.setExecutedAt(LocalDateTime.now());
             simulationStepRepository.save(nextStep);
 
-            session.setCurrentStep(session.getCurrentStep() + 1);
-            simulationSessionRepository.save(session);
+            session.setCurrentStep(nextStep.getStepNumber());
+            finalizeIfLastStep(sessionId, session);
 
-            if (session.getCurrentStep() >= session.getTotalSteps()) {
-                completeInternal(session);
+            return StepExecutionResultDto.builder()
+                    .stepNumber(nextStep.getStepNumber())
+                    .success(true)
+                    .build();
+        }
+    }
+
+    @Transactional
+    public SimulationStatusResponseDto rewindToStep(String sessionId, int stepNumber) {
+        synchronized (getExecutionLock(sessionId)) {
+            SimulationSession session = getSessionOrThrow(sessionId);
+            List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
+
+            if (stepNumber < 0 || stepNumber > steps.size()) {
+                throw new InvalidSimulationStateException("stepNumber must be between 0 and " + steps.size());
             }
 
-            return getStatus(sessionId);
+            LocalDateTime now = LocalDateTime.now();
+            for (SimulationStep step : steps) {
+                if (step.getStepNumber() <= stepNumber) {
+                    step.setStatus(StepStatus.EXECUTED);
+                    if (step.getExecutedAt() == null) {
+                        step.setExecutedAt(now);
+                    }
+                } else {
+                    step.setStatus(StepStatus.PENDING);
+                    step.setExecutedAt(null);
+                }
+            }
+            simulationStepRepository.saveAll(steps);
+
+            session.setCurrentStep(stepNumber);
+            if (stepNumber >= steps.size()) {
+                session.setStatus(SimulationStatus.COMPLETED);
+                session.setCompletedAt(now);
+            } else {
+                session.setStatus(SimulationStatus.RUNNING);
+                session.setCompletedAt(null);
+            }
+            simulationSessionRepository.save(session);
+            return mapStatusResponse(session, steps);
         }
     }
 
-    @Transactional
-    public SimulationStatusResponseDto complete(String sessionId) {
+    public SimulationStatusResponseDto getStatus(String sessionId) {
         SimulationSession session = getSessionOrThrow(sessionId);
-
-        if (session.getStatus() == SimulationStatus.CANCELLED) {
-            throw new InvalidSimulationStateException("Cancelled simulation cannot be completed.");
-        }
-        if (session.getStatus() == SimulationStatus.COMPLETED) {
-            return getStatus(sessionId);
-        }
-        if (session.getStatus() != SimulationStatus.RUNNING && session.getStatus() != SimulationStatus.PAUSED) {
-            throw new InvalidSimulationStateException("Only RUNNING or PAUSED simulation can be completed.");
-        }
-
-        completeInternal(session);
-        return getStatus(sessionId);
-    }
-
-    @Transactional
-    public SimulationStatusResponseDto pause(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-        validateState(session, SimulationStatus.RUNNING, "Only RUNNING simulation can be paused.");
-
-        session.setStatus(SimulationStatus.PAUSED);
-        simulationSessionRepository.save(session);
-        return getStatus(sessionId);
-    }
-
-    @Transactional
-    public SimulationStatusResponseDto resume(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-        validateState(session, SimulationStatus.PAUSED, "Only PAUSED simulation can be resumed.");
-
-        session.setStatus(SimulationStatus.RUNNING);
-        simulationSessionRepository.save(session);
-        return getStatus(sessionId);
-    }
-
-    @Transactional
-    public SimulationStatusResponseDto cancel(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-
-        if (session.getStatus() == SimulationStatus.CANCELLED) {
-            return getStatus(sessionId);
-        }
-        if (session.getStatus() == SimulationStatus.COMPLETED) {
-            throw new InvalidSimulationStateException("Completed simulation cannot be cancelled.");
-        }
-
-        markPendingAsSkipped(sessionId);
-        session.setStatus(SimulationStatus.CANCELLED);
-        session.setCompletedAt(LocalDateTime.now());
-        simulationSessionRepository.save(session);
-
-        return getStatus(sessionId);
+        List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
+        return mapStatusResponse(session, steps);
     }
 
     public List<SimulationStepHistoryItemDto> history(String sessionId) {
         getSessionOrThrow(sessionId);
         return mapHistory(simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId));
+    }
+
+    private Object getExecutionLock(String sessionId) {
+        return sessionExecutionLocks.computeIfAbsent(sessionId, key -> new Object());
     }
 
     private SimulationSession getSessionOrThrow(String sessionId) {
@@ -216,30 +186,72 @@ public class SimulationService {
         }
     }
 
-    private void completeInternal(SimulationSession session) {
-        markPendingAsSkipped(session.getId());
-        session.setStatus(SimulationStatus.COMPLETED);
-        session.setCompletedAt(LocalDateTime.now());
+    private List<MainServiceStepDto> fetchRecipeSteps(String recipeId) {
+        try {
+            return mainServiceClient.getRecipeSteps(recipeId);
+        } catch (Exception exception) {
+            throw new MainServiceCommunicationException(
+                    "Failed to fetch recipe steps from main-service for recipeId=" + recipeId,
+                    exception
+            );
+        }
+    }
+
+    private void validateMainServiceSteps(List<MainServiceStepDto> steps) {
+        for (MainServiceStepDto step : steps) {
+            if (step.description() == null || step.description().isBlank()) {
+                throw new InvalidSimulationStateException("Invalid step description from main-service.");
+            }
+        }
+    }
+
+    private List<MainServiceStepDto> normalizeStepsForSession(List<MainServiceStepDto> steps) {
+        AtomicInteger nextStepNumber = new AtomicInteger(1);
+        return steps.stream()
+                .sorted(Comparator.comparing(MainServiceStepDto::stepNumber, Comparator.nullsLast(Integer::compareTo)))
+                .map(step -> new MainServiceStepDto(
+                        step.id(),
+                        nextStepNumber.getAndIncrement(),
+                        step.description(),
+                        step.parameters(),
+                        step.durationMinutes(),
+                        step.recipeId()
+                ))
+                .toList();
+    }
+
+    private SimulationStep toPendingStep(String sessionId, MainServiceStepDto step) {
+        SimulationStep simulationStep = new SimulationStep();
+        simulationStep.setSessionId(sessionId);
+        simulationStep.setStepNumber(step.stepNumber());
+        simulationStep.setRecipeName(step.description());
+        simulationStep.setPreparationTime(formatDuration(step.durationMinutes()));
+        simulationStep.setStatus(StepStatus.PENDING);
+        return simulationStep;
+    }
+
+    private String formatDuration(Integer durationMinutes) {
+        if (durationMinutes == null) {
+            return null;
+        }
+        return durationMinutes + " minutes";
+    }
+
+    private void finalizeIfLastStep(String sessionId, SimulationSession session) {
+        long pendingSteps = simulationStepRepository.countBySessionIdAndStatus(sessionId, StepStatus.PENDING);
+        if (pendingSteps == 0) {
+            session.setStatus(SimulationStatus.COMPLETED);
+            session.setCompletedAt(LocalDateTime.now());
+        }
         simulationSessionRepository.save(session);
     }
 
-    private void markPendingAsSkipped(String sessionId) {
-        List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
-        LocalDateTime now = LocalDateTime.now();
-
-        for (SimulationStep step : steps) {
-            if (step.getStatus() == StepStatus.PENDING) {
-                step.setStatus(StepStatus.SKIPPED);
-                step.setExecutedAt(now);
-            }
-        }
-
-        simulationStepRepository.saveAll(steps);
-    }
-
     private SimulationStatusResponseDto mapStatusResponse(SimulationSession session, List<SimulationStep> steps) {
-        long executedSteps = simulationStepRepository.countBySessionIdAndStatus(session.getId(), StepStatus.EXECUTED);
-        int recalculatedCurrentStep = (int) executedSteps;
+        int recalculatedCurrentStep = steps.stream()
+                .filter(step -> step.getStatus() == StepStatus.EXECUTED)
+                .mapToInt(SimulationStep::getStepNumber)
+                .max()
+                .orElse(0);
         if (session.getCurrentStep() != recalculatedCurrentStep) {
             session.setCurrentStep(recalculatedCurrentStep);
             simulationSessionRepository.save(session);
@@ -250,7 +262,7 @@ public class SimulationService {
                 session.getStatus().name(),
                 session.getCurrentStep(),
                 session.getTotalSteps(),
-                0,
+                session.getTotalRecipes(),
                 session.getMessage(),
                 mapHistory(steps)
         );
