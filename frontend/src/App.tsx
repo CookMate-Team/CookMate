@@ -1,5 +1,7 @@
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { SourceToggle } from './components/SourceToggle';
+import { RecipeGallery } from './components/RecipeGallery';
 
 function App() {
   return (
@@ -12,6 +14,12 @@ function App() {
             Explore our vast collection of recipes or discover something entirely new to cook today.
           </p>
         </div>
+
+        <SourceToggle />
+
+         <div className='pt-8'>
+            <RecipeGallery />
+         </div>
 
       </main>
       <Footer />
