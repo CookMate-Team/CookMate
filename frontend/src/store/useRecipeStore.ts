@@ -8,7 +8,7 @@ interface RecipeState {
 }
 
 export const useRecipeStore = create<RecipeState>((set) => ({
-  source: 'LOCAL',
+  source: 'DISCOVERY',
   setSource: (source) => set({ source }),
   searchQuery: 'Chicken',
   setSearchQuery: (searchQuery) => set({ searchQuery }),

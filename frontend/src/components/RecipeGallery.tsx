@@ -1,7 +1,11 @@
 import { RecipeCard } from './RecipeCard';
 import { useRecipeStore } from '../store/useRecipeStore';
 import { useDiscoveryRecipes } from '../hooks/useDiscoveryRecipes';
-import { useState } from 'react';
+import { useMealDetails } from '../hooks/useMealDetails';
+import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
+import { ExpandedRecipeCard } from './ExpandedRecipeCard';
+import { useGridCols } from '../hooks/useGridCols';
+import gsap from 'gsap';
 
 // Temporary mock data for prototype LOCAL
 const MOCK_RECIPES = [
@@ -16,8 +20,100 @@ const MOCK_RECIPES = [
 export function RecipeGallery() {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
   const [searchInput, setSearchInput] = useState(searchQuery);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [pendingRecipeId, setPendingRecipeId] = useState<string | null>(null);
+  const expandedRef = useRef<HTMLDivElement>(null);
+  const cols = useGridCols();
   
-  const { data, isLoading, isError } = useDiscoveryRecipes(searchQuery);
+  const { data: listData, isLoading: isListLoading, isError: isListError } = useDiscoveryRecipes(searchQuery);
+  
+  const fetchId = pendingRecipeId || selectedRecipeId;
+  const { isLoading: isDetailsLoading } = useMealDetails(fetchId);
+
+  const handleSelect = useCallback((id: string | null) => {
+    if (id === null) {
+      // Animate close, then unmount
+      const wrapper = expandedRef.current;
+      if (wrapper) {
+        gsap.to(wrapper, {
+          height: 0,
+          opacity: 0,
+          duration: 0.4,
+          ease: 'power2.inOut',
+          onComplete: () => {
+            setSelectedRecipeId(null);
+            setPendingRecipeId(null);
+          }
+        });
+      } else {
+        setSelectedRecipeId(null);
+        setPendingRecipeId(null);
+      }
+    } else {
+      // If switching from one expanded card to another, close first
+      if (selectedRecipeId) {
+        setSelectedRecipeId(null);
+        setTimeout(() => {
+          if (source === 'LOCAL') {
+            setSelectedRecipeId(id);
+          } else {
+            setPendingRecipeId(id);
+          }
+        }, 50);
+      } else {
+        if (source === 'LOCAL') {
+          setSelectedRecipeId(id);
+        } else {
+          setPendingRecipeId(id);
+        }
+      }
+    }
+  }, [selectedRecipeId, source]);
+
+  // Wait for details to load, then expand
+  useEffect(() => {
+    if (pendingRecipeId && !isDetailsLoading) {
+      setSelectedRecipeId(pendingRecipeId);
+      setPendingRecipeId(null);
+    }
+  }, [pendingRecipeId, isDetailsLoading]);
+
+  // Animate expand when a card is selected
+  useLayoutEffect(() => {
+    if (selectedRecipeId && expandedRef.current) {
+      const el = expandedRef.current;
+      gsap.fromTo(el, 
+        { height: 0, opacity: 0, overflow: 'hidden' },
+        { 
+          height: 'auto', 
+          opacity: 1, 
+          duration: 0.5, 
+          ease: 'power3.out',
+          onComplete: () => {
+            gsap.set(el, { clearProps: 'height,overflow' });
+          }
+        }
+      );
+    }
+  }, [selectedRecipeId]);
+
+  const reorderToRowStart = <T extends Record<string, any>>(array: T[], selectedId: string | null, idKey: keyof T): T[] => {
+    if (!selectedId) return array;
+    
+    const index = array.findIndex(item => item[idKey] === selectedId);
+    if (index === -1) return array;
+
+    const rowStartIndex = Math.floor(index / cols) * cols;
+    
+    const newArray = [...array];
+    const [selectedItem] = newArray.splice(index, 1);
+    newArray.splice(rowStartIndex, 0, selectedItem);
+    
+    return newArray;
+  };
+
+  const sortedMockRecipes = reorderToRowStart(MOCK_RECIPES, selectedRecipeId, 'id');
+  const sortedDiscoveryMeals = reorderToRowStart(listData?.meals || [], selectedRecipeId, 'idMeal');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,39 +139,67 @@ export function RecipeGallery() {
         </form>
       )}
 
-      {source === 'DISCOVERY' && isLoading && (
+      {source === 'DISCOVERY' && isListLoading && (
         <div className="text-center text-stone-500 py-10">Loading discovery recipes...</div>
       )}
 
-      {source === 'DISCOVERY' && isError && (
+      {source === 'DISCOVERY' && isListError && (
         <div className="text-center text-red-500 py-10">Failed to load recipes. Is the backend running?</div>
       )}
 
-      {source === 'DISCOVERY' && data?.meals?.length === 0 && (
+      {source === 'DISCOVERY' && listData?.meals?.length === 0 && (
         <div className="text-center text-stone-500 py-10">No meals found.</div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {source === 'LOCAL' && MOCK_RECIPES.map((recipe) => (
-          <RecipeCard
-            key={recipe.id}
-            id={recipe.id}
-            name={recipe.name}
-            time={recipe.time}
-            category={recipe.category}
-            imageUrl={recipe.imageUrl}
-          />
+        {source === 'LOCAL' && sortedMockRecipes.map((recipe) => (
+          <div 
+            key={recipe.id} 
+            className={selectedRecipeId === recipe.id ? 'col-span-full' : ''}
+          >
+            {selectedRecipeId === recipe.id ? (
+              <div ref={expandedRef}>
+                <ExpandedRecipeCard 
+                  id={recipe.id} 
+                  onClose={() => handleSelect(null)} 
+                />
+              </div>
+            ) : (
+              <RecipeCard
+                id={recipe.id}
+                name={recipe.name}
+                time={recipe.time}
+                category={recipe.category}
+                imageUrl={recipe.imageUrl}
+                onClick={handleSelect}
+              />
+            )}
+          </div>
         ))}
 
-        {source === 'DISCOVERY' && data?.meals && data.meals.map((meal) => (
-          <RecipeCard
-            key={meal.idMeal}
-            id={meal.idMeal}
-            name={meal.strMeal}
-            category={meal.strCategory}
-            imageUrl={meal.strMealThumb}
-            // time is not provided by MealDB
-          />
+        {source === 'DISCOVERY' && sortedDiscoveryMeals.map((meal) => (
+          <div 
+            key={meal.idMeal} 
+            className={selectedRecipeId === meal.idMeal ? 'col-span-full' : ''}
+          >
+            {selectedRecipeId === meal.idMeal ? (
+              <div ref={expandedRef}>
+                <ExpandedRecipeCard 
+                  id={meal.idMeal} 
+                  onClose={() => handleSelect(null)} 
+                />
+              </div>
+            ) : (
+              <RecipeCard
+                id={meal.idMeal}
+                name={meal.strMeal}
+                category={meal.strCategory}
+                imageUrl={meal.strMealThumb}
+                onClick={handleSelect}
+                isPending={pendingRecipeId === meal.idMeal}
+              />
+            )}
+          </div>
         ))}
       </div>
       

@@ -9,3 +9,11 @@ export const fetchDiscoveryRecipes = async (query: string): Promise<MealSearchRe
   }
   return response.json();
 };
+
+export const fetchMealDetails = async (id: string): Promise<MealSearchResponse> => {
+  const response = await fetch(`${API_BASE_URL}/v1/discovery/lookup/${id}`);
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+  return response.json();
+};
