@@ -149,3 +149,22 @@ services:
       timeout: 10s
       retries: 8
       start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Frontend Service (port 5173)
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cookmate-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      API_URL: http://main-service:8081
+    depends_on:
+      main-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
