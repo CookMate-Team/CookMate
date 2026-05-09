@@ -15,6 +15,8 @@ public interface SimulationStepRepository extends JpaRepository<SimulationStep, 
 
     List<SimulationStep> findBySessionIdOrderByStepNumberAsc(String sessionId);
 
+    Optional<SimulationStep> findBySessionIdAndStepNumber(String sessionId, int stepNumber);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<SimulationStep> findFirstBySessionIdAndStatusOrderByStepNumberAsc(String sessionId, StepStatus status);
 

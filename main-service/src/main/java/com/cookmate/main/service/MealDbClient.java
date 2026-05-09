@@ -55,7 +55,7 @@ public class MealDbClient {
 
     private <T> Mono<T> fetch(String url, Class<T> responseType) {
         return webClient.get()
-                .uri(url)
+                .uri(BASE_URL + url)
                 .retrieve()
                 .bodyToMono(responseType)
                 .onErrorMap(ex -> new RuntimeException("Error calling TheMealDB API: " + ex.getMessage())); // To mapowanie jest kluczowe!

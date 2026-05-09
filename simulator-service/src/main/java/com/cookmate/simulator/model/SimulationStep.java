@@ -48,10 +48,10 @@ public class SimulationStep {
     @Column(name = "recipe_id")
     private Long recipeId;
 
-    @Column(name = "recipe_name")
+    @Column(name = "recipe_name", columnDefinition = "TEXT")
     private String recipeName;
 
-    @Column(name = "preparation_time")
+    @Column(name = "preparation_time", columnDefinition = "TEXT")
     private String preparationTime;
 
     @Enumerated(EnumType.STRING)

@@ -106,10 +106,10 @@ cd simulator-service && mvn spring-boot:run
 
 | Metoda | Ścieżka                         | Opis                              |
 |--------|---------------------------------|-----------------------------------|
-| GET    | `/api/simulator/recipes`        | Lista przepisów (via main-service)|
-| GET    | `/api/simulator/recipes/{id}`   | Szczegóły przepisu                |
-| GET    | `/api/simulator/meal-plan?days=7`| Wygeneruj plan posiłków           |
-| GET    | `/api/simulator/health-check`   | Sprawdź połączenie z main-service |
+| POST   | `/api/simulator/sessions/start` | Start sesji dla recipeId          |
+| POST   | `/api/simulator/sessions/{sessionId}/steps/execute` | Wykonaj kolejny krok |
+| GET    | `/api/simulator/sessions/{sessionId}/status` | Odczyt postępu sesji |
+| GET    | `/api/simulator/sessions/{sessionId}/history` | Historia kroków |
 | GET    | `/actuator/health`              | Health check                      |
 
 ### discovery-service (`http://localhost:8761`)
