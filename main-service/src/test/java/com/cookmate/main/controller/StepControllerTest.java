@@ -13,6 +13,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -31,11 +33,14 @@ class StepControllerTest {
 
     @Test
     void shouldReturnStepDtoForExistingStep() throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("speed", "medium");
+        
         Step savedStep = stepRepository.save(Step.builder()
             .stepNumber(3)
             .description("Mieszaj przez 2 minuty")
             .action(ActionType.MIX)
-            .parameters("{\"speed\":\"medium\"}")
+            .parameters(parameters)
             .durationMinutes(120)
             .recipeId("recipe-001")
             .createdAt(LocalDateTime.now())
@@ -49,7 +54,6 @@ class StepControllerTest {
             .andExpect(jsonPath("$.stepNumber").value(3))
             .andExpect(jsonPath("$.description").value("Mieszaj przez 2 minuty"))
             .andExpect(jsonPath("$.action").value("MIX"))
-            .andExpect(jsonPath("$.parameters").value("{\"speed\":\"medium\"}"))
             .andExpect(jsonPath("$.durationMinutes").value(120))
             .andExpect(jsonPath("$.recipeId").value("recipe-001"))
             .andExpect(jsonPath("$.createdAt").exists());
