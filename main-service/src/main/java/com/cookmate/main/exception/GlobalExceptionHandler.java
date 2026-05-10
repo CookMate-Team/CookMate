@@ -1,16 +1,25 @@
 package com.cookmate.main.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Global exception handler for REST endpoints.
@@ -19,6 +28,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     /**
      * Handle validation errors.
      *
@@ -26,34 +37,41 @@ public class GlobalExceptionHandler {
      * @return error response with field error details
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
+    public ResponseEntity<ApiErrorResponse> handleValidationException(
+        MethodArgumentNotValidException ex,
+        HttpServletRequest request
+    ) {
+        List<ApiErrorDetail> details = Stream.concat(
+            ex.getBindingResult().getFieldErrors().stream()
+                .map(fieldError -> new ApiErrorDetail(fieldError.getField(), fieldError.getDefaultMessage())),
+            ex.getBindingResult().getGlobalErrors().stream()
+                .map(error -> new ApiErrorDetail(error.getObjectName(), error.getDefaultMessage()))
+        ).toList();
 
-        ErrorResponse errorResponse = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.BAD_REQUEST.value(),
-            "Validation failed",
-            errors
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.REQUEST_VALIDATION_FAILED,
+            "Request validation failed",
+            details,
+            request
         );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    @ExceptionHandler(StepNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleStepNotFoundException(StepNotFoundException ex) {
-        ErrorResponse errorResponse = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.NOT_FOUND.value(),
-            ex.getMessage(),
-            null
-        );
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiErrorResponse> handleApiException(ApiException ex, HttpServletRequest request) {
+        if (ex.getStatus().is5xxServerError()) {
+            logger.error("API error: {} [{}]", ex.getMessage(), ex.getErrorCode(), ex);
+        } else {
+            logger.warn("API error: {} [{}]", ex.getMessage(), ex.getErrorCode());
+        }
 
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return buildErrorResponse(
+            ex.getStatus(),
+            ex.getErrorCode(),
+            ex.getMessage(),
+            List.of(),
+            request
+        );
     }
 
     /**
@@ -63,71 +81,174 @@ public class GlobalExceptionHandler {
      * @return error response with constraint details
      */
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getConstraintViolations().forEach(cv -> {
-            String field = cv.getPropertyPath().toString();
-            errors.put(field, cv.getMessage());
-        });
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolationException(
+        ConstraintViolationException ex,
+        HttpServletRequest request
+    ) {
+        List<ApiErrorDetail> details = ex.getConstraintViolations().stream()
+            .map(cv -> new ApiErrorDetail(cv.getPropertyPath().toString(), cv.getMessage()))
+            .toList();
 
-        ErrorResponse errorResponse = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.BAD_REQUEST.value(),
-            "Validation failed",
-            errors
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.REQUEST_VALIDATION_FAILED,
+            "Request validation failed",
+            details,
+            request
         );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    /**
-     * Handle invalid input parameters.
-     *
-     * @param ex IllegalArgumentException
-     * @return error response
-     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingRequestParameterException(
+        MissingServletRequestParameterException ex,
+        HttpServletRequest request
+    ) {
+        List<ApiErrorDetail> details = List.of(new ApiErrorDetail(ex.getParameterName(), "Parameter is required"));
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.REQUEST_VALIDATION_FAILED,
+            ex.getMessage(),
+            details,
+            request
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodArgumentTypeMismatchException(
+        MethodArgumentTypeMismatchException ex,
+        HttpServletRequest request
+    ) {
+        String message = "Invalid value for parameter '" + ex.getName() + "'";
+        List<ApiErrorDetail> details = List.of(
+            new ApiErrorDetail(ex.getName(), ex.getValue() == null ? "null" : ex.getValue().toString())
+        );
+
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.ARGUMENT_TYPE_MISMATCH,
+            message,
+            details,
+            request
+        );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadableException(
+        HttpMessageNotReadableException ex,
+        HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.REQUEST_BODY_INVALID,
+            "Malformed request body",
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpRequestMethodNotSupportedException(
+        HttpRequestMethodNotSupportedException ex,
+        HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+            HttpStatus.METHOD_NOT_ALLOWED,
+            ErrorCode.METHOD_NOT_ALLOWED,
+            ex.getMessage(),
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpMediaTypeNotSupportedException(
+        HttpMediaTypeNotSupportedException ex,
+        HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+            HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+            ErrorCode.MEDIA_TYPE_NOT_SUPPORTED,
+            ex.getMessage(),
+            List.of(),
+            request
+        );
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
-        ErrorResponse errorResponse = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.BAD_REQUEST.value(),
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(
+        IllegalArgumentException ex,
+        HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.REQUEST_VALIDATION_FAILED,
             ex.getMessage(),
-            null
+            List.of(),
+            request
         );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    /**
-     * Handle general runtime exceptions.
-     *
-     * @param ex RuntimeException
-     * @return error response
-     */
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-        ErrorResponse errorResponse = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            ex.getMessage(),
-            null
-        );
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
+        Throwable rootCause = ex;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        if (rootCause instanceof ApiException apiException) {
+            logger.warn("Resolved wrapped API exception: {} [{}]", apiException.getMessage(), apiException.getErrorCode());
+            return buildErrorResponse(
+                apiException.getStatus(),
+                apiException.getErrorCode(),
+                apiException.getMessage(),
+                List.of(),
+                request
+            );
+        }
+
+        logger.error("Unhandled exception", ex);
+        return buildErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            "An unexpected error occurred",
+            List.of(),
+            request
+        );
     }
 
-    /**
-     * Error response DTO.
-     *
-     * @param timestamp error occurrence timestamp
-     * @param status HTTP status code
-     * @param message error message
-     * @param details additional error details
-     */
-    public record ErrorResponse(
-        LocalDateTime timestamp,
-        int status,
+    private ResponseEntity<ApiErrorResponse> buildErrorResponse(
+        HttpStatus status,
+        ErrorCode code,
         String message,
-        Map<String, String> details
-    ) {}
+        List<ApiErrorDetail> details,
+        HttpServletRequest request
+    ) {
+        String traceId = resolveTraceId(request);
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+            Instant.now(),
+            status.value(),
+            status.getReasonPhrase(),
+            code.name(),
+            message,
+            request.getRequestURI(),
+            traceId,
+            details
+        );
+
+        return ResponseEntity.status(status)
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("X-Trace-Id", traceId)
+            .body(errorResponse);
+    }
+
+    private String resolveTraceId(HttpServletRequest request) {
+        String traceId = request.getHeader("X-Trace-Id");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = request.getHeader("X-Request-Id");
+        }
+        if (traceId == null || traceId.isBlank()) {
+            traceId = UUID.randomUUID().toString();
+        }
+        return traceId;
+    }
 }

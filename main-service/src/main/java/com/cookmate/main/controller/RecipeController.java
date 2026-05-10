@@ -85,9 +85,7 @@ public class RecipeController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<Recipe> getById(@PathVariable Long id) {
-        return recipeService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(recipeService.findByIdOrThrow(id));
     }
 
     /**
@@ -133,9 +131,7 @@ public class RecipeController {
             request.instructions(),
             request.preparationTimeMinutes()
         );
-        return recipeService.update(id, updated)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(recipeService.updateOrThrow(id, updated));
     }
 
     /**
@@ -146,10 +142,8 @@ public class RecipeController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (recipeService.deleteById(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+        recipeService.deleteByIdOrThrow(id);
+        return ResponseEntity.noContent().build();
     }
 }
 

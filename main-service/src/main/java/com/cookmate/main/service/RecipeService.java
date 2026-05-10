@@ -1,6 +1,7 @@
 package com.cookmate.main.service;
 
 import com.cookmate.main.dto.*;
+import com.cookmate.main.exception.RecipeNotFoundException;
 import com.cookmate.main.model.Recipe;
 import com.cookmate.main.repository.RecipeRepository;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,11 @@ public class RecipeService {
 
     public Optional<Recipe> findById(Long id) {
         return recipeRepository.findById(id);
+    }
+
+    public Recipe findByIdOrThrow(Long id) {
+        return recipeRepository.findById(id)
+            .orElseThrow(() -> new RecipeNotFoundException(id));
     }
 
     public List<Recipe> findByName(String name) {
@@ -98,12 +104,29 @@ public class RecipeService {
         });
     }
 
+    public Recipe updateOrThrow(Long id, Recipe updated) {
+        Recipe existing = findByIdOrThrow(id);
+        existing.setName(updated.getName());
+        existing.setDescription(updated.getDescription());
+        existing.setIngredients(updated.getIngredients());
+        existing.setInstructions(updated.getInstructions());
+        existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
+        return recipeRepository.save(existing);
+    }
+
     public boolean deleteById(Long id) {
         if (recipeRepository.existsById(id)) {
             recipeRepository.deleteById(id);
             return true;
         }
         return false;
+    }
+
+    public void deleteByIdOrThrow(Long id) {
+        if (!recipeRepository.existsById(id)) {
+            throw new RecipeNotFoundException(id);
+        }
+        recipeRepository.deleteById(id);
     }
 
     public Mono<MealSearchResponse> searchMealsByName(String name) {

@@ -3,6 +3,8 @@ package com.cookmate.main.service;
 import com.cookmate.main.dto.StepDTO;
 import com.cookmate.main.dto.StepGenerationRequest;
 import com.cookmate.main.dto.StepGenerationResponse;
+import com.cookmate.main.exception.ExternalServiceException;
+import com.cookmate.main.exception.MealNotFoundException;
 import com.cookmate.main.exception.StepNotFoundException;
 import com.cookmate.main.mapper.StepMapper;
 import com.cookmate.main.model.Step;
@@ -60,69 +62,59 @@ public class StepService {
     @Transactional
     public StepGenerationResponse generateSteps(StepGenerationRequest request) {
         String mealId = request.mealId();
-        
+
         // 1. Sprawdzić czy kroki już istnieją dla tego mealId
         List<Step> existingSteps = stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId);
-        
+
         if (!existingSteps.isEmpty()) {
             logger.info("Zwracanie istniejących kroków dla mealId: {}", mealId);
             List<StepDTO> stepDTOs = existingSteps.stream()
                 .map(stepMapper::toDTO)
                 .toList();
-            
+
             return new StepGenerationResponse(mealId, null, stepDTOs);
         }
-        
+
         // 2. Kroki nie istnieją - pobrać przepis z TheMealDB
         logger.info("Pobieranie przepisu z TheMealDB dla mealId: {}", mealId);
-        
-        try {
-            var mealResponse = mealDbClient.lookupById(mealId).block();
-            
-            if (mealResponse == null || mealResponse.meals() == null || mealResponse.meals().isEmpty()) {
-                logger.error("Przepis nie znaleziony w TheMealDB dla mealId: {}", mealId);
-                return new StepGenerationResponse(mealId, null, List.of());
-            }
-            
-            var meal = mealResponse.meals().get(0);
-            String recipeInstructions = meal.strInstructions();
-            String recipeName = meal.strMeal();
-            
-            logger.info("Wysyłanie przepisu '{}' do Groq LLM...", recipeName);
-            var llmResponse = groqClient.generateSteps(recipeInstructions).block();
-            
-            if (llmResponse == null || llmResponse.steps().isEmpty()) {
-                logger.warn("LLM zwrócił pustą listę kroków dla mealId: {}", mealId);
-                return new StepGenerationResponse(mealId, recipeName, List.of());
-            }
-            
-            // 3. Zapisać kroki do bazy
-            logger.info("Zapisywanie {} kroków do bazy dla mealId: {}", llmResponse.steps().size(), mealId);
-            List<Step> stepsToSave = llmResponse.steps().stream()
-                .map(llmStep -> Step.builder()
-                    .stepNumber(llmStep.stepNumber())
-                    .description(llmStep.description())
-                    .action(llmStep.action())
-                    .mainIngredient(llmStep.mainIngredient())
-                    .durationMinutes(llmStep.duration())
-                    .parameters(convertParametersToJsonString(llmStep.parameters()))
-                    .recipeId(mealId)
-                    .build())
-                .toList();
-            
-            List<Step> savedSteps = stepRepository.saveAll(stepsToSave);
-            
-            // 4. Zmapować na DTOs i zwrócić
-            List<StepDTO> stepDTOs = savedSteps.stream()
-                .map(stepMapper::toDTO)
-                .toList();
-            
-            return new StepGenerationResponse(mealId, recipeName, stepDTOs);
-            
-        } catch (Exception e) {
-            logger.error("Błąd podczas generowania kroków dla mealId: {}", mealId, e);
-            return new StepGenerationResponse(mealId, null, List.of());
+
+        var mealResponse = mealDbClient.lookupById(mealId).block();
+        if (mealResponse == null || mealResponse.meals() == null || mealResponse.meals().isEmpty()) {
+            throw new MealNotFoundException(mealId);
         }
+
+        var meal = mealResponse.meals().get(0);
+        String recipeInstructions = meal.strInstructions();
+        String recipeName = meal.strMeal();
+
+        logger.info("Wysyłanie przepisu '{}' do Groq LLM...", recipeName);
+        var llmResponse = groqClient.generateSteps(recipeInstructions).block();
+        if (llmResponse == null || llmResponse.steps().isEmpty()) {
+            throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
+        }
+
+        // 3. Zapisać kroki do bazy
+        logger.info("Zapisywanie {} kroków do bazy dla mealId: {}", llmResponse.steps().size(), mealId);
+        List<Step> stepsToSave = llmResponse.steps().stream()
+            .map(llmStep -> Step.builder()
+                .stepNumber(llmStep.stepNumber())
+                .description(llmStep.description())
+                .action(llmStep.action())
+                .mainIngredient(llmStep.mainIngredient())
+                .durationMinutes(llmStep.duration())
+                .parameters(convertParametersToJsonString(llmStep.parameters()))
+                .recipeId(mealId)
+                .build())
+            .toList();
+
+        List<Step> savedSteps = stepRepository.saveAll(stepsToSave);
+
+        // 4. Zmapować na DTOs i zwrócić
+        List<StepDTO> stepDTOs = savedSteps.stream()
+            .map(stepMapper::toDTO)
+            .toList();
+
+        return new StepGenerationResponse(mealId, recipeName, stepDTOs);
     }
 
     private String convertParametersToJsonString(Object parameters) {
@@ -132,8 +124,7 @@ public class StepService {
         try {
             return objectMapper.writeValueAsString(parameters);
         } catch (Exception e) {
-            logger.error("Błąd podczas konwersji parametrów urządzenia na JSON", e);
-            return "{}";
+            throw new IllegalStateException("Failed to serialize step parameters", e);
         }
     }
 }

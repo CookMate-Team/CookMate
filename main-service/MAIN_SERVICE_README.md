@@ -165,15 +165,32 @@ Bean: webClient() → WebClient
 Lokalizacja: src/main/java/com/cookmate/main/exception/GlobalExceptionHandler.java
 
 Obsługa:
-- MethodArgumentNotValidException (HTTP 400)
-  * Zwraca błędy walidacji na poziomie pól
-- StepNotFoundException (HTTP 404)
-  * Zwraca informację o braku kroku dla podanego ID
-  
-- RuntimeException (HTTP 500)
-  * Ogólna obsługa błędów
-  
-Odpowiedź: Record ErrorResponse z timestamp, status, message, details
+- ApiException (HTTP 4xx/5xx)
+  * Domenowe wyjątki aplikacyjne z ustalonym `code`
+- MethodArgumentNotValidException / ConstraintViolationException (HTTP 400)
+  * Walidacja requestów z listą szczegółów w `details`
+- HttpMessageNotReadableException (HTTP 400)
+  * Niepoprawny JSON/body requestu
+- HttpRequestMethodNotSupportedException (HTTP 405)
+  * Niedozwolona metoda HTTP
+- HttpMediaTypeNotSupportedException (HTTP 415)
+  * Nieobsługiwany Content-Type
+- Exception (HTTP 500)
+  * Fallback dla nieobsłużonych błędów
+
+Kontrakt błędu: `ApiErrorResponse` (`timestamp`, `status`, `error`, `code`, `message`, `path`, `traceId`, `details`)
+
+Przykładowe kody błędów:
+- `RECIPE_NOT_FOUND`
+- `STEP_NOT_FOUND`
+- `MEAL_NOT_FOUND`
+- `REQUEST_VALIDATION_FAILED`
+- `REQUEST_BODY_INVALID`
+- `ARGUMENT_TYPE_MISMATCH`
+- `METHOD_NOT_ALLOWED`
+- `MEDIA_TYPE_NOT_SUPPORTED`
+- `EXTERNAL_SERVICE_ERROR`
+- `INTERNAL_SERVER_ERROR`
 ```
 
 ### Przepływ Danych
@@ -220,20 +237,30 @@ Globalna obsługa wyjątków zwraca spójne odpowiedzi:
 
 ```json
 {
-  "timestamp": "2026-04-16T15:48:00...",
+  "timestamp": "2026-05-10T21:30:00Z",
   "status": 400,
-  "message": "Walidacja nie powiodła się",
-  "details": {
-    "name": "Nazwa przepisu nie może być pusta",
-    "ingredients": "Składniki nie mogą być puste"
-  }
+  "error": "Bad Request",
+  "code": "REQUEST_VALIDATION_FAILED",
+  "message": "Request validation failed",
+  "path": "/api/recipes",
+  "traceId": "8c9f44c7-8bc0-4c43-a613-531dc9f5a920",
+  "details": [
+    {
+      "field": "name",
+      "message": "Recipe name cannot be blank"
+    }
+  ]
 }
 
 {
-  "timestamp": "2026-04-16T15:48:00...",
-  "status": 500,
-  "message": "Błąd podczas wywoływania API TheMealDB: ...",
-  "details": null
+  "timestamp": "2026-05-10T21:30:00Z",
+  "status": 404,
+  "error": "Not Found",
+  "code": "RECIPE_NOT_FOUND",
+  "message": "Recipe with id 123 not found",
+  "path": "/api/recipes/123",
+  "traceId": "d4aa7f44-08b8-45dd-b15a-cf4d23dc9c7f",
+  "details": []
 }
 ```
 

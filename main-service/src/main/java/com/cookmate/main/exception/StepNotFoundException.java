@@ -1,8 +1,8 @@
 package com.cookmate.main.exception;
 
-public class StepNotFoundException extends RuntimeException {
+public class StepNotFoundException extends ResourceNotFoundException {
 
     public StepNotFoundException(Long stepId) {
-        super("Step with id " + stepId + " not found");
+        super(ErrorCode.STEP_NOT_FOUND, "Step with id " + stepId + " not found");
     }
 }
