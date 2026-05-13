@@ -54,6 +54,8 @@ class StepControllerTest {
             .andExpect(jsonPath("$.stepNumber").value(3))
             .andExpect(jsonPath("$.description").value("Mieszaj przez 2 minuty"))
             .andExpect(jsonPath("$.action").value("MIX"))
+            .andExpect(jsonPath("$.parameters").exists())
+            .andExpect(jsonPath("$.parameters.speed").value("medium"))
             .andExpect(jsonPath("$.durationMinutes").value(120))
             .andExpect(jsonPath("$.recipeId").value("recipe-001"))
             .andExpect(jsonPath("$.createdAt").exists());
