@@ -3,9 +3,10 @@ import { useMealDetails } from '../hooks/useMealDetails';
 interface ExpandedRecipeCardProps {
   id: string | null;
   onClose: () => void;
+  onStartCooking?: (id: string) => void;
 }
 
-export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
+export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedRecipeCardProps) {
   const { data, isLoading, isError } = useMealDetails(id);
 
   if (!id) return null;
@@ -93,8 +94,17 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
               </div>
             </div>
             
-            {meal.strYoutube && (
-              <div className="mt-8 pt-6 border-t border-stone-100">
+            <div className="mt-8 pt-6 border-t border-stone-100 flex flex-wrap items-center gap-4">
+              {onStartCooking && id && (
+                <button
+                  id="start-cooking-btn"
+                  onClick={(e) => { e.stopPropagation(); onStartCooking(id); }}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
+                >
+                  🍳 Rozpocznij gotowanie
+                </button>
+              )}
+              {meal.strYoutube && (
                 <a 
                   href={meal.strYoutube} 
                   target="_blank" 
@@ -106,8 +116,8 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
                   </svg>
                   Watch Video Recipe
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </>
       )}
