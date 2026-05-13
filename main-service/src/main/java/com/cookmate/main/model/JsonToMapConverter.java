@@ -36,8 +36,8 @@ public class JsonToMapConverter implements AttributeConverter<Map<String, Object
         try {
             return objectMapper.readValue(dbData, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            logger.error("Błąd podczas konwersji JSON do mapy parametrów", e);
-            return new HashMap<>();
+            logger.error("Błąd podczas konwersji JSON do mapy parametrów. Niepoprawne dane w bazie: {}", dbData, e);
+            throw new IllegalArgumentException("Niepoprawny JSON w kolumnie mapy parametrów", e);
         }
     }
 }
