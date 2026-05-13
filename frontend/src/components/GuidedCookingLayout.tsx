@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMealDetails } from '../hooks/useMealDetails';
+import { SimulatorPanel } from './SimulatorPanel';
 
 interface GuidedCookingLayoutProps {
   recipeId: string;
@@ -138,19 +139,14 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
           </div>
         </div>
 
-        {/* ── Simulator section (right on desktop) – GREEN PLACEHOLDER ──
-             Also uses overflow-y-scroll so scrollbar gutter matches the recipe panel.
-        */}
+        {/* ── Simulator section (right on desktop) ── */}
         <div
           className={`
-            overflow-y-scroll guided-scrollbar
             md:block md:w-1/2 md:flex-none
             ${activeView === 'simulator' ? 'block w-full' : 'hidden'}
           `}
         >
-          <div className="h-full flex items-center justify-center bg-green-500 m-4 rounded-2xl min-h-[300px]">
-            <p className="text-white text-xl sm:text-2xl font-bold text-center px-4">Simulator Panel Placeholder</p>
-          </div>
+          <SimulatorPanel recipeId={recipeId} recipeName={meal?.strMeal} />
         </div>
       </div>
     </div>

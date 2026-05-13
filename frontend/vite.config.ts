@@ -7,6 +7,10 @@ export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	server: {
 		proxy: {
+			'/api/simulator': {
+				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
+				changeOrigin: true,
+			},
 			'/api': {
 				target: process.env.API_URL || 'http://localhost:8081',
 				changeOrigin: true,
@@ -15,6 +19,10 @@ export default defineConfig({
 	},
 	preview: {
 		proxy: {
+			'/api/simulator': {
+				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
+				changeOrigin: true,
+			},
 			'/api': {
 				target: process.env.API_URL || 'http://localhost:8081',
 				changeOrigin: true,

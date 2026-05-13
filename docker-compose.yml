@@ -163,8 +163,11 @@ services:
       - "5173:5173"
     environment:
       API_URL: http://main-service:8081
+      SIMULATOR_URL: http://simulator-service:8082
     depends_on:
       main-service:
+        condition: service_healthy
+      simulator-service:
         condition: service_healthy
     networks:
       - cookmate-net
