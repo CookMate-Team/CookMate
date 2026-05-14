@@ -114,12 +114,14 @@ cd simulator-service && mvn spring-boot:run
 | GET    | `/api/recipes`        | Lista wszystkich przepisów|
 | GET    | `/api/recipes?name=X` | Szukaj przepisu po nazwie|
 | GET    | `/api/recipes/{id}`   | Pobierz przepis           |
+| GET    | `/api/recipes/{id}/steps` | Pobierz zapisane w bazie kroki dla przepisu (używane do synchronizacji UI) |
 | GET    | `/api/steps/{stepId}`     | Pobierz pojedynczy krok   |
+| POST   | `/api/steps/generate` | Generowanie kroków przepisu (LLM) do bazy (używane przed startem symulacji)|
 | POST   | `/api/recipes`        | Utwórz przepis            |
 | PUT    | `/api/recipes/{id}`   | Zaktualizuj przepis       |
 | DELETE | `/api/recipes/{id}`   | Usuń przepis              |
-| POST   | `/api/simulation-progress` | Otrzymaj event kroku od симуlatora |
-| GET    | `/api/simulation-progress/sessions/{sessionId}` | Historia sesji symulacji |
+| POST   | `/api/simulation-progress` | Otrzymaj event kroku od symulatora |
+| GET    | `/api/simulation-progress/sessions/{sessionId}` | Historia sesji symulacji (używane do poolowania progresu w UI) |
 | GET    | `/api/simulation-progress/sessions/{sessionId}/latest` | Ostatni wykonany krok |
 | GET    | `/api/simulation-progress/recipes/{recipeId}` | Historia przepisu |
 | GET    | `/actuator/health`    | Health check              |
