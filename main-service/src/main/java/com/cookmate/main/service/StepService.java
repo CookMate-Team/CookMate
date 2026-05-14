@@ -12,9 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,7 +28,6 @@ public class StepService {
     private final StepMapper stepMapper;
     private final MealDbClient mealDbClient;
     private final GroqClient groqClient;
-    private final ObjectMapper objectMapper;
 
     public StepDTO getStep(Long stepId) {
         Step step = stepRepository.findById(stepId)
@@ -105,7 +105,7 @@ public class StepService {
                     .action(llmStep.action())
                     .mainIngredient(llmStep.mainIngredient())
                     .durationMinutes(llmStep.duration())
-                    .parameters(convertParametersToJsonString(llmStep.parameters()))
+                    .parameters(Objects.requireNonNullElseGet(llmStep.parameters(), HashMap::new))
                     .recipeId(mealId)
                     .build())
                 .toList();
@@ -122,18 +122,6 @@ public class StepService {
         } catch (Exception e) {
             logger.error("Błąd podczas generowania kroków dla mealId: {}", mealId, e);
             return new StepGenerationResponse(mealId, null, List.of());
-        }
-    }
-
-    private String convertParametersToJsonString(Object parameters) {
-        if (parameters == null) {
-            return "{}";
-        }
-        try {
-            return objectMapper.writeValueAsString(parameters);
-        } catch (Exception e) {
-            logger.error("Błąd podczas konwersji parametrów urządzenia na JSON", e);
-            return "{}";
         }
     }
 }
