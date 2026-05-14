@@ -46,6 +46,24 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 - **Spring Data JPA** + **PostgreSQL**
 - **Docker** (multi-stage build) + **Docker Compose**
 
+## Ostatnie Zmiany
+
+### ✨ Komunikacja Real-Time Symulacji (v1.1)
+
+Zaimplementowano mechanizm notyfikacji kroków symulacji:
+
+- **Simulator-Service** wysyła notyfikację do **Main-Service** po każdym wykonanym kroku
+- **Main-Service** zapisuje postęp w tabeli `simulation_progress` (PostgreSQL)
+- **Frontend** może poolować endpointy `/api/simulation-progress/sessions/{sessionId}` w celu śledzenia postępu
+- Asynchroniczna wysyłka (nie blokuje głównego wątku симуlatora)
+- Deduplikacja eventów - brak duplikatów w bazie danych
+
+**Nowe komponenty:**
+- `StepCompletionEventDto` - format eventów
+- `SimulationProgress` - model do przechowywania historii
+- `SimulationProgressService` - logika obsługi eventów
+- `SimulationProgressController` - 4 nowe endpointy API
+
 ## Uruchomienie
 
 ### Docker Compose (zalecane)
@@ -100,6 +118,10 @@ cd simulator-service && mvn spring-boot:run
 | POST   | `/api/recipes`        | Utwórz przepis            |
 | PUT    | `/api/recipes/{id}`   | Zaktualizuj przepis       |
 | DELETE | `/api/recipes/{id}`   | Usuń przepis              |
+| POST   | `/api/simulation-progress` | Otrzymaj event kroku od симуlatora |
+| GET    | `/api/simulation-progress/sessions/{sessionId}` | Historia sesji symulacji |
+| GET    | `/api/simulation-progress/sessions/{sessionId}/latest` | Ostatni wykonany krok |
+| GET    | `/api/simulation-progress/recipes/{recipeId}` | Historia przepisu |
 | GET    | `/actuator/health`    | Health check              |
 
 ### simulator-service (`http://localhost:8082`)

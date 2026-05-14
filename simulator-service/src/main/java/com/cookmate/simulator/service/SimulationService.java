@@ -17,13 +17,17 @@ import com.cookmate.simulator.model.StepStatus;
 import com.cookmate.simulator.repository.SimulationSessionRepository;
 import com.cookmate.simulator.repository.SimulationStepRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -85,6 +89,9 @@ public class SimulationService {
             session.setTotalSteps(Math.max(session.getTotalSteps(), stepDto.stepNumber()));
             finalizeIfLastStep(sessionId, session);
 
+            // Asynchronicznie wysłać notyfikację do main-service
+            notifyMainServiceAsync(sessionId, stepDto.stepNumber(), "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
                     .success(true)
@@ -115,6 +122,9 @@ public class SimulationService {
 
             session.setCurrentStep(nextStep.getStepNumber());
             finalizeIfLastStep(sessionId, session);
+
+            // Asynchronicznie wysłać notyfikację do main-service
+            notifyMainServiceAsync(sessionId, nextStep.getStepNumber(), "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -279,5 +289,36 @@ public class SimulationService {
                         step.getExecutedAt()
                 ))
                 .toList();
+    }
+
+    /**
+     * Asynchronicznie wysyła notyfikację o wykonanym kroku do main-service.
+     * Nie blokuje bieżącego wątku - wysyłka odbywa się w tle.
+     * Jeśli wysyłka się nie powiedzie, loguje błąd ale nie rzuca wyjątku.
+     *
+     * @param sessionId ID sesji symulacji
+     * @param stepNumber numer wykonanego kroku
+     * @param status status kroku (np. EXECUTED)
+     * @param executedAt czas wykonania
+     * @param recipeId ID przepisu
+     */
+    private void notifyMainServiceAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
+        final Logger logger = LoggerFactory.getLogger(SimulationService.class);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Map<String, Object> event = Map.of(
+                        "sessionId", sessionId,
+                        "stepNumber", stepNumber,
+                        "status", status,
+                        "executedAt", executedAt,
+                        "recipeId", recipeId
+                );
+                mainServiceClient.notifyStepCompleted(event);
+                logger.info("Notyfikacja wysłana do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
+            } catch (Exception e) {
+                logger.error("Błąd podczas wysyłania notyfikacji do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
+            }
+        });
     }
 }
