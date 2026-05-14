@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMealDetails } from '../hooks/useMealDetails';
+import { useSimulationProgress } from '../hooks/useSimulationProgress';
+import { useRecipeSteps } from '../hooks/useRecipeSteps';
 import { SimulatorPanel } from './SimulatorPanel';
 
 interface GuidedCookingLayoutProps {
@@ -21,7 +23,32 @@ type ActiveView = 'recipe' | 'simulator';
 export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutProps) {
   const [activeView, setActiveView] = useState<ActiveView>('recipe');
   const { data, isLoading, isError } = useMealDetails(recipeId);
+  const { data: dbSteps } = useRecipeSteps(recipeId);
+  const { currentStep } = useSimulationProgress();
   const meal = data?.meals?.[0];
+  const stepRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  const instructionSteps = useMemo(() => {
+    if (dbSteps && dbSteps.length > 0) {
+      return dbSteps.map((step) => step.description);
+    }
+
+    if (!meal?.strInstructions) {
+      return [];
+    }
+
+    return meal.strInstructions
+      .split(/(?<=[.!?])\s+/)
+      .map((step) => step.trim())
+      .filter((step) => step.length > 0);
+  }, [meal?.strInstructions, dbSteps]);
+
+  useEffect(() => {
+    if (currentStep > 0) {
+      const element = stepRefs.current[currentStep];
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentStep]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -37,7 +64,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                 : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'
               }`}
           >
-            📖 Instrukcje
+            📖 Instructions
           </button>
           <button
             id="view-toggle-simulator"
@@ -48,7 +75,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                 : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'
               }`}
           >
-            🍳 Symulator
+            🍳 Simulator
           </button>
         </div>
       </div>
@@ -75,19 +102,19 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Wróć do przepisów
+              Back to recipes
             </button>
 
             {isLoading && (
               <div className="flex items-center justify-center py-20">
                 <div className="animate-pulse flex flex-col items-center gap-3">
-                  <span className="font-medium text-stone-500">Ładowanie przepisu…</span>
+                  <span className="font-medium text-stone-500">Loading recipe...</span>
                 </div>
               </div>
             )}
 
             {isError && (
-              <div className="text-center text-red-500 py-10">Nie udało się załadować przepisu.</div>
+              <div className="text-center text-red-500 py-10">Failed to load recipe.</div>
             )}
 
             {meal && (
@@ -111,7 +138,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
 
                 {/* Ingredients */}
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-amber-600 mb-3 sm:mb-4 border-b border-stone-100 pb-2">🧑‍🍳 Składniki</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-amber-600 mb-3 sm:mb-4 border-b border-stone-100 pb-2">🧑‍🍳 Ingredients</h2>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {Array.from({ length: 20 }).map((_, i) => {
                       const ingredient = meal[`strIngredient${i + 1}`];
@@ -131,8 +158,56 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
 
                 {/* Instructions */}
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-amber-600 mb-3 sm:mb-4 border-b border-stone-100 pb-2">📋 Instrukcje</h2>
-                  <div className="text-stone-600 leading-relaxed whitespace-pre-line text-sm sm:text-base">{meal.strInstructions}</div>
+                  <h2 className="text-lg sm:text-xl font-bold text-amber-600 mb-3 sm:mb-4 border-b border-stone-100 pb-2">📋 Instructions</h2>
+                  {/* If simulation is active, show steps with highlighting */}
+                  {currentStep > 0 ? (
+                    <div className="space-y-3">
+                      {instructionSteps.map((step, idx) => {
+                        const stepNum = idx + 1;
+                        const isCurrentStep = stepNum === currentStep;
+                        const isExecuted = stepNum < currentStep;
+                        
+                        return (
+                          <div
+                            key={idx}
+                            ref={(element) => {
+                              stepRefs.current[stepNum] = element;
+                            }}
+                            className={`p-3 rounded-lg border-l-4 transition-all duration-300
+                              ${isCurrentStep
+                                ? 'border-l-amber-500 bg-amber-50 ring-2 ring-amber-200'
+                                : isExecuted
+                                  ? 'border-l-green-500 bg-green-50 opacity-70'
+                                  : 'border-l-stone-300 bg-stone-50'
+                              }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className={`text-sm font-bold whitespace-nowrap flex-shrink-0
+                                ${isCurrentStep
+                                  ? 'text-amber-700'
+                                  : isExecuted
+                                    ? 'text-green-700'
+                                    : 'text-stone-400'
+                                }`}>
+                                {isCurrentStep ? '▶️' : isExecuted ? '✅' : '⏳'} Step {stepNum}
+                              </span>
+                              <p className={`text-sm sm:text-base leading-relaxed
+                                ${isCurrentStep
+                                  ? 'text-amber-900 font-semibold'
+                                  : isExecuted
+                                    ? 'text-green-800'
+                                    : 'text-stone-600'
+                                }`}>
+                                {step.trim()}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-stone-600 leading-relaxed whitespace-pre-line text-sm sm:text-base">{meal.strInstructions}</div>
+                  )}
                 </div>
               </>
             )}

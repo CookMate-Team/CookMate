@@ -21,7 +21,7 @@ export const generateSteps = async (mealId: string): Promise<void> => {
   });
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się wygenerować kroków przepisu');
+    throw new Error(errorBody || 'Failed to generate recipe steps');
   }
 };
 
@@ -36,7 +36,7 @@ export const startSimulation = async (
   });
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się rozpocząć symulacji');
+    throw new Error(errorBody || 'Failed to start simulation');
   }
   return response.json();
 };
@@ -51,7 +51,7 @@ export const executeNextStep = async (
   );
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się wykonać kroku');
+    throw new Error(errorBody || 'Failed to execute step');
   }
   return response.json();
 };
@@ -65,7 +65,7 @@ export const getSimulationStatus = async (
   );
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się pobrać statusu sesji');
+    throw new Error(errorBody || 'Failed to get session status');
   }
   return response.json();
 };
@@ -79,7 +79,7 @@ export const getSimulationHistory = async (
   );
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się pobrać historii');
+    throw new Error(errorBody || 'Failed to get history');
   }
   return response.json();
 };
@@ -95,7 +95,21 @@ export const rewindSimulation = async (
   );
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Nie udało się cofnąć symulacji');
+    throw new Error(errorBody || 'Failed to rewind simulation');
+  }
+  return response.json();
+};
+
+/** Get simulation progress history from main-service. */
+export const getSimulationProgress = async (
+  sessionId: string
+): Promise<SimulationStepHistoryItem[]> => {
+  const response = await fetch(
+    `${MAIN_API_URL}/simulation-progress/sessions/${sessionId}`
+  );
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Failed to get progress from main-service');
   }
   return response.json();
 };

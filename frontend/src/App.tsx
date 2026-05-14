@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { RecipeGallery } from './components/RecipeGallery';
 import { GuidedCookingLayout } from './components/GuidedCookingLayout';
+import { GuidedCookingProvider } from './context/GuidedCookingProvider';
 
 function App() {
   const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
@@ -20,10 +21,12 @@ function App() {
     return (
       <div className="h-screen flex flex-col overflow-hidden">
         <Header />
-        <GuidedCookingLayout
-          recipeId={cookingRecipeId}
-          onClose={handleCloseCooking}
-        />
+        <GuidedCookingProvider>
+          <GuidedCookingLayout
+            recipeId={cookingRecipeId}
+            onClose={handleCloseCooking}
+          />
+        </GuidedCookingProvider>
       </div>
     );
   }

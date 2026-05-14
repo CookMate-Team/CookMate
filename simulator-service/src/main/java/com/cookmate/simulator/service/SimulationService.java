@@ -307,11 +307,12 @@ public class SimulationService {
         
         CompletableFuture.runAsync(() -> {
             try {
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
                 Map<String, Object> event = Map.of(
                         "sessionId", sessionId,
                         "stepNumber", stepNumber,
                         "status", status,
-                        "executedAt", executedAt,
+                        "executedAt", executedAt.format(formatter),
                         "recipeId", recipeId
                 );
                 mainServiceClient.notifyStepCompleted(event);
