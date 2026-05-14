@@ -3,6 +3,7 @@ import {
   startSimulation,
   executeNextStep,
   getSimulationStatus,
+  generateSteps,
 } from '../services/simulatorApi';
 import type { SimulationStatusResponse } from '../types/simulator';
 
@@ -44,6 +45,7 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<SimulationStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // ── Start session ──
@@ -51,6 +53,12 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
     setIsLoading(true);
     setError(null);
     try {
+      // First, ensure steps exist (generates via LLM if needed)
+      setLoadingMessage('Generowanie kroków przepisu...');
+      await generateSteps(recipeId);
+
+      // Then start the simulation session
+      setLoadingMessage('Uruchamianie symulacji...');
       const res = await startSimulation({ recipeId });
       setSessionId(res.sessionId);
       setStatus(res);
@@ -58,6 +66,7 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
       setError(parseApiError(err.message ?? 'Nie udało się rozpocząć symulacji'));
     } finally {
       setIsLoading(false);
+      setLoadingMessage(null);
     }
   }, [recipeId]);
 
@@ -193,8 +202,8 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
                         ${isCurrent
                           ? 'border-amber-300 bg-amber-50 shadow-sm ring-2 ring-amber-200'
                           : step.status === 'EXECUTED'
-                          ? 'border-green-200 bg-green-50/50'
-                          : 'border-stone-200 bg-white'
+                            ? 'border-green-200 bg-green-50/50'
+                            : 'border-stone-200 bg-white'
                         }`}
                     >
                       <span className="text-xl">{info.emoji}</span>

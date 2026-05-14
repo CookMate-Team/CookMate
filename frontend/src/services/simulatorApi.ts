@@ -6,6 +6,24 @@ import type {
 } from '../types/simulator';
 
 const API_BASE_URL = '/api/simulator';
+const MAIN_API_URL = '/api';
+
+/**
+ * Generate cooking steps for a TheMealDB recipe via Groq LLM.
+ * Must be called before starting a simulation for discovery recipes
+ * so that main-service has the steps in its database.
+ */
+export const generateSteps = async (mealId: string): Promise<void> => {
+  const response = await fetch(`${MAIN_API_URL}/steps/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mealId }),
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Nie udało się wygenerować kroków przepisu');
+  }
+};
 
 /** Start a new simulation session for a given recipe. */
 export const startSimulation = async (
