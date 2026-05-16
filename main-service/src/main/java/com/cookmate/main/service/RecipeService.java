@@ -123,10 +123,8 @@ public class RecipeService {
     }
 
     public void deleteByIdOrThrow(Long id) {
-        if (!recipeRepository.existsById(id)) {
-            throw new RecipeNotFoundException(id);
-        }
-        recipeRepository.deleteById(id);
+        Recipe recipe = findByIdOrThrow(id);
+        recipeRepository.delete(recipe);
     }
 
     public Mono<MealSearchResponse> searchMealsByName(String name) {
