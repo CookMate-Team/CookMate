@@ -263,7 +263,7 @@ public class GlobalExceptionHandler {
             traceId = traceId.substring(0, 256);
         }
         // Remove control characters (CR, LF, null, etc.) and other dangerous chars for headers/logs
-        traceId = traceId.replaceAll("[\\r\\n\\t\\0-\\x1F\\x7F]", "");
+        traceId = traceId.replaceAll("[\\r\\n\\t\\u0000-\\u001F\\u007F]", "");
         // Keep only alphanumeric, hyphen, underscore, colon, dot, slash (standard UUID/trace ID chars)
         if (!traceId.matches("[a-zA-Z0-9\\-_:./@]*")) {
             traceId = traceId.replaceAll("[^a-zA-Z0-9\\-_:./@]", "");

@@ -7,6 +7,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -34,8 +35,9 @@ public class Step {
     @Column(nullable = false)
     private ActionType action;
 
+    @Convert(converter = JsonToMapConverter.class)
     @Column(columnDefinition = "TEXT") // Obsługa długich parametrów JSON
-    private String parameters;
+    private Map<String, Object> parameters;
 
     @Column(name = "duration_minutes")
     private Integer durationMinutes; // Czas w minutach

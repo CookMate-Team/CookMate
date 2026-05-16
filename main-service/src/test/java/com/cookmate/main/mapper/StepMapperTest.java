@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,6 +25,9 @@ class StepMapperTest {
     void shouldMapStepToDTO() {
         // given
         LocalDateTime now = LocalDateTime.now();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("size", "small");
+        
         Step entity = Step.builder()
                 .id(1L)
                 .stepNumber(1)
@@ -30,7 +35,7 @@ class StepMapperTest {
                 .action(ActionType.CHOP)
                 .recipeId("recipe-123")
                 .durationMinutes(60)
-                .parameters("{\"size\": \"small\"}")
+                .parameters(parameters)
                 .createdAt(now)
                 .build();
 
@@ -53,13 +58,16 @@ class StepMapperTest {
     @Test
     void shouldMapDTOToEntity() {
         // given
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("temp", 180);
+        
         StepDTO dto = StepDTO.builder()
                 .stepNumber(2)
                 .description("Smażenie na patelni")
                 .action(ActionType.FRYING_PAN)
                 .recipeId("recipe-456")
                 .durationMinutes(300)
-                .parameters("{\"temp\": 180}")
+                .parameters(parameters)
                 .build();
 
         // when
