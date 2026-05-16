@@ -24,9 +24,13 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
             │  registers     │  registers      │
             └────────────────┴─────────────────┘
                              │
-                    ┌────────▼────────┐
-                    │   PostgreSQL    │  :5432
-                    └─────────────────┘
+               ┌─────────────┴──────────────┐
+               ▼                            ▼
+       ┌──────────────────┐        ┌─────────────────┐
+       │   PostgreSQL     │        │   Keycloak      │  :8080
+       │  cookmate / auth │        │  (IAM & SSO)    │
+       │     :5432        │        │ (keycloak db)   │
+       └──────────────────┘        └─────────────────┘
 ```
 
 ## Serwisy i porty
@@ -37,6 +41,7 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 | `discovery-service` | 8761 | Eureka Discovery Server                   |
 | `main-service`      | 8081 | REST API zarządzania przepisami + PostgreSQL|
 | `simulator-service` | 8082 | Symulator planowania posiłków (Feign)     |
+| `keycloak`          | 8080 | Keycloak Identity & Access Management     |
 | `postgres`          | 5432 | Baza danych PostgreSQL                    |
 
 ## Stos technologiczny
@@ -65,7 +70,7 @@ docker compose down
 > Jeśli wcześniej był używany wolumen z `postgres:17` lub starszym, wykonaj migrację (`pg_upgrade`) albo zresetuj środowisko developerskie:
 > `docker compose down -v && docker volume rm sumatywny_postgres-data` (lub odpowiedni wolumen dla projektu).
 
-Kolejność startu: **PostgreSQL → Config → Discovery → main-service / simulator-service**
+Kolejność startu: **PostgreSQL → Config → Discovery → main-service / simulator-service → Keycloak**
 
 ### Lokalne uruchomienie (każdy serwis osobno)
 
@@ -123,6 +128,16 @@ GET http://localhost:8888/main-service/default
 GET http://localhost:8888/simulator-service/default
 GET http://localhost:8888/application/default
 ```
+
+### keycloak (`http://localhost:8080`)
+
+Admin console: `http://localhost:8080/admin/master/console/`
+
+**Default credentials:**
+- Username: `admin`
+- Password: `admin`
+
+**Note:** Change default credentials in production. Keycloak uses a separate PostgreSQL database (`keycloak`) for configuration, users, and sessions persistence.
 
 ## Struktura projektu
 
