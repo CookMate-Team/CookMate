@@ -119,8 +119,10 @@ public class GlobalExceptionHandler {
         HttpServletRequest request
     ) {
         String message = "Invalid value for parameter '" + ex.getName() + "'";
+        String detailMessage = "Invalid value. Expected type: " + (ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown") 
+            + ". Provided: " + (ex.getValue() == null ? "null" : ex.getValue().toString());
         List<ApiErrorDetail> details = List.of(
-            new ApiErrorDetail(ex.getName(), ex.getValue() == null ? "null" : ex.getValue().toString())
+            new ApiErrorDetail(ex.getName(), detailMessage)
         );
 
         return buildErrorResponse(
