@@ -251,6 +251,27 @@ public class GlobalExceptionHandler {
         if (traceId == null || traceId.isBlank()) {
             traceId = UUID.randomUUID().toString();
         }
+        return sanitizeTraceId(traceId);
+    }
+
+    private String sanitizeTraceId(String traceId) {
+        if (traceId == null || traceId.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        // Max length: 256 chars (generous for various ID formats)
+        if (traceId.length() > 256) {
+            traceId = traceId.substring(0, 256);
+        }
+        // Remove control characters (CR, LF, null, etc.) and other dangerous chars for headers/logs
+        traceId = traceId.replaceAll("[\\r\\n\\t\\0-\\x1F\\x7F]", "");
+        // Keep only alphanumeric, hyphen, underscore, colon, dot, slash (standard UUID/trace ID chars)
+        if (!traceId.matches("[a-zA-Z0-9\\-_:./@]*")) {
+            traceId = traceId.replaceAll("[^a-zA-Z0-9\\-_:./@]", "");
+        }
+        // If sanitization resulted in empty string, generate new UUID
+        if (traceId.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
         return traceId;
     }
 }
