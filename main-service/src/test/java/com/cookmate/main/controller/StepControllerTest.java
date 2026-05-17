@@ -68,6 +68,12 @@ class StepControllerTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.timestamp").exists())
             .andExpect(jsonPath("$.status").value(404))
-            .andExpect(jsonPath("$.message").value("Step with id 999999 not found"));
+            .andExpect(jsonPath("$.error").value("Not Found"))
+            .andExpect(jsonPath("$.code").value("STEP_NOT_FOUND"))
+            .andExpect(jsonPath("$.message").value("Step with id 999999 not found"))
+            .andExpect(jsonPath("$.path").value("/api/steps/999999"))
+            .andExpect(jsonPath("$.traceId").isNotEmpty())
+            .andExpect(jsonPath("$.details").isArray())
+            .andExpect(jsonPath("$.details.length()").value(0));
     }
 }

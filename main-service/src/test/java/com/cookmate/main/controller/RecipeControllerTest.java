@@ -17,7 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.cookmate.main.service.MealDbClient;
@@ -97,7 +101,11 @@ class RecipeControllerTest {
         mockMvc.perform(get("/api/recipes")
                         .param("page", "-1")
                         .param("size", "10"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
     @Test
@@ -105,6 +113,79 @@ class RecipeControllerTest {
         mockMvc.perform(get("/api/recipes")
                         .param("page", "0")
                         .param("size", "0"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void shouldReturn404ContractForUnknownRecipe() throws Exception {
+        mockMvc.perform(get("/api/recipes/{id}", 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.code").value("RECIPE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Recipe with id 999999 not found"))
+                .andExpect(jsonPath("$.path").value("/api/recipes/999999"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty())
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void shouldReturn404ContractForUnknownRecipeOnUpdate() throws Exception {
+        String requestBody = """
+                {
+                  "name": "Updated Name",
+                  "description": "Updated description",
+                  "ingredients": "salt, pepper",
+                  "instructions": "Mix everything",
+                  "preparationTimeMinutes": 10
+                }
+                """;
+
+        mockMvc.perform(put("/api/recipes/{id}", 999999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("RECIPE_NOT_FOUND"))
+                .andExpect(jsonPath("$.path").value("/api/recipes/999999"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void shouldReturn404ContractForUnknownRecipeOnDelete() throws Exception {
+        mockMvc.perform(delete("/api/recipes/{id}", 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("RECIPE_NOT_FOUND"))
+                .andExpect(jsonPath("$.path").value("/api/recipes/999999"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void shouldReturn400ForMalformedRequestBody() throws Exception {
+        mockMvc.perform(post("/api/recipes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Soup\","))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("REQUEST_BODY_INVALID"))
+                .andExpect(jsonPath("$.path").value("/api/recipes"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void shouldReturn405WhenMethodIsNotSupported() throws Exception {
+        mockMvc.perform(patch("/api/recipes")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.path").value("/api/recipes"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 }

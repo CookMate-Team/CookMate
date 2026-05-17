@@ -3,6 +3,7 @@ package com.cookmate.main.service;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.dto.CategoryResponse;
 import com.cookmate.main.dto.CommonListResponse;
+import com.cookmate.main.exception.ExternalServiceException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -58,6 +59,6 @@ public class MealDbClient {
                 .uri(BASE_URL + url)
                 .retrieve()
                 .bodyToMono(responseType)
-                .onErrorMap(ex -> new RuntimeException("Error calling TheMealDB API: " + ex.getMessage())); // To mapowanie jest kluczowe!
+                .onErrorMap(ex -> new ExternalServiceException("TheMealDB", ex));
     }
 }

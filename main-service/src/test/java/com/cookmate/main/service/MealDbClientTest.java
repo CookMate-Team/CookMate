@@ -3,6 +3,7 @@ package com.cookmate.main.service;
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.dto.CommonListResponse;
+import com.cookmate.main.exception.ExternalServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -106,7 +107,7 @@ class MealDbClientTest {
 //    }
 
     @Test
-    void shouldWrapErrorInRuntimeException() {
+    void shouldWrapErrorInExternalServiceException() {
         when(webClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
@@ -114,13 +115,13 @@ class MealDbClientTest {
         when(responseSpec.bodyToMono(any(Class.class)))
                 .thenReturn(Mono.error(new RuntimeException("boom")));
 
-        RuntimeException thrown = assertThrows(RuntimeException.class,
+        ExternalServiceException thrown = assertThrows(ExternalServiceException.class,
                 () -> mealDbClient.listFullCategories().block());
 
-        assertTrue(thrown.getMessage().contains("Error calling TheMealDB API"),
-                "Wiadomość błędu powinna zawierać prefix: Error calling TheMealDB API");
-        assertTrue(thrown.getMessage().contains("boom"),
-                "Wiadomość powinna zawierać oryginalny powód błędu: boom");
+        assertTrue(thrown.getMessage().contains("Error calling external service: TheMealDB"),
+                "Wiadomość błędu powinna zawierać nazwę usługi zewnętrznej");
+        assertNotNull(thrown.getCause());
+        assertEquals("boom", thrown.getCause().getMessage());
     }
 
     // --- Metody Pomocnicze ---

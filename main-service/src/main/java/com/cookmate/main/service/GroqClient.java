@@ -1,6 +1,7 @@
 package com.cookmate.main.service;
 
 import com.cookmate.main.dto.LLMResponseDTO;
+import com.cookmate.main.exception.ExternalServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +12,6 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -62,10 +62,7 @@ public class GroqClient {
             ))
         )
         .doOnError(error -> logger.error("Błąd krytyczny komunikacji z Groq po wyczerpaniu limitu prób: {}", error.getMessage()))
-        .onErrorResume(error -> {
-            logger.error("Błąd Groq, zwracam pustą listę kroków");
-            return Mono.just(new LLMResponseDTO(new ArrayList<>()));
-        });
+        .onErrorMap(error -> error instanceof ExternalServiceException ? error : new ExternalServiceException("Groq", error));
     }
 
     private String buildPrompt(String recipeInstructions) {
