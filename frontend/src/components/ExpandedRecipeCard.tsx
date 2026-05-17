@@ -3,9 +3,10 @@ import { useMealDetails } from '../hooks/useMealDetails';
 interface ExpandedRecipeCardProps {
   id: string | null;
   onClose: () => void;
+  onStartCooking?: (id: string) => void;
 }
 
-export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
+export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedRecipeCardProps) {
   const { data, isLoading, isError } = useMealDetails(id);
 
   if (!id) return null;
@@ -14,9 +15,9 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
 
   return (
     <div className="w-full bg-white rounded-3xl overflow-hidden shadow-xl border border-stone-100 flex flex-col md:flex-row relative">
-      
+
       {/* Close Button */}
-      <button 
+      <button
         onClick={onClose}
         className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur-md hover:bg-white text-stone-600 p-2 rounded-full shadow-sm transition"
       >
@@ -44,9 +45,9 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
         <>
           {/* Image Section */}
           <div className="md:w-2/5 min-h-[300px] relative bg-stone-100 flex-shrink-0">
-            <img 
-              src={meal.strMealThumb} 
-              alt={meal.strMeal} 
+            <img
+              src={meal.strMealThumb}
+              alt={meal.strMeal}
               className="w-full h-full object-cover absolute inset-0"
             />
             <div className="absolute top-4 left-4 flex gap-2">
@@ -66,7 +67,7 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
           {/* Content Section */}
           <div className="md:w-3/5 p-8">
             <h2 className="text-3xl font-extrabold text-stone-800 mb-6 leading-tight pr-8">{meal.strMeal}</h2>
-            
+
             <div className="mb-8">
               <h3 className="text-xl font-bold text-amber-600 mb-4 border-b border-stone-100 pb-2">Ingredients</h3>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -92,12 +93,21 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
                 {meal.strInstructions}
               </div>
             </div>
-            
-            {meal.strYoutube && (
-              <div className="mt-8 pt-6 border-t border-stone-100">
-                <a 
-                  href={meal.strYoutube} 
-                  target="_blank" 
+
+            <div className="mt-8 pt-6 border-t border-stone-100 flex flex-wrap items-center gap-4">
+              {onStartCooking && id && (
+                <button
+                  id="start-cooking-btn"
+                  onClick={(e) => { e.stopPropagation(); onStartCooking(id); }}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
+                >
+                  Start cooking
+                </button>
+              )}
+              {meal.strYoutube && (
+                <a
+                  href={meal.strYoutube}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-red-600 font-bold hover:text-red-700 transition"
                 >
@@ -106,8 +116,8 @@ export function ExpandedRecipeCard({ id, onClose }: ExpandedRecipeCardProps) {
                   </svg>
                   Watch Video Recipe
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </>
       )}

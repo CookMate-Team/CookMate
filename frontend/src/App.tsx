@@ -1,8 +1,37 @@
+import { useState } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { RecipeGallery } from './components/RecipeGallery';
+import { GuidedCookingLayout } from './components/GuidedCookingLayout';
+import { GuidedCookingProvider } from './context/GuidedCookingProvider';
 
 function App() {
+  const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
+
+  const handleStartCooking = (recipeId: string) => {
+    setCookingRecipeId(recipeId);
+  };
+
+  const handleCloseCooking = () => {
+    setCookingRecipeId(null);
+  };
+
+  // ── Guided Cooking Mode ──
+  if (cookingRecipeId) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden">
+        <Header />
+        <GuidedCookingProvider>
+          <GuidedCookingLayout
+            recipeId={cookingRecipeId}
+            onClose={handleCloseCooking}
+          />
+        </GuidedCookingProvider>
+      </div>
+    );
+  }
+
+  // ── Default Gallery Mode ──
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -15,7 +44,7 @@ function App() {
           </div>
 
           <div className='pt-8'>
-            <RecipeGallery />
+            <RecipeGallery onStartCooking={handleStartCooking} />
           </div>
       </main>
       <Footer />
@@ -24,3 +53,4 @@ function App() {
 }
 
 export default App;
+

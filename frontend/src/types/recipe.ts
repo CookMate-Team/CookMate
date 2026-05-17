@@ -30,3 +30,13 @@ export interface RecipeListResponse {
   pageSize: number;
   totalPages: number;
 }
+
+export interface RecipeStep {
+  id: number;
+  stepNumber: number;
+  description: string;
+  action: string;
+  parameters?: string;
+  durationMinutes?: number;
+  recipeId: string;
+}

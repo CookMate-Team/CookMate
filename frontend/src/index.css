@@ -5,3 +5,26 @@
     @apply bg-stone-50 text-stone-800 antialiased font-sans;
   }
 }
+
+@layer utilities {
+  /* Thin elegant scrollbar for guided cooking panels.
+     Uses overflow-y: scroll + stable gutter to prevent layout jumps. */
+  .guided-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #d6d3d1 transparent; /* stone-300 / transparent */
+    scrollbar-gutter: stable;
+  }
+  .guided-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .guided-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .guided-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #d6d3d1;
+    border-radius: 9999px;
+  }
+  .guided-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #a8a29e; /* stone-400 */
+  }
+}
