@@ -161,6 +161,19 @@ Admin console: `http://localhost:8080/admin/master/console/`
 - Username: `admin`
 - Password: `admin`
 
+**Realm import:** Start kontenera automatycznie importuje `keycloak/realm-export.json` (Realm `cookmate`).
+
+**OIDC client (Authorization Code flow):**
+- Client ID: `cookmate-client`
+- Client Secret: `cookmate-secret`
+- Valid Redirect URIs: `http://localhost:5173/*`, `http://localhost:8081/*`
+- Web Origins: `http://localhost:5173`, `http://localhost:8081`
+
+**Test user (realm `cookmate`):**
+- Username: `test.user`
+- Password: `test12345`
+- Roles: `ROLE_USER`, `ROLE_ADMIN`
+
 **Note:** Change default credentials in production. Keycloak uses a separate PostgreSQL database (`keycloak`) for configuration, users, and sessions persistence.
 
 ## Struktura projektu
@@ -200,6 +213,8 @@ CookMate/
 │       ├── exception/*.java
 │       ├── model/*.java
 │       └── service/SimulationService.java
+├── keycloak/
+│   └── realm-export.json            # Import Realm/klientów/użytkowników Keycloak
 ├── docker-compose.yml
 └── pom.xml                         # Root Maven aggregator
 ```

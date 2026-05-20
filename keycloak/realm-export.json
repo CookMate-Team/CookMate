@@ -1,0 +1,81 @@
+{
+  "id": "cookmate",
+  "realm": "cookmate",
+  "displayName": "CookMate",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "requiredCredentials": [
+    "password"
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "ROLE_USER",
+        "description": "Default application user role",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "cookmate"
+      },
+      {
+        "name": "ROLE_ADMIN",
+        "description": "Application administrator role",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "cookmate"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "cookmate-client",
+      "name": "CookMate OIDC Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "cookmate-secret",
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:8081"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "test.user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test.user@cookmate.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test12345",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ROLE_USER",
+        "ROLE_ADMIN"
+      ]
+    }
+  ]
+}
