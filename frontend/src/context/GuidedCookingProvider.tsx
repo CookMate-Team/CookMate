@@ -8,7 +8,15 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { getActiveCookingSession, getCookingSessionHistory } from '../services/simulatorApi';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  getCookingSessionHistory,
+  getActiveCookingSessionGlobal,
+  generateSteps,
+  startSimulation,
+  completeSimulationSession,
+  completeCookingSession,
+} from '../services/simulatorApi';
 import type { ActiveCookingSession, CookingSessionProgressItem } from '../types/simulator';
 
 interface GuidedCookingContextValue {
@@ -16,10 +24,14 @@ interface GuidedCookingContextValue {
   currentStep: number;
   sessionProgress: CookingSessionProgressItem[];
   isStreaming: boolean;
+  globalActiveSessionForOtherRecipe: ActiveCookingSession | null;
+  isStartingSession: boolean;
+  startSessionError: string | null;
   startStreaming: (recipeId: string) => void;
   stopStreaming: () => void;
   resetSimulationProgress: () => void;
   updateActiveSession: (session: ActiveCookingSession | null) => void;
+  forceResetActiveSession: () => Promise<void>;
 }
 
 const GuidedCookingContext = createContext<GuidedCookingContextValue | undefined>(undefined);
@@ -28,8 +40,13 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
   const [activeSession, setActiveSession] = useState<ActiveCookingSession | null>(null);
   const [sessionProgress, setSessionProgress] = useState<CookingSessionProgressItem[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [globalActiveSessionForOtherRecipe, setGlobalActiveSessionForOtherRecipe] = useState<ActiveCookingSession | null>(null);
+  const [isStartingSession, setIsStartingSession] = useState(false);
+  const [startSessionError, setStartSessionError] = useState<string | null>(null);
+
   const eventSourceRef = useRef<EventSource | null>(null);
   const activeRecipeIdRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
   const updateActiveSession = useCallback((session: ActiveCookingSession | null) => {
     setActiveSession(session);
@@ -60,7 +77,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
         return {
           sessionId: progress.sessionId,
           recipeId: progress.recipeId,
-          status: 'RUNNING',
+          status: progress.status === 'COMPLETED' ? 'COMPLETED' : 'RUNNING',
           currentStep: progress.stepNumber,
           lastExecutedAt: progress.executedAt,
         };
@@ -68,6 +85,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       const nextStep = Math.max(prev.currentStep ?? 0, progress.stepNumber);
       return {
         ...prev,
+        status: progress.status === 'COMPLETED' ? 'COMPLETED' : prev.status,
         currentStep: nextStep,
         lastExecutedAt: progress.executedAt,
       };
@@ -76,31 +94,121 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
 
   const startStreaming = useCallback(
     async (recipeId: string) => {
-      if (activeRecipeIdRef.current === recipeId && eventSourceRef.current) {
+      if (activeRecipeIdRef.current === recipeId) {
         return;
       }
 
       stopStreaming();
       activeRecipeIdRef.current = recipeId;
+      setActiveSession(null);
+      setSessionProgress([]);
+      setGlobalActiveSessionForOtherRecipe(null);
+      setStartSessionError(null);
+      setIsStartingSession(true);
+
+      try {
+        const globalActive = await getActiveCookingSessionGlobal();
+        if (activeRecipeIdRef.current !== recipeId) {
+          return;
+        }
+
+        if (globalActive) {
+          if (globalActive.recipeId === recipeId) {
+            setActiveSession(globalActive);
+            const history = await getCookingSessionHistory(recipeId);
+            if (activeRecipeIdRef.current === recipeId) {
+              setSessionProgress(history);
+            }
+          } else {
+            setGlobalActiveSessionForOtherRecipe(globalActive);
+          }
+          setIsStartingSession(false);
+        } else {
+          try {
+            await generateSteps(recipeId);
+            if (activeRecipeIdRef.current !== recipeId) {
+              return;
+            }
+            queryClient.invalidateQueries({ queryKey: ['recipe-steps', recipeId] });
+
+            const res = await startSimulation({ recipeId });
+            if (activeRecipeIdRef.current !== recipeId) {
+              return;
+            }
+
+            const newSession: ActiveCookingSession = {
+              sessionId: res.sessionId,
+              recipeId,
+              status: res.status,
+              currentStep: res.currentStep,
+              lastExecutedAt: null,
+            };
+            setActiveSession(newSession);
+          } catch (err: any) {
+            setStartSessionError(err.message || 'Failed to start guided cooking automatically');
+          } finally {
+            setIsStartingSession(false);
+          }
+        }
+      } catch (error: any) {
+        setStartSessionError(error.message || 'Error checking session status');
+        setIsStartingSession(false);
+      }
+    },
+    [stopStreaming, queryClient]
+  );
+
+  const forceResetActiveSession = useCallback(async () => {
+    const currentRecipeId = activeRecipeIdRef.current;
+    if (!currentRecipeId) return;
+
+    setIsStartingSession(true);
+    setStartSessionError(null);
+
+    try {
+      const targetSession = globalActiveSessionForOtherRecipe;
+      if (targetSession) {
+        await Promise.allSettled([
+          completeSimulationSession(targetSession.sessionId),
+          completeCookingSession(targetSession.sessionId),
+        ]);
+      }
+
+      setGlobalActiveSessionForOtherRecipe(null);
+      setActiveSession(null);
+      setSessionProgress([]);
+
+      await generateSteps(currentRecipeId);
+      queryClient.invalidateQueries({ queryKey: ['recipe-steps', currentRecipeId] });
+
+      const res = await startSimulation({ recipeId: currentRecipeId });
+      const newSession: ActiveCookingSession = {
+        sessionId: res.sessionId,
+        recipeId: currentRecipeId,
+        status: res.status,
+        currentStep: res.currentStep,
+        lastExecutedAt: null,
+      };
+      setActiveSession(newSession);
+    } catch (err: any) {
+      setStartSessionError(err.message || 'Failed to force reset and start session');
+    } finally {
+      setIsStartingSession(false);
+    }
+  }, [globalActiveSessionForOtherRecipe, queryClient]);
+
+  const resetSimulationProgress = useCallback(() => {
+    stopStreaming();
+    setActiveSession(null);
+    setSessionProgress([]);
+    setGlobalActiveSessionForOtherRecipe(null);
+    setStartSessionError(null);
+  }, [stopStreaming]);
+
+  useEffect(() => {
+    if (activeSession && activeSession.status === 'RUNNING') {
+      const recipeId = activeSession.recipeId;
       setIsStreaming(true);
-
-      try {
-        const active = await getActiveCookingSession(recipeId);
-        if (activeRecipeIdRef.current === recipeId && active) {
-          setActiveSession(active);
-        }
-      } catch (error) {
-        console.error('Error loading active cooking session:', error);
-      }
-
-      try {
-        const history = await getCookingSessionHistory(recipeId);
-        if (activeRecipeIdRef.current === recipeId) {
-          setSessionProgress(history);
-        }
-      } catch (error) {
-        console.error('Error loading cooking session history:', error);
-      }
 
       const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream`);
       eventSourceRef.current = source;
@@ -108,28 +216,37 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       source.addEventListener('progress', (event) => {
         try {
           const parsed = JSON.parse(event.data) as CookingSessionProgressItem;
-          mergeProgress(parsed);
+          if (activeRecipeIdRef.current === parsed.recipeId) {
+            mergeProgress(parsed);
+          }
         } catch (error) {
           console.error('Error parsing SSE progress payload:', error);
         }
       });
 
       source.onerror = (event) => {
-        console.error('Cooking session SSE error:', event);
+        if (eventSourceRef.current) {
+          console.warn('Cooking session SSE connection state change:', event);
+        }
       };
-    },
-    [mergeProgress, stopStreaming]
-  );
 
-  const resetSimulationProgress = useCallback(() => {
-    stopStreaming();
-    setActiveSession(null);
-    setSessionProgress([]);
-  }, [stopStreaming]);
-
-  useEffect(() => {
-    return () => stopStreaming();
-  }, [stopStreaming]);
+      return () => {
+        if (source) {
+          source.close();
+        }
+        if (eventSourceRef.current === source) {
+          eventSourceRef.current = null;
+        }
+        setIsStreaming(false);
+      };
+    } else {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      setIsStreaming(false);
+    }
+  }, [activeSession?.sessionId, activeSession?.status, mergeProgress]);
 
   const currentStep = useMemo(() => {
     if (!activeSession) {
@@ -137,7 +254,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
     }
 
     const executedSteps = sessionProgress
-      .filter((item) => item.status === 'EXECUTED')
+      .filter((item) => item.status === 'EXECUTED' || item.status === 'COMPLETED')
       .map((item) => item.stepNumber);
 
     const lastExecuted = executedSteps.length > 0
@@ -153,20 +270,28 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       currentStep,
       sessionProgress,
       isStreaming,
+      globalActiveSessionForOtherRecipe,
+      isStartingSession,
+      startSessionError,
       startStreaming,
       stopStreaming,
       resetSimulationProgress,
       updateActiveSession,
+      forceResetActiveSession,
     }),
     [
       activeSession,
       currentStep,
       sessionProgress,
       isStreaming,
+      globalActiveSessionForOtherRecipe,
+      isStartingSession,
+      startSessionError,
       startStreaming,
       stopStreaming,
       resetSimulationProgress,
       updateActiveSession,
+      forceResetActiveSession,
     ]
   );
 

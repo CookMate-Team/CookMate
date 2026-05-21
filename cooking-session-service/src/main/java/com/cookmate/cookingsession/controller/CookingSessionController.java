@@ -59,6 +59,19 @@ public class CookingSessionController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/active")
+    public ResponseEntity<ActiveCookingSessionDto> getActiveSessionGlobal() {
+        return ResponseEntity.ok(cookingSessionService.getActiveSessionGlobal().orElse(null));
+    }
+
+    @PostMapping("/sessions/{sessionId}/complete")
+    public ResponseEntity<Void> completeSession(
+            @PathVariable String sessionId
+    ) {
+        cookingSessionService.completeSession(sessionId);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping(value = "/recipes/{recipeId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<CookingSessionProgressDto>> streamProgress(
             @PathVariable String recipeId

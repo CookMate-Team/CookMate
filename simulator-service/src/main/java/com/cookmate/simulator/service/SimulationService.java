@@ -46,6 +46,21 @@ public class SimulationService {
     private final CookingSessionClient cookingSessionClient;
 
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
+        // Complete any other active sessions in the database before starting a new one
+        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
+        for (SimulationSession oldSession : runningSessions) {
+            oldSession.setStatus(SimulationStatus.COMPLETED);
+            oldSession.setCompletedAt(LocalDateTime.now());
+            simulationSessionRepository.save(oldSession);
+            notifyCookingSessionAsync(
+                    oldSession.getId(),
+                    oldSession.getCurrentStep(),
+                    "COMPLETED",
+                    LocalDateTime.now(),
+                    oldSession.getRecipeId()
+            );
+        }
+
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
         if (recipeSteps.isEmpty()) {
             throw new InvalidSimulationStateException("Recipe has no steps to simulate.");
@@ -67,6 +82,14 @@ public class SimulationService {
                 .map(step -> toPendingStep(session.getId(), step))
                 .toList();
         simulationStepRepository.saveAll(steps);
+
+        notifyCookingSessionAsync(
+                session.getId(),
+                0,
+                "RUNNING",
+                LocalDateTime.now(),
+                session.getRecipeId()
+        );
 
         return mapStatusResponse(session, steps);
     }
@@ -92,7 +115,8 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+            boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
+            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -126,7 +150,8 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
+            boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
+            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -323,5 +348,35 @@ public class SimulationService {
                 logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
             }
         });
+    }
+
+    @Transactional
+    public void completeSession(String sessionId) {
+        synchronized (getExecutionLock(sessionId)) {
+            SimulationSession session = simulationSessionRepository.findById(sessionId).orElse(null);
+            if (session == null) {
+                final Logger logger = LoggerFactory.getLogger(SimulationService.class);
+                logger.warn("Simulation session with ID {} not found during completion request. Sending fallback completion notification.", sessionId);
+                notifyCookingSessionAsync(
+                        sessionId,
+                        0,
+                        "COMPLETED",
+                        LocalDateTime.now(),
+                        ""
+                );
+                return;
+            }
+            session.setStatus(SimulationStatus.COMPLETED);
+            session.setCompletedAt(LocalDateTime.now());
+            simulationSessionRepository.save(session);
+
+            notifyCookingSessionAsync(
+                    sessionId,
+                    session.getCurrentStep(),
+                    "COMPLETED",
+                    LocalDateTime.now(),
+                    session.getRecipeId()
+            );
+        }
     }
 }

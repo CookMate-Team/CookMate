@@ -17,4 +17,6 @@ public interface CookingSessionRepository extends JpaRepository<CookingSession, 
             String recipeId,
             CookingSessionStatus status
     );
+
+    List<CookingSession> findByStatus(CookingSessionStatus status);
 }

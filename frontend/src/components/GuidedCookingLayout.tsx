@@ -4,6 +4,12 @@ import { useSimulationProgress } from '../hooks/useSimulationProgress';
 import { useRecipeSteps } from '../hooks/useRecipeSteps';
 import { SimulatorPanel } from './SimulatorPanel';
 
+function ActiveRecipeName({ recipeId }: { recipeId: string }) {
+  const { data, isLoading } = useMealDetails(recipeId);
+  if (isLoading) return <span className="animate-pulse text-stone-400">Loading recipe name...</span>;
+  return <span>{data?.meals?.[0]?.strMeal || `Recipe #${recipeId}`}</span>;
+}
+
 interface GuidedCookingLayoutProps {
   recipeId: string;
   onClose: () => void;
@@ -24,7 +30,15 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
   const [activeView, setActiveView] = useState<ActiveView>('recipe');
   const { data, isLoading, isError } = useMealDetails(recipeId);
   const { data: dbSteps } = useRecipeSteps(recipeId);
-  const { currentStep, startStreaming, stopStreaming } = useSimulationProgress();
+  const {
+    currentStep,
+    startStreaming,
+    stopStreaming,
+    globalActiveSessionForOtherRecipe,
+    isStartingSession,
+    startSessionError,
+    forceResetActiveSession,
+  } = useSimulationProgress();
   const meal = data?.meals?.[0];
   const stepRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -55,6 +69,98 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
     return () => stopStreaming();
   }, [recipeId, startStreaming, stopStreaming]);
 
+  if (isStartingSession) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] h-full bg-stone-50/50 backdrop-blur-sm p-6">
+        <div className="relative flex items-center justify-center">
+          <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin"></div>
+          <div className="absolute text-xl">🍳</div>
+        </div>
+        <h3 className="mt-6 text-lg font-bold text-stone-700">Starting Cooking Session...</h3>
+        <p className="mt-2 text-sm text-stone-500">Preparing simulator and loading recipe steps.</p>
+      </div>
+    );
+  }
+
+  if (startSessionError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] h-full bg-stone-50 p-6 text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">
+          ⚠️
+        </div>
+        <h3 className="text-lg font-bold text-red-700">Failed to start session</h3>
+        <p className="mt-2 text-sm text-stone-600 max-w-md">{startSessionError}</p>
+        <div className="mt-6 flex gap-4">
+          <button
+            onClick={() => startStreaming(recipeId)}
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold rounded-xl transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (globalActiveSessionForOtherRecipe) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] h-full bg-stone-900/10 backdrop-blur-md p-6">
+        <div className="max-w-md w-full bg-white/95 border border-stone-200/50 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-amber-500 to-orange-500" />
+          
+          <div className="flex flex-col items-center text-center">
+            <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-4xl shadow-inner mb-6 ring-8 ring-amber-50/50">
+              🚫
+            </div>
+            
+            <h3 className="text-2xl font-extrabold text-stone-800 tracking-tight">
+              Active Session in Progress
+            </h3>
+            
+            <p className="mt-3 text-stone-600 text-sm leading-relaxed">
+              A guided cooking session is already running for another recipe. You can only run one session at a time.
+            </p>
+
+            <div className="w-full mt-6 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl text-left">
+              <span className="text-[10px] uppercase font-bold text-amber-600 tracking-wider">Active Session Details</span>
+              <div className="mt-1.5 flex justify-between text-xs text-stone-600">
+                <span>Dish Cooked:</span>
+                <span className="font-semibold text-stone-800">
+                  <ActiveRecipeName recipeId={globalActiveSessionForOtherRecipe.recipeId} />
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between text-xs text-stone-600">
+                <span>Current Step:</span>
+                <span className="font-semibold text-stone-800">Step {globalActiveSessionForOtherRecipe.currentStep}</span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full">
+              <button
+                onClick={forceResetActiveSession}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-200 text-sm"
+              >
+                Force Reset & Start New
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold rounded-xl transition-colors text-sm"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* ── Mobile-only tab switcher ── */}
@@ -69,7 +175,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                 : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'
               }`}
           >
-            📖 Instructions
+            Instructions
           </button>
           <button
             id="view-toggle-simulator"
@@ -80,7 +186,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                 : 'text-stone-500 hover:text-stone-700 hover:bg-stone-50'
               }`}
           >
-            🍳 Simulator
+            Simulator
           </button>
         </div>
       </div>
@@ -171,7 +277,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                         const stepNum = idx + 1;
                         const isCurrentStep = stepNum === currentStep;
                         const isExecuted = stepNum < currentStep;
-                        
+
                         return (
                           <div
                             key={idx}

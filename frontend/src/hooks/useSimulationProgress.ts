@@ -6,10 +6,14 @@ interface UseSimulationProgressReturn {
   currentStep: number;
   sessionProgress: CookingSessionProgressItem[];
   isStreaming: boolean;
+  globalActiveSessionForOtherRecipe: ActiveCookingSession | null;
+  isStartingSession: boolean;
+  startSessionError: string | null;
   startStreaming: (recipeId: string) => void;
   stopStreaming: () => void;
   resetSimulationProgress: () => void;
   updateActiveSession: (session: ActiveCookingSession | null) => void;
+  forceResetActiveSession: () => Promise<void>;
 }
 
 export const useSimulationProgress = (): UseSimulationProgressReturn => {
@@ -18,10 +22,14 @@ export const useSimulationProgress = (): UseSimulationProgressReturn => {
     currentStep,
     sessionProgress,
     isStreaming,
+    globalActiveSessionForOtherRecipe,
+    isStartingSession,
+    startSessionError,
     startStreaming,
     stopStreaming,
     resetSimulationProgress,
     updateActiveSession,
+    forceResetActiveSession,
   } = useGuidedCookingContext();
 
   return {
@@ -29,9 +37,13 @@ export const useSimulationProgress = (): UseSimulationProgressReturn => {
     currentStep,
     sessionProgress,
     isStreaming,
+    globalActiveSessionForOtherRecipe,
+    isStartingSession,
+    startSessionError,
     startStreaming,
     stopStreaming,
     resetSimulationProgress,
     updateActiveSession,
+    forceResetActiveSession,
   };
 };

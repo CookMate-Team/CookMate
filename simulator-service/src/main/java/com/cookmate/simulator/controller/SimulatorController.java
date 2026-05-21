@@ -85,4 +85,11 @@ public class SimulatorController {
     public ResponseEntity<List<SimulationStepHistoryItemDto>> history(@PathVariable String sessionId) {
         return ResponseEntity.ok(simulationService.history(sessionId));
     }
+
+    @PostMapping("/sessions/{sessionId}/complete")
+    @Operation(summary = "Complete session manually", description = "Marks session as completed and notifies cooking-session-service.")
+    public ResponseEntity<Void> completeSession(@PathVariable String sessionId) {
+        simulationService.completeSession(sessionId);
+        return ResponseEntity.ok().build();
+    }
 }
