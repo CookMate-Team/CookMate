@@ -7,7 +7,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
-@FeignClient(name = "main-service")
+@FeignClient(
+        name = "main-service",
+        url = "${simulator-service.main-service-url:http://main-service:8081}"
+)
 public interface MainServiceClient {
 
     @GetMapping("/api/recipes/{recipeId}/steps")

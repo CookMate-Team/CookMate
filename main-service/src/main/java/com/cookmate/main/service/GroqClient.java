@@ -128,7 +128,7 @@ public class GroqClient {
     private LLMResponseDTO parseAndValidateResponse(GroqChatResponse response) {
         try {
             String content = response.choices().get(0).message().content().trim();
-            logger.info("Odpowiedź z Groq otrzymana, parsowanie JSON...");
+            logger.info("Odpowiedź z Groq otrzymana, parsowanie JSON... Treść:\n{}", content);
 
             LLMResponseDTO parsed = objectMapper.readValue(content, LLMResponseDTO.class);
             if (parsed.steps() == null || parsed.steps().isEmpty()) {
