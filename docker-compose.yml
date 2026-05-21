@@ -126,6 +126,39 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
+  # Cooking Session Service (port 8083)
+  # Startup order: 3rd (after discovery + postgres)
+  # ─────────────────────────────────────────────
+  cooking-session-service:
+    build:
+      context: ./cooking-session-service
+      dockerfile: Dockerfile
+    container_name: cookmate-cooking-session
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
   # Simulator Service (port 8082)
   # Startup order: 3rd (after discovery + postgres)
   # ─────────────────────────────────────────────
