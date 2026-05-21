@@ -212,3 +212,26 @@ services:
         condition: service_healthy
     networks:
       - cookmate-net
+
+  # ─────────────────────────────────────────────
+  # SonarQube Code Quality Platform (port 9000)
+  # ─────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:10.7-community
+    container_name: cookmate-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_JDBC_URL=jdbc:postgresql://postgres:5432/sonar
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
