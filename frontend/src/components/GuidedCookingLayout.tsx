@@ -24,7 +24,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
   const [activeView, setActiveView] = useState<ActiveView>('recipe');
   const { data, isLoading, isError } = useMealDetails(recipeId);
   const { data: dbSteps } = useRecipeSteps(recipeId);
-  const { currentStep } = useSimulationProgress();
+  const { currentStep, startStreaming, stopStreaming } = useSimulationProgress();
   const meal = data?.meals?.[0];
   const stepRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -49,6 +49,11 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [currentStep]);
+
+  useEffect(() => {
+    startStreaming(recipeId);
+    return () => stopStreaming();
+  }, [recipeId, startStreaming, stopStreaming]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">

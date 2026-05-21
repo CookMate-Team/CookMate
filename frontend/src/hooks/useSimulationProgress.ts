@@ -1,34 +1,37 @@
 import { useGuidedCookingContext } from '../context/GuidedCookingProvider';
-import type { SimulationStepHistoryItem } from '../types/simulator';
+import type { ActiveCookingSession, CookingSessionProgressItem } from '../types/simulator';
 
 interface UseSimulationProgressReturn {
-  sessionId: string | null;
+  activeSession: ActiveCookingSession | null;
   currentStep: number;
-  mainServiceProgress: SimulationStepHistoryItem[];
-  isPolling: boolean;
-  startPolling: (sessionId: string) => void;
-  stopPolling: () => void;
+  sessionProgress: CookingSessionProgressItem[];
+  isStreaming: boolean;
+  startStreaming: (recipeId: string) => void;
+  stopStreaming: () => void;
   resetSimulationProgress: () => void;
+  updateActiveSession: (session: ActiveCookingSession | null) => void;
 }
 
 export const useSimulationProgress = (): UseSimulationProgressReturn => {
   const {
-    sessionId,
+    activeSession,
     currentStep,
-    mainServiceProgress,
-    isPolling,
-    startPolling,
-    stopPolling,
+    sessionProgress,
+    isStreaming,
+    startStreaming,
+    stopStreaming,
     resetSimulationProgress,
+    updateActiveSession,
   } = useGuidedCookingContext();
 
   return {
-    sessionId,
+    activeSession,
     currentStep,
-    mainServiceProgress,
-    isPolling,
-    startPolling,
-    stopPolling,
+    sessionProgress,
+    isStreaming,
+    startStreaming,
+    stopStreaming,
     resetSimulationProgress,
+    updateActiveSession,
   };
 };

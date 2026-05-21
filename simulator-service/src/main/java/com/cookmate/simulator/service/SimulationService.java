@@ -1,5 +1,6 @@
 package com.cookmate.simulator.service;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.dto.RecipeStepRequestDto;
@@ -42,6 +43,7 @@ public class SimulationService {
     private final SimulationSessionRepository simulationSessionRepository;
     private final SimulationStepRepository simulationStepRepository;
     private final MainServiceClient mainServiceClient;
+    private final CookingSessionClient cookingSessionClient;
 
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
@@ -90,7 +92,7 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyMainServiceAsync(sessionId, stepDto.stepNumber(), "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), "EXECUTED", step.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -124,7 +126,7 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyMainServiceAsync(sessionId, nextStep.getStepNumber(), "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -292,7 +294,7 @@ public class SimulationService {
     }
 
     /**
-     * Asynchronicznie wysyła notyfikację o wykonanym kroku do main-service.
+     * Asynchronicznie wysyła notyfikację o wykonanym kroku do cooking-session-service.
      * Nie blokuje bieżącego wątku - wysyłka odbywa się w tle.
      * Jeśli wysyłka się nie powiedzie, loguje błąd ale nie rzuca wyjątku.
      *
@@ -302,7 +304,7 @@ public class SimulationService {
      * @param executedAt czas wykonania
      * @param recipeId ID przepisu
      */
-    private void notifyMainServiceAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
+    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
         final Logger logger = LoggerFactory.getLogger(SimulationService.class);
         
         CompletableFuture.runAsync(() -> {
@@ -315,10 +317,10 @@ public class SimulationService {
                         "executedAt", executedAt.format(formatter),
                         "recipeId", recipeId
                 );
-                mainServiceClient.notifyStepCompleted(event);
-                logger.info("Notyfikacja wysłana do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
+                cookingSessionClient.notifyStepCompleted(event);
+                logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
             } catch (Exception e) {
-                logger.error("Błąd podczas wysyłania notyfikacji do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
+                logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
             }
         });
     }

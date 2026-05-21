@@ -3,10 +3,13 @@ import type {
   StepExecutionResult,
   SimulationStatusResponse,
   SimulationStepHistoryItem,
+  CookingSessionProgressItem,
+  ActiveCookingSession,
 } from '../types/simulator';
 
 const API_BASE_URL = '/api/simulator';
 const MAIN_API_URL = '/api';
+const COOKING_SESSION_API_URL = '/api/cooking-sessions';
 
 /**
  * Generate cooking steps for a TheMealDB recipe via Groq LLM.
@@ -100,16 +103,36 @@ export const rewindSimulation = async (
   return response.json();
 };
 
-/** Get simulation progress history from main-service. */
-export const getSimulationProgress = async (
-  sessionId: string
-): Promise<SimulationStepHistoryItem[]> => {
+/** Get active cooking session for recipe (or null if none). */
+export const getActiveCookingSession = async (
+  recipeId: string
+): Promise<ActiveCookingSession | null> => {
   const response = await fetch(
-    `${MAIN_API_URL}/simulation-progress/sessions/${sessionId}`
+    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/active`
   );
+  if (response.status === 404) {
+    return null;
+  }
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(errorBody || 'Failed to get progress from main-service');
+    throw new Error(errorBody || 'Failed to get active cooking session');
+  }
+  return response.json();
+};
+
+/** Get cooking session progress history for recipe. */
+export const getCookingSessionHistory = async (
+  recipeId: string
+): Promise<CookingSessionProgressItem[]> => {
+  const response = await fetch(
+    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/history`
+  );
+  if (response.status === 404) {
+    return [];
+  }
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Failed to get cooking session history');
   }
   return response.json();
 };

@@ -16,7 +16,9 @@ Lekki serwis do symulacji gotowania krok po kroku dla urządzenia wielofunkcyjne
 1. `POST /api/simulator/sessions/start` z `recipeId`
 2. Simulator pobiera kroki z `main-service` (`GET /api/recipes/{recipeId}/steps`) i zapisuje je jako `PENDING`
 3. UI wykonuje kolejne kroki przez:
-   - `POST /api/simulator/sessions/{sessionId}/steps/execute`
+    - `POST /api/simulator/sessions/{sessionId}/steps/execute`
+   - po każdym kroku symulator wysyła event do `cooking-session-service`:
+     `POST /api/cooking-sessions/progress`
 4. Po restarcie aplikacji UI pobiera:
    - `GET /api/simulator/sessions/{sessionId}/status`
    - `GET /api/simulator/sessions/{sessionId}/history`
