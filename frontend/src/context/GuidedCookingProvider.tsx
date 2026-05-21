@@ -86,18 +86,20 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
 
       try {
         const active = await getActiveCookingSession(recipeId);
-        setActiveSession(active);
+        if (activeRecipeIdRef.current === recipeId && active) {
+          setActiveSession(active);
+        }
       } catch (error) {
         console.error('Error loading active cooking session:', error);
-        setActiveSession(null);
       }
 
       try {
         const history = await getCookingSessionHistory(recipeId);
-        setSessionProgress(history);
+        if (activeRecipeIdRef.current === recipeId) {
+          setSessionProgress(history);
+        }
       } catch (error) {
         console.error('Error loading cooking session history:', error);
-        setSessionProgress([]);
       }
 
       const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream`);

@@ -52,22 +52,16 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 - **Docker** (multi-stage build) + **Docker Compose**
 
 ## Ostatnie Zmiany
-
-### ✨ Komunikacja Real-Time Symulacji (v1.1)
-
-Zaimplementowano mechanizm notyfikacji kroków symulacji:
-
-- **Simulator-Service** wysyła notyfikację do **Main-Service** po każdym wykonanym kroku
-- **Main-Service** zapisuje postęp w tabeli `simulation_progress` (PostgreSQL)
-- **Frontend** może poolować endpointy `/api/simulation-progress/sessions/{sessionId}` w celu śledzenia postępu
-- Asynchroniczna wysyłka (nie blokuje głównego wątku симуlatora)
-- Deduplikacja eventów - brak duplikatów w bazie danych
-
-**Nowe komponenty:**
-- `StepCompletionEventDto` - format eventów
-- `SimulationProgress` - model do przechowywania historii
-- `SimulationProgressService` - logika obsługi eventów
-- `SimulationProgressController` - 4 nowe endpointy API
+ 
+### ✨ Wydzielenie Sesji Gotowania i Komunikacja Real-Time SSE (v1.2)
+ 
+Przeniesiono logikę sesji gotowania do nowego mikroserwisu `cooking-session-service` zgodnie z planem:
+ 
+- **Wydzielony Serwis**: Utworzono `cooking-session-service` na porcie `8083`, który przechowuje dane w schemacie `cooking_session`.
+- **Komunikacja SSE**: Zastąpiono polling mechanizmem Server-Sent Events (SSE). Klient subskrybuje strumień pod `/api/cooking-sessions/recipes/{recipeId}/stream` i natychmiastowo otrzymuje powiadomienia o postępie bez odpytywania bazy w pętli.
+- **Wznowienie Sesji**: Przy wejściu na widok gotowania frontend automatycznie pobiera status aktywnej sesji `/recipes/{recipeId}/active` i odtwarza stan (timer, kroki) bez zapisywania stanu w `localStorage`.
+- **Integracja Symulatora**: Symulator po wykonaniu kroku wysyła powiadomienia do `cooking-session-service` pod `/api/cooking-sessions/progress`.
+- **Clean-up**: Usunięto przestarzałe kontrolery i tabele `simulation_progress` z `main-service`.
 
 ## Uruchomienie
 
@@ -125,12 +119,19 @@ cd simulator-service && mvn spring-boot:run
 | POST   | `/api/recipes`        | Utwórz przepis            |
 | PUT    | `/api/recipes/{id}`   | Zaktualizuj przepis       |
 | DELETE | `/api/recipes/{id}`   | Usuń przepis              |
-| POST   | `/api/simulation-progress` | Otrzymaj event kroku od symulatora |
-| GET    | `/api/simulation-progress/sessions/{sessionId}` | Historia sesji symulacji (używane do poolowania progresu w UI) |
-| GET    | `/api/simulation-progress/sessions/{sessionId}/latest` | Ostatni wykonany krok |
-| GET    | `/api/simulation-progress/recipes/{recipeId}` | Historia przepisu |
 | GET    | `/actuator/health`    | Health check              |
-
+ 
+### cooking-session-service (`http://localhost:8083`)
+ 
+| Metoda | Ścieżka                                          | Opis                                                 |
+|--------|--------------------------------------------------|------------------------------------------------------|
+| POST   | `/api/cooking-sessions/progress`                 | Zapis eventu kroku z simulator-service               |
+| GET    | `/api/cooking-sessions/recipes/{recipeId}/history`| Historia kroków dla przepisu                         |
+| GET    | `/api/cooking-sessions/recipes/{recipeId}/latest` | Ostatni wykonany krok dla przepisu                   |
+| GET    | `/api/cooking-sessions/recipes/{recipeId}/active` | Aktywna sesja do wznowienia                          |
+| GET    | `/api/cooking-sessions/recipes/{recipeId}/stream` | Strumień SSE (Server-Sent Events) z postępem         |
+| GET    | `/actuator/health`                                | Health check                                         |
+ 
 ### simulator-service (`http://localhost:8082`)
 
 | Metoda | Ścieżka                         | Opis                              |
@@ -183,6 +184,7 @@ CookMate/
 ├── config-repo/                    # Pliki konfiguracyjne serwowane przez Config Server
 │   ├── application.yml             # Globalna konfiguracja (wszystkie serwisy)
 │   ├── main-service.yml            # Konfiguracja main-service
+│   ├── cooking-session-service.yml # Konfiguracja cooking-session-service
 │   └── simulator-service.yml       # Konfiguracja simulator-service
 ├── config-service/                 # Spring Cloud Config Server (:8888)
 │   ├── Dockerfile
@@ -201,6 +203,14 @@ CookMate/
 │       ├── model/Recipe.java
 │       ├── repository/RecipeRepository.java
 │       └── service/RecipeService.java
+├── cooking-session-service/        # Serwis sesji gotowania (:8083)
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/cookmate/cookingsession/
+│       ├── CookingSessionServiceApplication.java
+│       ├── controller/CookingSessionController.java
+│       ├── model/CookingSession.java
+│       └── service/CookingSessionService.java
 ├── simulator-service/              # Serwis symulatora (:8082)
 │   ├── Dockerfile
 │   ├── pom.xml

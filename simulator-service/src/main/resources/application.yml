@@ -61,6 +61,9 @@ simulator:
 cooking-session-service:
   url: ${COOKING_SESSION_SERVICE_URL:http://localhost:8083}
 
+simulator-service:
+  main-service-url: ${MAIN_SERVICE_URL:http://localhost:8081}
+
 management:
   endpoints:
     web:
