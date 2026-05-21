@@ -136,3 +136,46 @@ export const getCookingSessionHistory = async (
   }
   return response.json();
 };
+
+/** Get global active cooking session (or null if none). */
+export const getActiveCookingSessionGlobal = async (): Promise<ActiveCookingSession | null> => {
+  const response = await fetch(`${COOKING_SESSION_API_URL}/active`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Failed to get global active cooking session');
+  }
+  const text = await response.text();
+  if (!text || text === 'null') {
+    return null;
+  }
+  return JSON.parse(text);
+};
+
+/** Manually complete/reset active simulation session (simulator-service). */
+export const completeSimulationSession = async (
+  sessionId: string
+): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Failed to complete session');
+  }
+};
+
+/** Manually complete session in cooking-session-service directly. */
+export const completeCookingSession = async (
+  sessionId: string
+): Promise<void> => {
+  const response = await fetch(`${COOKING_SESSION_API_URL}/sessions/${sessionId}/complete`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(errorBody || 'Failed to complete cooking session');
+  }
+};

@@ -1,16 +1,50 @@
 import { SourceToggle } from './SourceToggle';
 
-export function Header() {
+interface HeaderProps {
+  onHomeClick?: () => void;
+}
+
+export function Header({ onHomeClick }: HeaderProps) {
   return (
     <header className="bg-gradient-to-r from-amber-500 to-orange-500 shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div 
+          onClick={onHomeClick}
+          className="flex items-center gap-2 cursor-pointer select-none"
+        >
           <span className="text-white text-3xl font-extrabold tracking-tight">CookMate</span>
         </div>
         <nav className="hidden md:flex gap-6">
-          <a href="#" className="text-white hover:text-amber-100 font-medium transition-colors">Home</a>
-          <a href="#" className="text-white hover:text-amber-100 font-medium transition-colors">Favorites</a>
-          <a href="#" className="text-white hover:text-amber-100 font-medium transition-colors">Create Recipe</a>
+          <a 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              onHomeClick?.();
+            }}
+            className="text-white hover:text-amber-100 font-medium transition-colors"
+          >
+            Home
+          </a>
+          <a 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              onHomeClick?.();
+            }}
+            className="text-white hover:text-amber-100 font-medium transition-colors"
+          >
+            Favorites
+          </a>
+          <a 
+            href="#" 
+            onClick={(e) => {
+              e.preventDefault();
+              onHomeClick?.();
+            }}
+            className="text-white hover:text-amber-100 font-medium transition-colors"
+          >
+            Create Recipe
+          </a>
         </nav>
         <div className="flex items-center gap-4">
           <SourceToggle />
@@ -22,3 +56,4 @@ export function Header() {
     </header>
   );
 }
+

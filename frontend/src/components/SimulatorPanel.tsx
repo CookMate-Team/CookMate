@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   startSimulation,
   executeNextStep,
   getSimulationStatus,
   generateSteps,
+  completeSimulationSession,
+  completeCookingSession,
 } from '../services/simulatorApi';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
 import type { SimulationStatusResponse } from '../types/simulator';
@@ -73,7 +75,6 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [stepDurationSeconds, setStepDurationSeconds] = useState<number | null>(null);
   const [isCounting, setIsCounting] = useState(false);
-  const autoAdvanceStepRef = useRef<number | null>(null);
   const {
     activeSession,
     resetSimulationProgress,
@@ -160,8 +161,6 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   }, [isLoading, sessionId]);
 
   useEffect(() => {
-    autoAdvanceStepRef.current = null;
-
     if (!activeStep || isCompleted) {
       setRemainingSeconds(null);
       setStepDurationSeconds(null);
@@ -206,29 +205,30 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
     setIsCounting(false);
   }, [remainingSeconds]);
 
-  useEffect(() => {
-    if (!activeStep || isCompleted) {
-      return;
-    }
-    if (remainingSeconds === null || remainingSeconds > 0) {
-      return;
-    }
-    if (autoAdvanceStepRef.current === activeStep.stepNumber) {
-      return;
-    }
-
-    autoAdvanceStepRef.current = activeStep.stepNumber;
-    void handleExecuteNext();
-  }, [activeStep, handleExecuteNext, isCompleted, remainingSeconds]);
-
   // ── Reset ──
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
+    if (sessionId) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await Promise.allSettled([
+          completeSimulationSession(sessionId),
+          completeCookingSession(sessionId),
+        ]);
+      } catch (err: any) {
+        console.error('Failed to complete simulation session:', err);
+        setError(parseApiError(err.message ?? 'Failed to complete session'));
+      } finally {
+        setIsLoading(false);
+      }
+    }
     resetSimulationProgress();
     updateActiveSession(null);
+    queryClient.invalidateQueries({ queryKey: ['active-cooking-session-global'] });
     setSessionId(null);
     setStatus(null);
     setError(null);
-  }, [resetSimulationProgress, updateActiveSession]);
+  }, [sessionId, resetSimulationProgress, updateActiveSession, queryClient]);
 
 
   return (
@@ -295,19 +295,30 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
         {sessionId && status && (
           <>
             {/* Current Step Indicator */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-              <div className="text-3xl">📍</div>
-              <div className="flex-1">
-                <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">Current step</p>
-                <p className="text-lg font-bold text-amber-900">
-                  {isCompleted
-                    ? '✨ Completed!'
-                    : displayStepNumber > 0
-                      ? `Step ${displayStepNumber} of ${totalSteps}`
-                      : 'Waiting for first step...'}
-                </p>
-              </div>
-            </div>
+            {(() => {
+              const stepDone = isCompleted || (remainingSeconds === 0 && stepDurationSeconds !== null);
+              return (
+                <div className={`border-2 rounded-xl px-4 py-3 flex items-center gap-3 transition-colors duration-500 ${
+                  stepDone
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+                }`}>
+                  <div className="text-3xl">{stepDone ? '✅' : '📍'}</div>
+                  <div className="flex-1">
+                    <p className={`text-xs font-semibold uppercase tracking-wider ${stepDone ? 'text-green-600' : 'text-amber-600'}`}>
+                      {isCompleted ? 'All steps completed' : stepDone ? 'Step time elapsed' : 'Current step'}
+                    </p>
+                    <p className={`text-lg font-bold ${stepDone ? 'text-green-900' : 'text-amber-900'}`}>
+                      {isCompleted
+                        ? '✨ Completed!'
+                        : displayStepNumber > 0
+                          ? `Step ${displayStepNumber} of ${totalSteps}`
+                          : 'Waiting for first step...'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Progress bar */}
             <div className="space-y-2">
@@ -319,55 +330,86 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               </div>
               <div className="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-amber-400 to-orange-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                    isCompleted
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                  }`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
 
             {/* Active step */}
+            {!isCompleted && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Step details</h4>
-                {activeStep?.preparationTime && (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">
-                    {activeStep.preparationTime}
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const stepDone = remainingSeconds === 0 && stepDurationSeconds !== null;
+                return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Step details</h4>
+                      {activeStep?.preparationTime && (
+                        <span className={`text-xs px-2 py-1 rounded-full font-semibold transition-colors duration-500 ${
+                          stepDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {activeStep.preparationTime}
+                        </span>
+                      )}
+                    </div>
 
-              {activeStep ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/40 px-4 py-3">
-                  <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">
-                    Step {displayStepNumber}
-                  </p>
-                  <p className="mt-1 text-base font-semibold text-stone-800">
-                    {activeStep.recipeName}
-                  </p>
-                  <p className="mt-1 text-xs text-stone-500">
-                    {STATUS_LABEL[activeStep.status]?.label ?? activeStep.status}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-stone-400 text-sm italic">Waiting for step details.</p>
-              )}
+                    {activeStep ? (
+                      <div className={`rounded-xl border px-4 py-3 transition-colors duration-500 ${
+                        stepDone
+                          ? 'border-green-200 bg-green-50/40'
+                          : 'border-amber-200 bg-amber-50/40'
+                      }`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wider transition-colors duration-500 ${
+                          stepDone ? 'text-green-600' : 'text-amber-600'
+                        }`}>
+                          Step {displayStepNumber} {stepDone ? '— Time elapsed' : ''}
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-stone-800">
+                          {activeStep.recipeName}
+                        </p>
+                        <p className={`mt-1 text-xs ${stepDone ? 'text-green-600 font-semibold' : 'text-stone-500'}`}>
+                          {stepDone ? '✅ Ready — click Next step to continue' : (STATUS_LABEL[activeStep.status]?.label ?? activeStep.status)}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-stone-400 text-sm italic">Waiting for step details.</p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
+            )}
 
             {/* Step timer */}
+            {!isCompleted && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-stone-500">
                 <span>
-                  {remainingSeconds !== null ? `Time left: ${remainingSeconds}s` : 'Timer unavailable'}
+                  {remainingSeconds !== null
+                    ? remainingSeconds === 0
+                      ? '✅ Time elapsed'
+                      : `Time left: ${remainingSeconds}s`
+                    : 'Timer unavailable'}
                 </span>
                 {stepDurationSeconds !== null && <span>{stepDurationSeconds}s total</span>}
               </div>
               <div className="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-400 to-amber-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                    remainingSeconds === 0 && stepDurationSeconds !== null
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : 'bg-gradient-to-r from-emerald-400 to-amber-500'
+                  }`}
                   style={{ width: `${timeProgressPercent}%` }}
                 />
               </div>
             </div>
+            )}
 
             {/* Status message */}
             {status.message && (
@@ -410,7 +452,8 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               <button
                 id="simulator-reset-btn"
                 onClick={handleReset}
-                className="w-full py-2 text-sm text-stone-500 hover:text-red-500 font-medium rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200"
+                disabled={isLoading}
+                className="w-full py-2 text-sm text-stone-500 hover:text-red-500 font-medium rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 🔄 Reset simulation
               </button>

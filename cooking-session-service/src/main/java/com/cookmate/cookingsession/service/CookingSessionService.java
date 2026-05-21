@@ -91,6 +91,23 @@ public class CookingSessionService {
         return getActiveSession(recipeId).map(this::toActiveDto);
     }
 
+    public Optional<ActiveCookingSessionDto> getActiveSessionGlobal() {
+        return cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING)
+                .stream()
+                .findFirst()
+                .map(this::toActiveDto);
+    }
+
+    @Transactional
+    public void completeSession(String sessionId) {
+        cookingSessionRepository.findById(sessionId).ifPresent(session -> {
+            session.setStatus(CookingSessionStatus.COMPLETED);
+            session.setCompletedAt(LocalDateTime.now());
+            cookingSessionRepository.save(session);
+            logger.info("Session {} manually completed", sessionId);
+        });
+    }
+
     public Flux<CookingSessionProgressDto> streamProgress(String recipeId) {
         return progressSink.asFlux()
                 .filter(event -> event.recipeId().equals(recipeId));
@@ -105,21 +122,31 @@ public class CookingSessionService {
 
     private CookingSession upsertSession(StepCompletionEventDto event) {
         CookingSession session = cookingSessionRepository.findById(event.sessionId()).orElse(null);
+        boolean isCompletedEvent = "COMPLETED".equals(event.status());
+        CookingSessionStatus targetStatus = isCompletedEvent ? CookingSessionStatus.COMPLETED : CookingSessionStatus.RUNNING;
+
+        if (targetStatus == CookingSessionStatus.RUNNING) {
+            completeAllOtherSessionsGlobally(event.sessionId());
+        }
+
         if (session == null) {
             completeOtherSessions(event.recipeId(), event.sessionId());
             session = CookingSession.builder()
                     .sessionId(event.sessionId())
                     .recipeId(event.recipeId())
-                    .status(CookingSessionStatus.RUNNING)
+                    .status(targetStatus)
                     .currentStep(event.stepNumber())
                     .lastExecutedAt(event.executedAt())
+                    .completedAt(isCompletedEvent ? event.executedAt() : null)
                     .build();
         } else {
             int currentStep = session.getCurrentStep() == null ? 0 : session.getCurrentStep();
             session.setCurrentStep(Math.max(currentStep, event.stepNumber()));
             session.setLastExecutedAt(event.executedAt());
-            if (session.getStatus() != CookingSessionStatus.RUNNING) {
-                session.setStatus(CookingSessionStatus.RUNNING);
+            session.setStatus(targetStatus);
+            if (isCompletedEvent) {
+                session.setCompletedAt(event.executedAt());
+            } else {
                 session.setCompletedAt(null);
             }
         }
@@ -140,6 +167,28 @@ public class CookingSessionService {
                 session.setStatus(CookingSessionStatus.COMPLETED);
                 session.setCompletedAt(now);
                 updated = true;
+            }
+        }
+        if (updated) {
+            cookingSessionRepository.saveAll(runningSessions);
+        }
+    }
+
+    @Transactional
+    public void completeAllOtherSessionsGlobally(String currentSessionId) {
+        List<CookingSession> runningSessions = cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING);
+        if (runningSessions.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        boolean updated = false;
+        for (CookingSession session : runningSessions) {
+            if (!session.getSessionId().equals(currentSessionId)) {
+                session.setStatus(CookingSessionStatus.COMPLETED);
+                session.setCompletedAt(now);
+                updated = true;
+                logger.info("Session {} globally completed due to new active session {}", session.getSessionId(), currentSessionId);
             }
         }
         if (updated) {
