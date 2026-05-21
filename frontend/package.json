@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "lint:sonar": "eslint . --format json -o eslint-report.json || true",
+    "lint:sonar": "eslint . --format json -o eslint-report.json || exit 0",
     "preview": "vite preview"
   },
   "dependencies": {
