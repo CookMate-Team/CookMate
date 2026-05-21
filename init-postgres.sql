@@ -26,3 +26,19 @@ GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO keycloak;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO keycloak;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO keycloak;
+
+-- ============================================================================
+-- SonarQube Database Setup
+-- ============================================================================
+
+-- Create sonarqube database user (if not exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'sonar') THEN
+    CREATE USER sonar WITH PASSWORD 'sonar';
+  END IF;
+END $$;
+
+-- Create sonarqube database
+CREATE DATABASE sonar OWNER sonar ENCODING 'UTF8';
+GRANT ALL PRIVILEGES ON DATABASE sonar TO sonar;
