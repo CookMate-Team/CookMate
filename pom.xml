@@ -15,6 +15,7 @@
         <module>config-service</module>
         <module>discovery-service</module>
         <module>main-service</module>
+        <module>cooking-session-service</module>
         <module>simulator-service</module>
     </modules>
 
