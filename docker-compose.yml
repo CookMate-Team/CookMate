@@ -28,7 +28,7 @@ services:
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cookmate -d cookmate && pg_isready -U keycloak -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U cookmate -d cookmate"]
       interval: 10s
       timeout: 5s
       retries: 8
@@ -172,6 +172,7 @@ services:
       DB_NAME: cookmate
       DB_USER: cookmate
       DB_PASS: cookmate
+      COOKING_SESSION_SERVICE_URL: http://cooking-session-service:8083
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,6 +194,8 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: cookmate-keycloak
+    profiles:
+      - auth
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -238,6 +241,7 @@ services:
     environment:
       API_URL: http://main-service:8081
       SIMULATOR_URL: http://simulator-service:8082
+      COOKING_SESSION_URL: http://cooking-session-service:8083
     depends_on:
       main-service:
         condition: service_healthy

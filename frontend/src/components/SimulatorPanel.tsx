@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   startSimulation,
@@ -38,6 +38,27 @@ function parseApiError(raw: string): string {
   return raw;
 }
 
+function toScaledSeconds(preparationTime?: string | null): number | null {
+  if (!preparationTime) {
+    return null;
+  }
+
+  const normalized = preparationTime.toLowerCase();
+  const minutesMatch = normalized.match(/(\d+)\s*(minute|minutes|min)/);
+  if (minutesMatch) {
+    return Math.max(1, Number(minutesMatch[1]));
+  }
+
+  const secondsMatch = normalized.match(/(\d+)\s*(second|seconds|sec)/);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    return Math.max(1, Math.ceil(seconds / 60));
+  }
+
+  const fallback = Number.parseInt(normalized, 10);
+  return Number.isNaN(fallback) ? null : Math.max(1, fallback);
+}
+
 interface SimulatorPanelProps {
   recipeId: string;
   recipeName?: string;
@@ -49,8 +70,44 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { mainServiceProgress, startPolling, resetSimulationProgress } = useSimulationProgress();
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [stepDurationSeconds, setStepDurationSeconds] = useState<number | null>(null);
+  const [isCounting, setIsCounting] = useState(false);
+  const autoAdvanceStepRef = useRef<number | null>(null);
+  const {
+    activeSession,
+    resetSimulationProgress,
+    updateActiveSession,
+  } = useSimulationProgress();
   const queryClient = useQueryClient();
+  const isCompleted = status?.status === 'COMPLETED';
+  const currentStep = status?.currentStep ?? 0;
+  const totalSteps = status?.totalSteps ?? 0;
+  const progressPercent = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+  const history = status?.history ?? [];
+  const displayStepNumber = status
+    ? isCompleted
+      ? currentStep
+      : Math.min(currentStep + 1, totalSteps || currentStep + 1)
+    : 0;
+  const activeStep = history.find((step) => step.stepNumber === displayStepNumber) ?? null;
+  const timeProgressPercent =
+    stepDurationSeconds && remainingSeconds !== null
+      ? Math.min(100, Math.max(0, ((stepDurationSeconds - remainingSeconds) / stepDurationSeconds) * 100))
+      : 0;
+
+  useEffect(() => {
+    if (!activeSession || sessionId || activeSession.recipeId !== recipeId) {
+      return;
+    }
+
+    setSessionId(activeSession.sessionId);
+    setIsLoading(true);
+    getSimulationStatus(activeSession.sessionId)
+      .then((updated) => setStatus(updated))
+      .catch((err: any) => setError(parseApiError(err.message ?? 'Failed to load active session')))
+      .finally(() => setIsLoading(false));
+  }, [activeSession, recipeId, sessionId]);
 
   // ── Start session ──
   const handleStart = useCallback(async () => {
@@ -69,18 +126,26 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
       const res = await startSimulation({ recipeId });
       setSessionId(res.sessionId);
       setStatus(res);
-      startPolling(res.sessionId);
+      updateActiveSession({
+        sessionId: res.sessionId,
+        recipeId,
+        status: res.status,
+        currentStep: res.currentStep,
+        lastExecutedAt: null,
+      });
     } catch (err: any) {
       setError(parseApiError(err.message ?? 'Failed to start simulation'));
     } finally {
       setIsLoading(false);
       setLoadingMessage(null);
     }
-  }, [recipeId, startPolling]);
+  }, [recipeId, queryClient, updateActiveSession]);
 
   // ── Execute next step ──
   const handleExecuteNext = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionId || isLoading) return;
+    setIsCounting(false);
+    setRemainingSeconds(0);
     setIsLoading(true);
     setError(null);
     try {
@@ -92,21 +157,79 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId]);
+  }, [isLoading, sessionId]);
+
+  useEffect(() => {
+    autoAdvanceStepRef.current = null;
+
+    if (!activeStep || isCompleted) {
+      setRemainingSeconds(null);
+      setStepDurationSeconds(null);
+      setIsCounting(false);
+      return;
+    }
+
+    const scaledSeconds = toScaledSeconds(activeStep.preparationTime);
+    if (!scaledSeconds) {
+      setRemainingSeconds(null);
+      setStepDurationSeconds(null);
+      setIsCounting(false);
+      return;
+    }
+
+    setStepDurationSeconds(scaledSeconds);
+    setRemainingSeconds(scaledSeconds);
+    setIsCounting(true);
+  }, [activeStep?.preparationTime, activeStep?.stepNumber, isCompleted]);
+
+  useEffect(() => {
+    if (!isCounting) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev === null) {
+          return prev;
+        }
+        return prev <= 1 ? 0 : prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isCounting]);
+
+  useEffect(() => {
+    if (remainingSeconds !== 0) {
+      return;
+    }
+    setIsCounting(false);
+  }, [remainingSeconds]);
+
+  useEffect(() => {
+    if (!activeStep || isCompleted) {
+      return;
+    }
+    if (remainingSeconds === null || remainingSeconds > 0) {
+      return;
+    }
+    if (autoAdvanceStepRef.current === activeStep.stepNumber) {
+      return;
+    }
+
+    autoAdvanceStepRef.current = activeStep.stepNumber;
+    void handleExecuteNext();
+  }, [activeStep, handleExecuteNext, isCompleted, remainingSeconds]);
 
   // ── Reset ──
   const handleReset = useCallback(() => {
     resetSimulationProgress();
+    updateActiveSession(null);
     setSessionId(null);
     setStatus(null);
     setError(null);
-  }, [resetSimulationProgress]);
+  }, [resetSimulationProgress, updateActiveSession]);
 
-  const isCompleted = status?.status === 'COMPLETED';
-  const currentStep = status?.currentStep ?? 0;
-  const totalSteps = status?.totalSteps ?? 0;
-  const progressPercent = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
-  const history = status?.history ?? [];
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-stone-50 to-white">
@@ -177,7 +300,11 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               <div className="flex-1">
                 <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">Current step</p>
                 <p className="text-lg font-bold text-amber-900">
-                  {isCompleted ? '✨ Completed!' : `Step ${currentStep} of ${totalSteps}`}
+                  {isCompleted
+                    ? '✨ Completed!'
+                    : displayStepNumber > 0
+                      ? `Step ${displayStepNumber} of ${totalSteps}`
+                      : 'Waiting for first step...'}
                 </p>
               </div>
             </div>
@@ -198,60 +325,47 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               </div>
             </div>
 
-            {/* Steps List */}
+            {/* Active step */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Recipe steps</h4>
-                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">
-                  {mainServiceProgress.length} synchronized
-                </span>
+                <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Step details</h4>
+                {activeStep?.preparationTime && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">
+                    {activeStep.preparationTime}
+                  </span>
+                )}
               </div>
-              
-              {history.length === 0 && (
-                <p className="text-stone-400 text-sm italic">No steps.</p>
+
+              {activeStep ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/40 px-4 py-3">
+                  <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">
+                    Step {displayStepNumber}
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-stone-800">
+                    {activeStep.recipeName}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    {STATUS_LABEL[activeStep.status]?.label ?? activeStep.status}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-stone-400 text-sm italic">Waiting for step details.</p>
               )}
-              
-              <div className="space-y-2">
-                {history.map((step) => {
-                  const info = STATUS_LABEL[step.status] ?? { label: step.status, emoji: '❓' };
-                  const isCurrent = step.stepNumber === currentStep && !isCompleted;
-                  const isExecuted = step.status === 'EXECUTED';
-                  const mainServiceExecuted = mainServiceProgress.some(p => p.stepNumber === step.stepNumber);
-                  
-                  return (
-                    <div
-                      key={step.stepNumber}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-300
-                        ${isCurrent
-                          ? 'border-amber-400 bg-amber-50 shadow-md ring-2 ring-amber-200 scale-105 origin-left'
-                          : isExecuted
-                            ? 'border-green-200 bg-green-50/70'
-                            : 'border-stone-200 bg-stone-50 opacity-50'
-                        }`}
-                    >
-                      <span className="text-2xl flex-shrink-0">{info.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold truncate ${
-                          isCurrent ? 'text-amber-900' : isExecuted ? 'text-green-700' : 'text-stone-400'
-                        }`}>
-                          Step {step.stepNumber}{step.recipeName && ` – ${step.recipeName}`}
-                        </p>
-                        <p className={`text-xs ${
-                          isCurrent ? 'text-amber-700' : isExecuted ? 'text-green-600' : 'text-stone-400'
-                        }`}>
-                          {info.label}{step.preparationTime && ` • ${step.preparationTime}`}
-                        </p>
-                      </div>
-                      
-                      {/* Sync status badge */}
-                      {isExecuted && mainServiceExecuted && (
-                        <span className="text-[11px] px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold whitespace-nowrap flex-shrink-0">
-                          🔗 Synced
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+            </div>
+
+            {/* Step timer */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-stone-500">
+                <span>
+                  {remainingSeconds !== null ? `Time left: ${remainingSeconds}s` : 'Timer unavailable'}
+                </span>
+                {stepDurationSeconds !== null && <span>{stepDurationSeconds}s total</span>}
+              </div>
+              <div className="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-emerald-400 to-amber-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${timeProgressPercent}%` }}
+                />
               </div>
             </div>
 
@@ -280,7 +394,7 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
                       Executing...
                     </>
                   ) : (
-                    <>▶️ Confirm – execute next step</>
+                    <>▶️ Next step</>
                   )}
                 </button>
               )}

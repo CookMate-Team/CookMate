@@ -8,105 +8,163 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { getSimulationProgress } from '../services/simulatorApi';
-import type { SimulationStepHistoryItem } from '../types/simulator';
+import { getActiveCookingSession, getCookingSessionHistory } from '../services/simulatorApi';
+import type { ActiveCookingSession, CookingSessionProgressItem } from '../types/simulator';
 
 interface GuidedCookingContextValue {
-  sessionId: string | null;
+  activeSession: ActiveCookingSession | null;
   currentStep: number;
-  mainServiceProgress: SimulationStepHistoryItem[];
-  isPolling: boolean;
-  startPolling: (sessionId: string) => void;
-  stopPolling: () => void;
+  sessionProgress: CookingSessionProgressItem[];
+  isStreaming: boolean;
+  startStreaming: (recipeId: string) => void;
+  stopStreaming: () => void;
   resetSimulationProgress: () => void;
+  updateActiveSession: (session: ActiveCookingSession | null) => void;
 }
 
 const GuidedCookingContext = createContext<GuidedCookingContextValue | undefined>(undefined);
 
 export function GuidedCookingProvider({ children }: PropsWithChildren) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [mainServiceProgress, setMainServiceProgress] = useState<SimulationStepHistoryItem[]>([]);
-  const [isPolling, setIsPolling] = useState(false);
-  const pollIntervalRef = useRef<number | null>(null);
+  const [activeSession, setActiveSession] = useState<ActiveCookingSession | null>(null);
+  const [sessionProgress, setSessionProgress] = useState<CookingSessionProgressItem[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const activeRecipeIdRef = useRef<string | null>(null);
 
-  const pollProgress = useCallback(async (sid: string) => {
-    try {
-      const progress = await getSimulationProgress(sid);
-      setMainServiceProgress(progress);
-    } catch (error) {
-      console.error('Error polling main-service progress:', error);
-    }
+  const updateActiveSession = useCallback((session: ActiveCookingSession | null) => {
+    setActiveSession(session);
   }, []);
 
-  const startPolling = useCallback(
-    (sid: string) => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+  const stopStreaming = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    activeRecipeIdRef.current = null;
+    setIsStreaming(false);
+  }, []);
+
+  const mergeProgress = useCallback((progress: CookingSessionProgressItem) => {
+    setSessionProgress((prev) => {
+      const existingIndex = prev.findIndex((item) => item.stepNumber === progress.stepNumber);
+      if (existingIndex >= 0) {
+        const next = [...prev];
+        next[existingIndex] = progress;
+        return next;
+      }
+      return [...prev, progress].sort((a, b) => a.stepNumber - b.stepNumber);
+    });
+
+    setActiveSession((prev) => {
+      if (!prev) {
+        return {
+          sessionId: progress.sessionId,
+          recipeId: progress.recipeId,
+          status: 'RUNNING',
+          currentStep: progress.stepNumber,
+          lastExecutedAt: progress.executedAt,
+        };
+      }
+      const nextStep = Math.max(prev.currentStep ?? 0, progress.stepNumber);
+      return {
+        ...prev,
+        currentStep: nextStep,
+        lastExecutedAt: progress.executedAt,
+      };
+    });
+  }, []);
+
+  const startStreaming = useCallback(
+    async (recipeId: string) => {
+      if (activeRecipeIdRef.current === recipeId && eventSourceRef.current) {
+        return;
       }
 
-      setSessionId(sid);
-      setIsPolling(true);
-      void pollProgress(sid);
+      stopStreaming();
+      activeRecipeIdRef.current = recipeId;
+      setIsStreaming(true);
 
-      pollIntervalRef.current = window.setInterval(() => {
-        void pollProgress(sid);
-      }, 2000);
+      try {
+        const active = await getActiveCookingSession(recipeId);
+        setActiveSession(active);
+      } catch (error) {
+        console.error('Error loading active cooking session:', error);
+        setActiveSession(null);
+      }
+
+      try {
+        const history = await getCookingSessionHistory(recipeId);
+        setSessionProgress(history);
+      } catch (error) {
+        console.error('Error loading cooking session history:', error);
+        setSessionProgress([]);
+      }
+
+      const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream`);
+      eventSourceRef.current = source;
+
+      source.addEventListener('progress', (event) => {
+        try {
+          const parsed = JSON.parse(event.data) as CookingSessionProgressItem;
+          mergeProgress(parsed);
+        } catch (error) {
+          console.error('Error parsing SSE progress payload:', error);
+        }
+      });
+
+      source.onerror = (event) => {
+        console.error('Cooking session SSE error:', event);
+      };
     },
-    [pollProgress]
+    [mergeProgress, stopStreaming]
   );
 
-  const stopPolling = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    setIsPolling(false);
-  }, []);
-
   const resetSimulationProgress = useCallback(() => {
-    stopPolling();
-    setSessionId(null);
-    setMainServiceProgress([]);
-  }, [stopPolling]);
+    stopStreaming();
+    setActiveSession(null);
+    setSessionProgress([]);
+  }, [stopStreaming]);
 
   useEffect(() => {
-    return () => stopPolling();
-  }, [stopPolling]);
+    return () => stopStreaming();
+  }, [stopStreaming]);
 
   const currentStep = useMemo(() => {
-    if (!sessionId) {
+    if (!activeSession) {
       return 0;
     }
 
-    const executedSteps = mainServiceProgress
+    const executedSteps = sessionProgress
       .filter((item) => item.status === 'EXECUTED')
       .map((item) => item.stepNumber);
 
-    if (executedSteps.length === 0) {
-      return 1;
-    }
+    const lastExecuted = executedSteps.length > 0
+      ? Math.max(...executedSteps)
+      : activeSession.currentStep ?? 0;
 
-    return Math.max(...executedSteps) + 1;
-  }, [mainServiceProgress, sessionId]);
+    return lastExecuted <= 0 ? 1 : lastExecuted + 1;
+  }, [activeSession, sessionProgress]);
 
   const value = useMemo(
     () => ({
-      sessionId,
+      activeSession,
       currentStep,
-      mainServiceProgress,
-      isPolling,
-      startPolling,
-      stopPolling,
+      sessionProgress,
+      isStreaming,
+      startStreaming,
+      stopStreaming,
       resetSimulationProgress,
+      updateActiveSession,
     }),
     [
-      sessionId,
+      activeSession,
       currentStep,
-      mainServiceProgress,
-      isPolling,
-      startPolling,
-      stopPolling,
+      sessionProgress,
+      isStreaming,
+      startStreaming,
+      stopStreaming,
       resetSimulationProgress,
+      updateActiveSession,
     ]
   );
 

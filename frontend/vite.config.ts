@@ -11,6 +11,10 @@ export default defineConfig({
 				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
 				changeOrigin: true,
 			},
+			'/api/cooking-sessions': {
+				target: process.env.COOKING_SESSION_URL || 'http://localhost:8083',
+				changeOrigin: true,
+			},
 			'/api': {
 				target: process.env.API_URL || 'http://localhost:8081',
 				changeOrigin: true,
@@ -21,6 +25,10 @@ export default defineConfig({
 		proxy: {
 			'/api/simulator': {
 				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
+				changeOrigin: true,
+			},
+			'/api/cooking-sessions': {
+				target: process.env.COOKING_SESSION_URL || 'http://localhost:8083',
 				changeOrigin: true,
 			},
 			'/api': {
