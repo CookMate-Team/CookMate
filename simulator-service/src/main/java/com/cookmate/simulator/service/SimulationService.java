@@ -357,9 +357,7 @@ public class SimulationService {
         synchronized (getExecutionLock(sessionId)) {
             SimulationSession session = simulationSessionRepository.findById(sessionId).orElse(null);
             if (session == null) {
-                final Logger logger = LoggerFactory.getLogger(SimulationService.class);
-                logger.warn("Simulation session with ID {} not found during completion request. Skipping completion notification to avoid invalid recipeId.", sessionId);
-                return;
+                throw new SimulationSessionNotFoundException(sessionId);
             }
             session.setStatus(SimulationStatus.COMPLETED);
             session.setCompletedAt(LocalDateTime.now());
