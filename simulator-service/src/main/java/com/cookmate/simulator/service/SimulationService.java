@@ -356,14 +356,7 @@ public class SimulationService {
             SimulationSession session = simulationSessionRepository.findById(sessionId).orElse(null);
             if (session == null) {
                 final Logger logger = LoggerFactory.getLogger(SimulationService.class);
-                logger.warn("Simulation session with ID {} not found during completion request. Sending fallback completion notification.", sessionId);
-                notifyCookingSessionAsync(
-                        sessionId,
-                        0,
-                        "COMPLETED",
-                        LocalDateTime.now(),
-                        ""
-                );
+                logger.warn("Simulation session with ID {} not found during completion request. Skipping completion notification to avoid invalid recipeId.", sessionId);
                 return;
             }
             session.setStatus(SimulationStatus.COMPLETED);
