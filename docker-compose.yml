@@ -228,9 +228,9 @@ services:
     ports:
       - "9000:9000"
     environment:
-      - SONAR_JDBC_USERNAME=sonar
-      - SONAR_JDBC_PASSWORD=sonar
-      - SONAR_JDBC_URL=jdbc:postgresql://postgres:5432/sonar
+      SONAR_JDBC_USERNAME: "${SONAR_JDBC_USERNAME:-sonar}"
+      SONAR_JDBC_PASSWORD: "${SONAR_JDBC_PASSWORD:-sonar}"
+      SONAR_JDBC_URL: "${SONAR_JDBC_URL:-jdbc:postgresql://postgres:5432/sonar}"
     depends_on:
       postgres:
         condition: service_healthy
