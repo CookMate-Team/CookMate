@@ -1,0 +1,39 @@
+# Configuration specific to gateway-service
+server:
+  port: 8083
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: ${KEYCLOAK_CLIENT_ID:cookmate-client}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:cookmate-secret}
+            authorization-grant-type: authorization_code
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            provider: keycloak
+        provider:
+          keycloak:
+            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/cookmate}
+
+  cloud:
+    gateway:
+      default-filters:
+        - SaveSession
+      routes:
+        - id: simulator-service
+          uri: lb://simulator-service
+          predicates:
+            - Path=/api/simulator/**
+          filters:
+            - TokenRelay
+          order: 0
+        - id: main-service
+          uri: lb://main-service
+          predicates:
+            - Path=/api/**
+          filters:
+            - TokenRelay
+          order: 1
