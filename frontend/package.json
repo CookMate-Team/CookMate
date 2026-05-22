@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "lint:sonar": "eslint . --format json -o eslint-report.json; status=$?; if [ $status -eq 1 ]; then exit 0; fi; exit $status",
     "preview": "vite preview"
   },
   "dependencies": {

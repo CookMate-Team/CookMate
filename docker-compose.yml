@@ -5,6 +5,11 @@ networks:
 volumes:
   postgres-data:
   keycloak-data:
+  sonarqube_conf:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonarqube_temp:
 
 services:
 
@@ -212,3 +217,32 @@ services:
         condition: service_healthy
     networks:
       - cookmate-net
+
+  # ─────────────────────────────────────────────
+  # SonarQube Code Quality Platform (port 9000)
+  # ─────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:10.7.0-community
+    container_name: cookmate-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_USERNAME: "${SONAR_JDBC_USERNAME:-sonar}"
+      SONAR_JDBC_PASSWORD: "${SONAR_JDBC_PASSWORD:-sonar}"
+      SONAR_JDBC_URL: "${SONAR_JDBC_URL:-jdbc:postgresql://postgres:5432/sonar}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - sonarqube_conf:/opt/sonarqube/conf
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_temp:/opt/sonarqube/temp
