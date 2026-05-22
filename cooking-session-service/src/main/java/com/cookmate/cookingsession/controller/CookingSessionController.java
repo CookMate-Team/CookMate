@@ -61,7 +61,9 @@ public class CookingSessionController {
 
     @GetMapping("/active")
     public ResponseEntity<ActiveCookingSessionDto> getActiveSessionGlobal() {
-        return ResponseEntity.ok(cookingSessionService.getActiveSessionGlobal().orElse(null));
+        return cookingSessionService.getActiveSessionGlobal()
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/sessions/{sessionId}/complete")
