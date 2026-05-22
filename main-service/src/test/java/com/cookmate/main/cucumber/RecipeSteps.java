@@ -1,6 +1,7 @@
 package com.cookmate.main.cucumber;
 
 import com.cookmate.main.controller.RecipeController;
+import com.cookmate.main.exception.GlobalExceptionHandler;
 import com.cookmate.main.exception.RecipeNotFoundException;
 import com.cookmate.main.model.Recipe;
 import com.cookmate.main.service.RecipeService;
@@ -44,7 +45,9 @@ public class RecipeSteps {
         when(stepService.getStepsByRecipeId(any())).thenReturn(List.of());
 
         RecipeController controller = new RecipeController(recipeService, stepService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Given("the recipe repository contains {int} recipes")
@@ -81,7 +84,7 @@ public class RecipeSteps {
                 .thenReturn(new com.cookmate.main.dto.RecipeListResponse(List.of(), 0, 10, 0, 0));
     }
 
-    @When("I call GET {string}")
+    @When("I send GET {string}")
     public void iCallGet(String path) throws Exception {
         lastResult = mockMvc.perform(get(path)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -109,7 +112,7 @@ public class RecipeSteps {
                 .andReturn();
     }
 
-    @Then("the response status should be {int}")
+    @Then("the recipe response status should be {int}")
     public void theResponseStatusShouldBe(int expectedStatus) {
         assertThat(lastResult.getResponse().getStatus())
                 .as("Expected HTTP status %d", expectedStatus)
@@ -128,7 +131,7 @@ public class RecipeSteps {
                 .isTrue();
     }
 
-    @And("the response should contain field {string}")
+    @And("the recipe response should contain field {string}")
     public void theResponseShouldContainField(String fieldName) throws Exception {
         var body = lastResult.getResponse().getContentAsString();
         JsonNode json = objectMapper.readTree(body);

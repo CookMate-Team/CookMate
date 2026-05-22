@@ -5,20 +5,20 @@ Feature: Recipe management endpoints
 
   Scenario: Get all recipes returns 200 and recipes array
     Given the recipe repository contains 2 recipes
-    When I call GET "/api/recipes"
-    Then the response status should be 200
+    When I send GET "/api/recipes"
+    Then the recipe response status should be 200
     And the response should contain a recipes array
 
   Scenario: Get recipe by existing ID returns 200
     Given a recipe with id 1 exists in the repository
-    When I call GET "/api/recipes/1"
-    Then the response status should be 200
-    And the response should contain field "name"
+    When I send GET "/api/recipes/1"
+    Then the recipe response status should be 200
+    And the recipe response should contain field "name"
 
   Scenario: Get recipe by non-existing ID returns 404
     Given the recipe repository is empty
-    When I call GET "/api/recipes/99999"
-    Then the response status should be 404
+    When I send GET "/api/recipes/99999"
+    Then the recipe response status should be 404
     And the response should contain error code "RECIPE_NOT_FOUND"
 
   Scenario: Create a valid recipe returns 201
@@ -32,8 +32,8 @@ Feature: Recipe management endpoints
         "preparationTimeMinutes": 45
       }
       """
-    Then the response status should be 201
-    And the response should contain field "name"
+    Then the recipe response status should be 201
+    And the recipe response should contain field "name"
 
   Scenario: Create recipe with blank name returns 400
     When I call POST "/api/recipes" with body:
@@ -44,10 +44,10 @@ Feature: Recipe management endpoints
         "preparationTimeMinutes": 10
       }
       """
-    Then the response status should be 400
+    Then the recipe response status should be 400
 
   Scenario: Delete non-existing recipe returns 404
     Given the recipe repository is empty
     When I call DELETE "/api/recipes/99999"
-    Then the response status should be 404
+    Then the recipe response status should be 404
     And the response should contain error code "RECIPE_NOT_FOUND"
