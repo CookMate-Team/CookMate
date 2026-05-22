@@ -45,7 +45,7 @@ public class CookingSessionService {
             return toProgressDto(existing.get());
         }
 
-        CookingSession session = upsertSession(event);
+        upsertSession(event);
 
         CookingSessionProgress progress = CookingSessionProgress.builder()
                 .sessionId(event.sessionId())
