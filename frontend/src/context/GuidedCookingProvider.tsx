@@ -168,10 +168,22 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
     try {
       const targetSession = globalActiveSessionForOtherRecipe;
       if (targetSession) {
-        await Promise.allSettled([
+        const cleanupResults = await Promise.allSettled([
           completeSimulationSession(targetSession.sessionId),
           completeCookingSession(targetSession.sessionId),
         ]);
+
+        const cleanupErrors = cleanupResults
+          .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+          .map((result) =>
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason ?? 'Unknown cleanup error')
+          );
+
+        if (cleanupErrors.length > 0) {
+          throw new Error(`Failed to complete existing session cleanup: ${cleanupErrors.join('; ')}`);
+        }
       }
 
       setGlobalActiveSessionForOtherRecipe(null);
