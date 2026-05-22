@@ -11,18 +11,18 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
                              └────────┬────────┘
                                       │ reads
                              ┌────────▼────────┐
-                             │   config-repo/  │  (pliki YAML)
+                             │   config-repo/  │  
                              └─────────────────┘
                                       │ serves config to
              ┌────────────────┬───────┴───────┬────────────────┐
              ▼                ▼               ▼                ▼
-    ┌─────────────────┐ ┌───────────┐ ┌───────────────┐ ┌──────────────────┐
-    │discovery-service│ │main-service│ │cooking-session│ │simulator-service │
-    │@EnableEurekaServ│ │   :8081   │ │    :8083      │ │     :8082        │
-    │     :8761       │ └─────┬─────┘ └───────┬───────┘ └────────┬─────────┘
-    └────────┬────────┘       │               │                  │
-             │ registers      │ registers     │ registers        │ registers
-             └────────────────┴───────┬───────┴──────────────────┘
+    ┌─────────────────┐ ┌─────────────┐ ┌───────────────┐ ┌──────────────────┐
+    │discovery-service│ │main-service │ │cooking-session│ │simulator-service │
+    │@EnableEurekaServ│ │   :8081     │ │    :8083      │ │     :8082        │
+    │     :8761       │ └─────┬───────┘ └───────┬───────┘ └────────┬─────────┘
+    └────────┬────────┘       │               │                    │
+             │ registers      │ registers     │ registers          │ registers
+             └────────────────┴───────┬───────┴────────────────────┘
                                       │
                         ┌─────────────┴──────────────┐
                         ▼                            ▼
