@@ -33,10 +33,25 @@ function ActiveCookingCard({
     setIsEnding(true);
     try {
       // Complete in both services to ensure cleanup
-      await Promise.allSettled([
+      const results = await Promise.allSettled([
         completeSimulationSession(sessionId),
         completeCookingSession(sessionId),
       ]);
+
+      const failedResults = results.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected'
+      );
+
+      if (failedResults.length > 0) {
+        throw new Error(
+          `Failed to end session: ${failedResults
+            .map((result) =>
+              result.reason instanceof Error ? result.reason.message : String(result.reason)
+            )
+            .join('; ')}`
+        );
+      }
+
       resetSimulationProgress();
       queryClient.invalidateQueries({ queryKey: ['active-cooking-session-global'] });
       setSource('DISCOVERY');
