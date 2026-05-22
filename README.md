@@ -39,6 +39,7 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 |---------------------|------|-------------------------------------------|
 | `config-service`    | 8888 | Spring Cloud Config Server                |
 | `discovery-service` | 8761 | Eureka Discovery Server                   |
+| `gateway-service`   | 8083 | Spring Cloud Gateway + OAuth2 Client      |
 | `main-service`      | 8081 | REST API zarządzania przepisami + PostgreSQL|
 | `simulator-service` | 8082 | Symulator planowania posiłków (Feign)     |
 | `keycloak`          | 8080 | Keycloak Identity & Access Management     |
@@ -103,10 +104,13 @@ cd config-service && mvn spring-boot:run
 # 3. discovery-service
 cd discovery-service && mvn spring-boot:run
 
-# 4. main-service
+# 4. gateway-service
+cd gateway-service && mvn spring-boot:run
+
+# 5. main-service
 cd main-service && mvn spring-boot:run
 
-# 5. simulator-service
+# 6. simulator-service
 cd simulator-service && mvn spring-boot:run
 ```
 
@@ -166,8 +170,8 @@ Admin console: `http://localhost:8080/admin/master/console/`
 **OIDC client (Authorization Code flow):**
 - Client ID: `cookmate-client`
 - Client Secret: `cookmate-secret`
-- Valid Redirect URIs: `http://localhost:5173/*`, `http://localhost:8081/*`
-- Web Origins: `http://localhost:5173`, `http://localhost:8081`
+- Valid Redirect URIs: `http://localhost:5173/*`, `http://localhost:8081/*`, `http://localhost:8083/*`
+- Web Origins: `http://localhost:5173`, `http://localhost:8081`, `http://localhost:8083`
 
 **Test user (realm `cookmate`):**
 - Username: `test.user`
@@ -192,6 +196,10 @@ CookMate/
 │   ├── Dockerfile
 │   ├── pom.xml
 │   └── src/main/java/com/cookmate/discovery/DiscoveryServiceApplication.java
+├── gateway-service/                # API Gateway (:8083)
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/com/cookmate/gateway/GatewayServiceApplication.java
 ├── main-service/                   # Serwis przepisów (:8081)
 │   ├── Dockerfile
 │   ├── pom.xml
