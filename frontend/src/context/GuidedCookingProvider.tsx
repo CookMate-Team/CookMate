@@ -218,6 +218,10 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
   }, [stopStreaming]);
 
   useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['active-cooking-session-global'] });
+  }, [activeSession, queryClient]);
+
+  useEffect(() => {
     if (activeSession && activeSession.status === 'RUNNING') {
       const recipeId = activeSession.recipeId;
       setIsStreaming(true);
