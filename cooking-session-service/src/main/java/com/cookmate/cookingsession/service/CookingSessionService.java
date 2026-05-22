@@ -31,7 +31,7 @@ public class CookingSessionService {
 
     private final Sinks.Many<CookingSessionProgressDto> progressSink = Sinks.many()
             .multicast()
-            .onBackpressureBuffer();
+            .directBestEffort();
 
     @Transactional
     public CookingSessionProgressDto handleProgressEvent(StepCompletionEventDto event) {
