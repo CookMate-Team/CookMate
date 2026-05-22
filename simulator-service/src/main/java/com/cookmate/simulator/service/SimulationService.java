@@ -45,6 +45,7 @@ public class SimulationService {
     private final MainServiceClient mainServiceClient;
     private final CookingSessionClient cookingSessionClient;
 
+    @Transactional
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
         List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
 
