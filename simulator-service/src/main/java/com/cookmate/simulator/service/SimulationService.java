@@ -46,20 +46,7 @@ public class SimulationService {
     private final CookingSessionClient cookingSessionClient;
 
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
-        // Complete any other active sessions in the database before starting a new one
         List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
-        for (SimulationSession oldSession : runningSessions) {
-            oldSession.setStatus(SimulationStatus.COMPLETED);
-            oldSession.setCompletedAt(LocalDateTime.now());
-            simulationSessionRepository.save(oldSession);
-            notifyCookingSessionAsync(
-                    oldSession.getId(),
-                    oldSession.getCurrentStep(),
-                    "COMPLETED",
-                    LocalDateTime.now(),
-                    oldSession.getRecipeId()
-            );
-        }
 
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
         if (recipeSteps.isEmpty()) {
@@ -82,6 +69,20 @@ public class SimulationService {
                 .map(step -> toPendingStep(session.getId(), step))
                 .toList();
         simulationStepRepository.saveAll(steps);
+
+        // Complete previously active sessions only after the new session is successfully created
+        for (SimulationSession oldSession : runningSessions) {
+            oldSession.setStatus(SimulationStatus.COMPLETED);
+            oldSession.setCompletedAt(LocalDateTime.now());
+            simulationSessionRepository.save(oldSession);
+            notifyCookingSessionAsync(
+                    oldSession.getId(),
+                    oldSession.getCurrentStep(),
+                    "COMPLETED",
+                    LocalDateTime.now(),
+                    oldSession.getRecipeId()
+            );
+        }
 
         notifyCookingSessionAsync(
                 session.getId(),
