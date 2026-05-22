@@ -211,13 +211,21 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
       setIsLoading(true);
       setError(null);
       try {
-        await Promise.allSettled([
+        const results = await Promise.allSettled([
           completeSimulationSession(sessionId),
           completeCookingSession(sessionId),
         ]);
+        const rejectedResults = results.filter(
+          (result): result is PromiseRejectedResult => result.status === 'rejected'
+        );
+
+        if (rejectedResults.length > 0) {
+          throw rejectedResults[0].reason ?? new Error('Failed to complete session');
+        }
       } catch (err: any) {
         console.error('Failed to complete simulation session:', err);
         setError(parseApiError(err.message ?? 'Failed to complete session'));
+        return;
       } finally {
         setIsLoading(false);
       }
