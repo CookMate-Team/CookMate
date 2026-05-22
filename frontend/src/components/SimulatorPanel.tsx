@@ -199,11 +199,15 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   }, [isCounting]);
 
   useEffect(() => {
-    if (remainingSeconds !== 0) {
+    if (remainingSeconds !== 0 || !isCounting) {
       return;
     }
-    setIsCounting(false);
-  }, [remainingSeconds]);
+    if (!sessionId || isLoading || isCompleted) {
+      setIsCounting(false);
+      return;
+    }
+    void handleExecuteNext();
+  }, [remainingSeconds, isCounting, sessionId, isLoading, isCompleted, handleExecuteNext]);
 
   // ── Reset ──
   const handleReset = useCallback(async () => {
