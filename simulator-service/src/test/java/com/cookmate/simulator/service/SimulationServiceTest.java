@@ -57,6 +57,7 @@ class SimulationServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(sessionRepository.findByStatus(SimulationStatus.RUNNING)).thenReturn(List.of());
 
         testSession = new SimulationSession();
         testSession.setId("test-session-123");
