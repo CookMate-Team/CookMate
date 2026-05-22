@@ -222,7 +222,7 @@ services:
   # SonarQube Code Quality Platform (port 9000)
   # ─────────────────────────────────────────────
   sonarqube:
-    image: sonarqube:community
+    image: sonarqube:10.7.0-community
     container_name: cookmate-sonarqube
     restart: unless-stopped
     ports:
