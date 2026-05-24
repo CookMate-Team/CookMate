@@ -1,0 +1,23 @@
+# Configuration specific to cooking-session-service
+server:
+  port: 8083
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:cookmate}
+    username: ${DB_USER:cookmate}
+    password: ${DB_PASS:cookmate}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: cooking_session
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql

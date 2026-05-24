@@ -6,6 +6,115 @@ import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react
 import { ExpandedRecipeCard } from './ExpandedRecipeCard';
 import { useGridCols } from '../hooks/useGridCols';
 import gsap from 'gsap';
+import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
+import { completeSimulationSession, completeCookingSession } from '../services/simulatorApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSimulationProgress } from '../hooks/useSimulationProgress';
+
+function ActiveCookingCard({ 
+  recipeId, 
+  currentStep, 
+  onStartCooking,
+  sessionId
+}: { 
+  recipeId: string; 
+  currentStep: number; 
+  onStartCooking?: (recipeId: string) => void;
+  sessionId: string;
+}) {
+  const { data, isLoading } = useMealDetails(recipeId);
+  const meal = data?.meals?.[0];
+  const queryClient = useQueryClient();
+  const [isEnding, setIsEnding] = useState(false);
+  const { resetSimulationProgress } = useSimulationProgress();
+  const { setSource } = useRecipeStore();
+
+  const handleEndSession = async () => {
+    setIsEnding(true);
+    try {
+      // Complete in both services to ensure cleanup
+      const results = await Promise.allSettled([
+        completeSimulationSession(sessionId),
+        completeCookingSession(sessionId),
+      ]);
+
+      const failedResults = results.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected'
+      );
+
+      if (failedResults.length > 0) {
+        throw new Error(
+          `Failed to end session: ${failedResults
+            .map((result) =>
+              result.reason instanceof Error ? result.reason.message : String(result.reason)
+            )
+            .join('; ')}`
+        );
+      }
+
+      resetSimulationProgress();
+      queryClient.invalidateQueries({ queryKey: ['active-cooking-session-global'] });
+      setSource('DISCOVERY');
+    } catch (error) {
+      console.error('Failed to end session:', error);
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full bg-white/60 border border-stone-200/50 rounded-3xl p-8 flex items-center justify-center min-h-[200px] shadow-lg backdrop-blur-md animate-pulse">
+        <div className="text-stone-500 font-semibold animate-pulse">Loading active cooking details...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-200/50 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-center gap-6 sm:gap-8 transition-all duration-300">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+      
+      {meal?.strMealThumb && (
+        <img 
+          src={meal.strMealThumb} 
+          alt={meal.strMeal} 
+          className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-md flex-shrink-0" 
+        />
+      )}
+
+      <div className="flex-grow text-center md:text-left">
+        <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+          <span className="px-3 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+            Cooking Session Active
+          </span>
+          <span className="text-xs text-stone-500 font-medium">Step {currentStep || 1} in progress</span>
+        </div>
+        
+        <h2 className="text-xl sm:text-2xl font-extrabold text-stone-800 tracking-tight">{meal?.strMeal || 'Loading...'}</h2>
+        <p className="mt-1 text-sm text-stone-600 max-w-lg">
+          You have an active session for this recipe. Resume now to complete your guided cooking.
+        </p>
+      </div>
+
+      <div className="flex-shrink-0 w-full md:w-auto flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={() => onStartCooking?.(recipeId)}
+          className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-200 text-sm flex items-center justify-center gap-2"
+        >
+          🍳 Resume Guided Cooking
+        </button>
+        <button
+          onClick={handleEndSession}
+          disabled={isEnding}
+          className="px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl border border-red-200/60 shadow-sm active:scale-[0.98] transition-all duration-200 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isEnding ? 'Ending...' : '🛑 End Session'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Temporary mock data for prototype LOCAL
 const MOCK_RECIPES = [
@@ -19,6 +128,7 @@ const MOCK_RECIPES = [
 
 export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: string) => void }) {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
+  const { data: activeSession } = useGlobalActiveSession();
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [pendingRecipeId, setPendingRecipeId] = useState<string | null>(null);
@@ -152,6 +262,17 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {source === 'ACTIVE' && activeSession && (
+          <div className="col-span-full">
+            <ActiveCookingCard 
+              recipeId={activeSession.recipeId} 
+              currentStep={activeSession.currentStep} 
+              onStartCooking={onStartCooking}
+              sessionId={activeSession.sessionId}
+            />
+          </div>
+        )}
+
         {source === 'LOCAL' && sortedMockRecipes.map((recipe) => (
           <div 
             key={recipe.id} 

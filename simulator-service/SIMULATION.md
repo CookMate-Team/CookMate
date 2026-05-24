@@ -11,9 +11,11 @@ Symulator wykonuje kroki gotowania sekwencyjnie (one-click), utrzymuje sesję i 
    - simulator pobiera listę kroków z `main-service`
    - kroki zapisuje jako `PENDING`
 2. Wykonanie kroku:
-   - `POST /api/simulator/sessions/{sessionId}/steps/execute`
-   - pierwszy `PENDING` przechodzi na `EXECUTED`
-   - odpowiedź: `{ stepNumber, success }`
+    - `POST /api/simulator/sessions/{sessionId}/steps/execute`
+    - pierwszy `PENDING` przechodzi na `EXECUTED`
+    - odpowiedź: `{ stepNumber, success }`
+    - notyfikacja postępu do `cooking-session-service`:
+      `POST /api/cooking-sessions/progress`
 3. Koniec:
    - gdy nie ma już `PENDING`, sesja ma status `COMPLETED`
 4. Recovery:

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { RecipeGallery } from './components/RecipeGallery';
 import { GuidedCookingLayout } from './components/GuidedCookingLayout';
 import { GuidedCookingProvider } from './context/GuidedCookingProvider';
+import { useRecipeStore } from './store/useRecipeStore';
 
-function App() {
+function AppContent() {
   const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
+  const source = useRecipeStore((state) => state.source);
 
   const handleStartCooking = (recipeId: string) => {
     setCookingRecipeId(recipeId);
@@ -16,17 +18,20 @@ function App() {
     setCookingRecipeId(null);
   };
 
+  // Close guided cooking view if user switches source (tab) in the navbar
+  useEffect(() => {
+    setCookingRecipeId(null);
+  }, [source]);
+
   // ── Guided Cooking Mode ──
   if (cookingRecipeId) {
     return (
       <div className="h-screen flex flex-col overflow-hidden">
-        <Header />
-        <GuidedCookingProvider>
-          <GuidedCookingLayout
-            recipeId={cookingRecipeId}
-            onClose={handleCloseCooking}
-          />
-        </GuidedCookingProvider>
+        <Header onHomeClick={handleCloseCooking} />
+        <GuidedCookingLayout
+          recipeId={cookingRecipeId}
+          onClose={handleCloseCooking}
+        />
       </div>
     );
   }
@@ -34,7 +39,7 @@ function App() {
   // ── Default Gallery Mode ──
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header onHomeClick={handleCloseCooking} />
       <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
             <h1 className="text-4xl font-extrabold text-stone-800 tracking-tight">What are you craving?</h1>
@@ -52,5 +57,14 @@ function App() {
   );
 }
 
+function App() {
+  return (
+    <GuidedCookingProvider>
+      <AppContent />
+    </GuidedCookingProvider>
+  );
+}
+
 export default App;
+
 
