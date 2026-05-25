@@ -16,7 +16,11 @@ spring:
             provider: keycloak
         provider:
           keycloak:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/cookmate}
+            authorization-uri: ${KEYCLOAK_PUBLIC_URL:http://localhost:8080}/realms/cookmate/protocol/openid-connect/auth
+            token-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/token
+            user-info-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/userinfo
+            jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
+            user-name-attribute: preferred_username
 
   cloud:
     gateway:

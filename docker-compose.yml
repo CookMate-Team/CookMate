@@ -173,7 +173,8 @@ services:
     environment:
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
-      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/cookmate
+      KEYCLOAK_PUBLIC_URL: http://localhost:8080
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
       KEYCLOAK_CLIENT_ID: cookmate-client
       KEYCLOAK_CLIENT_SECRET: cookmate-secret
     depends_on:
