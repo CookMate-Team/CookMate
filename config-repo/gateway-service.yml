@@ -37,3 +37,12 @@ spring:
           filters:
             - TokenRelay
           order: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
