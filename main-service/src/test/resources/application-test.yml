@@ -1,9 +1,38 @@
 spring:
+  config:
+    import: ""   # Nadpisuje główny import, wyłącza Config Server w testach
   cloud:
     config:
       enabled: false  # Wyłącza szukanie Config Servera
     discovery:
-      enabled: false # Wyłącza Discovery
+      enabled: false  # Wyłącza Discovery
+
+  # Baza danych in-memory H2 dla testów
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # Wyłącz Liquibase / Flyway jeśli używane
+  liquibase:
+    enabled: false
+  flyway:
+    enabled: false
+
 eureka:
   client:
     enabled: false   # Wyłącza klienta Eureka
+
+# Klucz API dla Groq – pusty string w testach (mock zastępuje GroqClient)
+groq:
+  api-key: ""
