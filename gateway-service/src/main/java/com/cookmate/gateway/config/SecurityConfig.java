@@ -27,6 +27,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/actuator/**").permitAll()
+                        .pathMatchers("/login", "/logout").permitAll()
+                        .pathMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated())
                 .oauth2Login(Customizer.withDefaults())
