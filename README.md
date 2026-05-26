@@ -89,14 +89,13 @@ docker compose down
 > Jeśli wcześniej był używany wolumen z `postgres:17` lub starszym, wykonaj migrację (`pg_upgrade`) albo zresetuj środowisko developerskie:
 > `docker compose down -v && docker volume rm sumatywny_postgres-data` (lub odpowiedni wolumen dla projektu).
 
-Kolejność startu: **PostgreSQL → Config → Discovery → main-service / simulator-service → Keycloak**
+Kolejność startu: **PostgreSQL + Keycloak → Config → Discovery → main-service / simulator-service → gateway-service**
 
 ### Lokalne uruchomienie (każdy serwis osobno)
 
 ```bash
-# 1. Uruchom PostgreSQL
-docker run -e POSTGRES_DB=cookmate -e POSTGRES_USER=cookmate \
-           -e POSTGRES_PASSWORD=cookmate -p 5432:5432 postgres:18-alpine
+# 1. Uruchom PostgreSQL + Keycloak
+docker compose up -d postgres keycloak
 
 # 2. config-service
 cd config-service && mvn spring-boot:run
@@ -104,14 +103,15 @@ cd config-service && mvn spring-boot:run
 # 3. discovery-service
 cd discovery-service && mvn spring-boot:run
 
-# 4. gateway-service
-cd gateway-service && mvn spring-boot:run
-
-# 5. main-service
+# 4. main-service
 cd main-service && mvn spring-boot:run
 
-# 6. simulator-service
+# 5. simulator-service
 cd simulator-service && mvn spring-boot:run
+
+# 6. gateway-service
+#    Startuj dopiero po Keycloak, jeśli chcesz używać /api/** przez gateway
+cd gateway-service && mvn spring-boot:run
 ```
 
 ## Endpointy
