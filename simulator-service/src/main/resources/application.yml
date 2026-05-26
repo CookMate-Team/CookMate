@@ -58,6 +58,12 @@ simulator:
     min-days: 1
     max-days: 365
 
+cooking-session-service:
+  url: ${COOKING_SESSION_SERVICE_URL:http://localhost:8083}
+
+simulator-service:
+  main-service-url: ${MAIN_SERVICE_URL:http://localhost:8081}
+
 management:
   endpoints:
     web:

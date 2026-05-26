@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   startSimulation,
   executeNextStep,
   getSimulationStatus,
   generateSteps,
+  completeSimulationSession,
+  completeCookingSession,
 } from '../services/simulatorApi';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
 import type { SimulationStatusResponse } from '../types/simulator';
@@ -38,6 +40,27 @@ function parseApiError(raw: string): string {
   return raw;
 }
 
+function toScaledSeconds(preparationTime?: string | null): number | null {
+  if (!preparationTime) {
+    return null;
+  }
+
+  const normalized = preparationTime.toLowerCase();
+  const minutesMatch = normalized.match(/(\d+)\s*(minute|minutes|min)/);
+  if (minutesMatch) {
+    return Math.max(1, Number(minutesMatch[1]));
+  }
+
+  const secondsMatch = normalized.match(/(\d+)\s*(second|seconds|sec)/);
+  if (secondsMatch) {
+    const seconds = Number(secondsMatch[1]);
+    return Math.max(1, Math.ceil(seconds / 60));
+  }
+
+  const fallback = Number.parseInt(normalized, 10);
+  return Number.isNaN(fallback) ? null : Math.max(1, fallback);
+}
+
 interface SimulatorPanelProps {
   recipeId: string;
   recipeName?: string;
@@ -49,8 +72,43 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { mainServiceProgress, startPolling, resetSimulationProgress } = useSimulationProgress();
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [stepDurationSeconds, setStepDurationSeconds] = useState<number | null>(null);
+  const [isCounting, setIsCounting] = useState(false);
+  const {
+    activeSession,
+    resetSimulationProgress,
+    updateActiveSession,
+  } = useSimulationProgress();
   const queryClient = useQueryClient();
+  const isCompleted = status?.status === 'COMPLETED';
+  const currentStep = status?.currentStep ?? 0;
+  const totalSteps = status?.totalSteps ?? 0;
+  const progressPercent = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+  const history = status?.history ?? [];
+  const displayStepNumber = status
+    ? isCompleted
+      ? currentStep
+      : Math.min(currentStep + 1, totalSteps || currentStep + 1)
+    : 0;
+  const activeStep = history.find((step) => step.stepNumber === displayStepNumber) ?? null;
+  const timeProgressPercent =
+    stepDurationSeconds && remainingSeconds !== null
+      ? Math.min(100, Math.max(0, ((stepDurationSeconds - remainingSeconds) / stepDurationSeconds) * 100))
+      : 0;
+
+  useEffect(() => {
+    if (!activeSession || sessionId || activeSession.recipeId !== recipeId) {
+      return;
+    }
+
+    setSessionId(activeSession.sessionId);
+    setIsLoading(true);
+    getSimulationStatus(activeSession.sessionId)
+      .then((updated) => setStatus(updated))
+      .catch((err: any) => setError(parseApiError(err.message ?? 'Failed to load active session')))
+      .finally(() => setIsLoading(false));
+  }, [activeSession, recipeId, sessionId]);
 
   // ── Start session ──
   const handleStart = useCallback(async () => {
@@ -69,18 +127,26 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
       const res = await startSimulation({ recipeId });
       setSessionId(res.sessionId);
       setStatus(res);
-      startPolling(res.sessionId);
+      updateActiveSession({
+        sessionId: res.sessionId,
+        recipeId,
+        status: res.status,
+        currentStep: res.currentStep,
+        lastExecutedAt: null,
+      });
     } catch (err: any) {
       setError(parseApiError(err.message ?? 'Failed to start simulation'));
     } finally {
       setIsLoading(false);
       setLoadingMessage(null);
     }
-  }, [recipeId, startPolling]);
+  }, [recipeId, queryClient, updateActiveSession]);
 
   // ── Execute next step ──
   const handleExecuteNext = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionId || isLoading) return;
+    setIsCounting(false);
+    setRemainingSeconds(0);
     setIsLoading(true);
     setError(null);
     try {
@@ -92,21 +158,86 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId]);
+  }, [isLoading, sessionId]);
+
+  useEffect(() => {
+    if (!activeStep || isCompleted) {
+      setRemainingSeconds(null);
+      setStepDurationSeconds(null);
+      setIsCounting(false);
+      return;
+    }
+
+    const scaledSeconds = toScaledSeconds(activeStep.preparationTime);
+    if (!scaledSeconds) {
+      setRemainingSeconds(null);
+      setStepDurationSeconds(null);
+      setIsCounting(false);
+      return;
+    }
+
+    setStepDurationSeconds(scaledSeconds);
+    setRemainingSeconds(scaledSeconds);
+    setIsCounting(true);
+  }, [activeStep?.preparationTime, activeStep?.stepNumber, isCompleted]);
+
+  useEffect(() => {
+    if (!isCounting) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev === null) {
+          return prev;
+        }
+        return prev <= 1 ? 0 : prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isCounting]);
+
+  useEffect(() => {
+    if (remainingSeconds !== 0) {
+      return;
+    }
+    setIsCounting(false);
+  }, [remainingSeconds]);
 
   // ── Reset ──
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
+    if (sessionId) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const results = await Promise.allSettled([
+          completeSimulationSession(sessionId),
+          completeCookingSession(sessionId),
+        ]);
+        const rejectedResults = results.filter(
+          (result): result is PromiseRejectedResult => result.status === 'rejected'
+        );
+
+        if (rejectedResults.length > 0) {
+          throw rejectedResults[0].reason ?? new Error('Failed to complete session');
+        }
+      } catch (err: any) {
+        console.error('Failed to complete simulation session:', err);
+        setError(parseApiError(err.message ?? 'Failed to complete session'));
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
     resetSimulationProgress();
+    updateActiveSession(null);
+    queryClient.invalidateQueries({ queryKey: ['active-cooking-session-global'] });
     setSessionId(null);
     setStatus(null);
     setError(null);
-  }, [resetSimulationProgress]);
+  }, [sessionId, resetSimulationProgress, updateActiveSession, queryClient]);
 
-  const isCompleted = status?.status === 'COMPLETED';
-  const currentStep = status?.currentStep ?? 0;
-  const totalSteps = status?.totalSteps ?? 0;
-  const progressPercent = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
-  const history = status?.history ?? [];
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-stone-50 to-white">
@@ -172,15 +303,30 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
         {sessionId && status && (
           <>
             {/* Current Step Indicator */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-              <div className="text-3xl">📍</div>
-              <div className="flex-1">
-                <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider">Current step</p>
-                <p className="text-lg font-bold text-amber-900">
-                  {isCompleted ? '✨ Completed!' : `Step ${currentStep} of ${totalSteps}`}
-                </p>
-              </div>
-            </div>
+            {(() => {
+              const stepDone = isCompleted || (remainingSeconds === 0 && stepDurationSeconds !== null);
+              return (
+                <div className={`border-2 rounded-xl px-4 py-3 flex items-center gap-3 transition-colors duration-500 ${
+                  stepDone
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+                }`}>
+                  <div className="text-3xl">{stepDone ? '✅' : '📍'}</div>
+                  <div className="flex-1">
+                    <p className={`text-xs font-semibold uppercase tracking-wider ${stepDone ? 'text-green-600' : 'text-amber-600'}`}>
+                      {isCompleted ? 'All steps completed' : stepDone ? 'Step time elapsed' : 'Current step'}
+                    </p>
+                    <p className={`text-lg font-bold ${stepDone ? 'text-green-900' : 'text-amber-900'}`}>
+                      {isCompleted
+                        ? '✨ Completed!'
+                        : displayStepNumber > 0
+                          ? `Step ${displayStepNumber} of ${totalSteps}`
+                          : 'Waiting for first step...'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Progress bar */}
             <div className="space-y-2">
@@ -192,68 +338,86 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               </div>
               <div className="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-amber-400 to-orange-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                    isCompleted
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                  }`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
 
-            {/* Steps List */}
+            {/* Active step */}
+            {!isCompleted && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Recipe steps</h4>
-                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-semibold">
-                  {mainServiceProgress.length} synchronized
-                </span>
-              </div>
-              
-              {history.length === 0 && (
-                <p className="text-stone-400 text-sm italic">No steps.</p>
-              )}
-              
-              <div className="space-y-2">
-                {history.map((step) => {
-                  const info = STATUS_LABEL[step.status] ?? { label: step.status, emoji: '❓' };
-                  const isCurrent = step.stepNumber === currentStep && !isCompleted;
-                  const isExecuted = step.status === 'EXECUTED';
-                  const mainServiceExecuted = mainServiceProgress.some(p => p.stepNumber === step.stepNumber);
-                  
-                  return (
-                    <div
-                      key={step.stepNumber}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-300
-                        ${isCurrent
-                          ? 'border-amber-400 bg-amber-50 shadow-md ring-2 ring-amber-200 scale-105 origin-left'
-                          : isExecuted
-                            ? 'border-green-200 bg-green-50/70'
-                            : 'border-stone-200 bg-stone-50 opacity-50'
-                        }`}
-                    >
-                      <span className="text-2xl flex-shrink-0">{info.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold truncate ${
-                          isCurrent ? 'text-amber-900' : isExecuted ? 'text-green-700' : 'text-stone-400'
+              {(() => {
+                const stepDone = remainingSeconds === 0 && stepDurationSeconds !== null;
+                return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Step details</h4>
+                      {activeStep?.preparationTime && (
+                        <span className={`text-xs px-2 py-1 rounded-full font-semibold transition-colors duration-500 ${
+                          stepDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                         }`}>
-                          Step {step.stepNumber}{step.recipeName && ` – ${step.recipeName}`}
-                        </p>
-                        <p className={`text-xs ${
-                          isCurrent ? 'text-amber-700' : isExecuted ? 'text-green-600' : 'text-stone-400'
-                        }`}>
-                          {info.label}{step.preparationTime && ` • ${step.preparationTime}`}
-                        </p>
-                      </div>
-                      
-                      {/* Sync status badge */}
-                      {isExecuted && mainServiceExecuted && (
-                        <span className="text-[11px] px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold whitespace-nowrap flex-shrink-0">
-                          🔗 Synced
+                          {activeStep.preparationTime}
                         </span>
                       )}
                     </div>
-                  );
-                })}
+
+                    {activeStep ? (
+                      <div className={`rounded-xl border px-4 py-3 transition-colors duration-500 ${
+                        stepDone
+                          ? 'border-green-200 bg-green-50/40'
+                          : 'border-amber-200 bg-amber-50/40'
+                      }`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wider transition-colors duration-500 ${
+                          stepDone ? 'text-green-600' : 'text-amber-600'
+                        }`}>
+                          Step {displayStepNumber} {stepDone ? '— Time elapsed' : ''}
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-stone-800">
+                          {activeStep.recipeName}
+                        </p>
+                        <p className={`mt-1 text-xs ${stepDone ? 'text-green-600 font-semibold' : 'text-stone-500'}`}>
+                          {stepDone ? '✅ Ready — click Next step to continue' : (STATUS_LABEL[activeStep.status]?.label ?? activeStep.status)}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-stone-400 text-sm italic">Waiting for step details.</p>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+            )}
+
+            {/* Step timer */}
+            {!isCompleted && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-stone-500">
+                <span>
+                  {remainingSeconds !== null
+                    ? remainingSeconds === 0
+                      ? '✅ Time elapsed'
+                      : `Time left: ${remainingSeconds}s`
+                    : 'Timer unavailable'}
+                </span>
+                {stepDurationSeconds !== null && <span>{stepDurationSeconds}s total</span>}
+              </div>
+              <div className="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                    remainingSeconds === 0 && stepDurationSeconds !== null
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : 'bg-gradient-to-r from-emerald-400 to-amber-500'
+                  }`}
+                  style={{ width: `${timeProgressPercent}%` }}
+                />
               </div>
             </div>
+            )}
 
             {/* Status message */}
             {status.message && (
@@ -280,7 +444,7 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
                       Executing...
                     </>
                   ) : (
-                    <>▶️ Confirm – execute next step</>
+                    <>▶️ Next step</>
                   )}
                 </button>
               )}
@@ -296,7 +460,8 @@ export function SimulatorPanel({ recipeId, recipeName }: SimulatorPanelProps) {
               <button
                 id="simulator-reset-btn"
                 onClick={handleReset}
-                className="w-full py-2 text-sm text-stone-500 hover:text-red-500 font-medium rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200"
+                disabled={isLoading}
+                className="w-full py-2 text-sm text-stone-500 hover:text-red-500 font-medium rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 🔄 Reset simulation
               </button>

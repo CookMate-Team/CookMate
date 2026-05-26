@@ -35,15 +35,16 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 
 ## Serwisy i porty
 
-| Serwis              | Port | Opis                                      |
-|---------------------|------|-------------------------------------------|
-| `config-service`    | 8888 | Spring Cloud Config Server                |
-| `discovery-service` | 8761 | Eureka Discovery Server                   |
-| `gateway-service`   | 8083 | Spring Cloud Gateway + OAuth2 Client      |
-| `main-service`      | 8081 | REST API zarządzania przepisami + PostgreSQL|
-| `simulator-service` | 8082 | Symulator planowania posiłków (Feign)     |
-| `keycloak`          | 8080 | Keycloak Identity & Access Management     |
-| `postgres`          | 5432 | Baza danych PostgreSQL                    |
+| Serwis                    | Port | Opis                                                  |
+|---------------------------|------|-------------------------------------------------------|
+| `config-service`          | 8888 | Spring Cloud Config Server                            |
+| `discovery-service`       | 8761 | Eureka Discovery Server                               |
+| `gateway-service`         | 8083 | Spring Cloud Gateway + OAuth2 Client      |
+| `main-service`            | 8081 | REST API zarządzania przepisami + PostgreSQL          |
+| `cooking-session-service` | 8083 | Reaktywne zarządzanie sesją gotowania (SSE)           |
+| `simulator-service`       | 8082 | Symulator planowania posiłków (Feign)                 |
+| `keycloak`                | 8080 | Keycloak Identity & Access Management                 |
+| `postgres`                | 5432 | Baza danych PostgreSQL                                |
 
 ## Stos technologiczny
 
@@ -89,13 +90,14 @@ docker compose down
 > Jeśli wcześniej był używany wolumen z `postgres:17` lub starszym, wykonaj migrację (`pg_upgrade`) albo zresetuj środowisko developerskie:
 > `docker compose down -v && docker volume rm sumatywny_postgres-data` (lub odpowiedni wolumen dla projektu).
 
-Kolejność startu: **PostgreSQL + Keycloak → Config → Discovery → main-service / simulator-service → gateway-service**
+Kolejność startu: **PostgreSQL + Keycloak → Config → Discovery → main-service / cooking-session-service / simulator-service → gateway-service**
 
 ### Lokalne uruchomienie (każdy serwis osobno)
 
 ```bash
-# 1. Uruchom PostgreSQL + Keycloak
-docker compose up -d postgres keycloak
+# 1. Uruchom PostgreSQL
+docker run -e POSTGRES_DB=cookmate -e POSTGRES_USER=cookmate \
+           -e POSTGRES_PASSWORD=cookmate -p 5432:5432 postgres:18-alpine
 
 # 2. config-service
 cd config-service && mvn spring-boot:run
@@ -108,10 +110,6 @@ cd main-service && mvn spring-boot:run
 
 # 5. simulator-service
 cd simulator-service && mvn spring-boot:run
-
-# 6. gateway-service
-#    Startuj dopiero po Keycloak, jeśli chcesz używać /api/** przez gateway
-cd gateway-service && mvn spring-boot:run
 ```
 
 ## Endpointy
@@ -170,8 +168,8 @@ Admin console: `http://localhost:8080/admin/master/console/`
 **OIDC client (Authorization Code flow):**
 - Client ID: `cookmate-client`
 - Client Secret: `cookmate-secret`
-- Valid Redirect URIs: `http://localhost:5173/*`, `http://localhost:8081/*`, `http://localhost:8083/*`
-- Web Origins: `http://localhost:5173`, `http://localhost:8081`, `http://localhost:8083`
+- Valid Redirect URIs: `http://localhost:5173/*`, `http://localhost:8081/*`
+- Web Origins: `http://localhost:5173`, `http://localhost:8081`
 
 **Test user (realm `cookmate`):**
 - Username: `test.user`
@@ -196,10 +194,6 @@ CookMate/
 │   ├── Dockerfile
 │   ├── pom.xml
 │   └── src/main/java/com/cookmate/discovery/DiscoveryServiceApplication.java
-├── gateway-service/                # API Gateway (:8083)
-│   ├── Dockerfile
-│   ├── pom.xml
-│   └── src/main/java/com/cookmate/gateway/GatewayServiceApplication.java
 ├── main-service/                   # Serwis przepisów (:8081)
 │   ├── Dockerfile
 │   ├── pom.xml

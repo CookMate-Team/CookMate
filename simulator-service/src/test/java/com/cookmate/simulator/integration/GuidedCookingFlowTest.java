@@ -1,5 +1,6 @@
 package com.cookmate.simulator.integration;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.repository.SimulationSessionRepository;
@@ -43,6 +44,9 @@ class GuidedCookingFlowTest {
 
     @MockitoBean
     private MainServiceClient mainServiceClient;
+
+    @MockitoBean
+    private CookingSessionClient cookingSessionClient;
 
     @BeforeEach
     void cleanDb() {

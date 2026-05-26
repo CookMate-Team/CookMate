@@ -20,6 +20,22 @@ export interface SimulationStepHistoryItem {
   executedAt: string | null;
 }
 
+export interface CookingSessionProgressItem {
+  sessionId: string;
+  recipeId: string;
+  stepNumber: number;
+  status: string;
+  executedAt: string;
+}
+
+export interface ActiveCookingSession {
+  sessionId: string;
+  recipeId: string;
+  status: string;
+  currentStep: number;
+  lastExecutedAt: string | null;
+}
+
 export interface SimulationStatusResponse {
   sessionId: string;
   status: 'RUNNING' | 'COMPLETED' | 'CREATED';

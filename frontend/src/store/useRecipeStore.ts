@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 
+export type RecipeSource = 'LOCAL' | 'DISCOVERY' | 'ACTIVE';
+
 interface RecipeState {
-  source: 'LOCAL' | 'DISCOVERY';
-  setSource: (source: 'LOCAL' | 'DISCOVERY') => void;
+  source: RecipeSource;
+  setSource: (source: RecipeSource) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -13,3 +15,4 @@ export const useRecipeStore = create<RecipeState>((set) => ({
   searchQuery: 'Chicken',
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 }));
+

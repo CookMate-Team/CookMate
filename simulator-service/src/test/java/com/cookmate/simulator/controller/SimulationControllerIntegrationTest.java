@@ -1,5 +1,6 @@
 package com.cookmate.simulator.controller;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.repository.SimulationSessionRepository;
@@ -39,6 +40,9 @@ class SimulationControllerIntegrationTest {
 
     @MockitoBean
     private MainServiceClient mainServiceClient;
+
+    @MockitoBean
+    private CookingSessionClient cookingSessionClient;
 
     @BeforeEach
     void cleanDb() {

@@ -1,5 +1,6 @@
 package com.cookmate.simulator.service;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.dto.RecipeStepRequestDto;
@@ -42,8 +43,12 @@ public class SimulationService {
     private final SimulationSessionRepository simulationSessionRepository;
     private final SimulationStepRepository simulationStepRepository;
     private final MainServiceClient mainServiceClient;
+    private final CookingSessionClient cookingSessionClient;
 
+    @Transactional
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
+        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
+
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
         if (recipeSteps.isEmpty()) {
             throw new InvalidSimulationStateException("Recipe has no steps to simulate.");
@@ -65,6 +70,28 @@ public class SimulationService {
                 .map(step -> toPendingStep(session.getId(), step))
                 .toList();
         simulationStepRepository.saveAll(steps);
+
+        // Complete previously active sessions only after the new session is successfully created
+        for (SimulationSession oldSession : runningSessions) {
+            oldSession.setStatus(SimulationStatus.COMPLETED);
+            oldSession.setCompletedAt(LocalDateTime.now());
+            simulationSessionRepository.save(oldSession);
+            notifyCookingSessionAsync(
+                    oldSession.getId(),
+                    oldSession.getCurrentStep(),
+                    "COMPLETED",
+                    LocalDateTime.now(),
+                    oldSession.getRecipeId()
+            );
+        }
+
+        notifyCookingSessionAsync(
+                session.getId(),
+                0,
+                "RUNNING",
+                LocalDateTime.now(),
+                session.getRecipeId()
+        );
 
         return mapStatusResponse(session, steps);
     }
@@ -90,7 +117,8 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyMainServiceAsync(sessionId, stepDto.stepNumber(), "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+            boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
+            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -124,7 +152,8 @@ public class SimulationService {
             finalizeIfLastStep(sessionId, session);
 
             // Asynchronicznie wysłać notyfikację do main-service
-            notifyMainServiceAsync(sessionId, nextStep.getStepNumber(), "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
+            boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
+            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -292,7 +321,7 @@ public class SimulationService {
     }
 
     /**
-     * Asynchronicznie wysyła notyfikację o wykonanym kroku do main-service.
+     * Asynchronicznie wysyła notyfikację o wykonanym kroku do cooking-session-service.
      * Nie blokuje bieżącego wątku - wysyłka odbywa się w tle.
      * Jeśli wysyłka się nie powiedzie, loguje błąd ale nie rzuca wyjątku.
      *
@@ -302,7 +331,7 @@ public class SimulationService {
      * @param executedAt czas wykonania
      * @param recipeId ID przepisu
      */
-    private void notifyMainServiceAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
+    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
         final Logger logger = LoggerFactory.getLogger(SimulationService.class);
         
         CompletableFuture.runAsync(() -> {
@@ -315,11 +344,32 @@ public class SimulationService {
                         "executedAt", executedAt.format(formatter),
                         "recipeId", recipeId
                 );
-                mainServiceClient.notifyStepCompleted(event);
-                logger.info("Notyfikacja wysłana do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
+                cookingSessionClient.notifyStepCompleted(event);
+                logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
             } catch (Exception e) {
-                logger.error("Błąd podczas wysyłania notyfikacji do main-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
+                logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
             }
         });
+    }
+
+    @Transactional
+    public void completeSession(String sessionId) {
+        synchronized (getExecutionLock(sessionId)) {
+            SimulationSession session = simulationSessionRepository.findById(sessionId).orElse(null);
+            if (session == null) {
+                throw new SimulationSessionNotFoundException(sessionId);
+            }
+            session.setStatus(SimulationStatus.COMPLETED);
+            session.setCompletedAt(LocalDateTime.now());
+            simulationSessionRepository.save(session);
+
+            notifyCookingSessionAsync(
+                    sessionId,
+                    session.getCurrentStep(),
+                    "COMPLETED",
+                    LocalDateTime.now(),
+                    session.getRecipeId()
+            );
+        }
     }
 }

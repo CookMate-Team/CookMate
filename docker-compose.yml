@@ -159,41 +159,6 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
-  # Gateway Service (port 8083)
-  # Startup order: 4th (after discovery-service)
-  # ─────────────────────────────────────────────
-  gateway-service:
-    build:
-      context: ./gateway-service
-      dockerfile: Dockerfile
-    container_name: cookmate-gateway
-    restart: unless-stopped
-    ports:
-      - "8083:8083"
-    environment:
-      CONFIG_SERVER_URL: http://config-service:8888
-      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
-      KEYCLOAK_PUBLIC_URL: http://localhost:8080
-      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
-      KEYCLOAK_CLIENT_ID: cookmate-client
-      KEYCLOAK_CLIENT_SECRET: cookmate-secret
-    depends_on:
-      discovery-service:
-        condition: service_healthy
-      config-service:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
-    networks:
-      - cookmate-net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 8
-      start_period: 120s
-
-  # ─────────────────────────────────────────────
   # Keycloak Identity & Access Management (port 8080)
   # Startup order: after postgres is healthy
   # ─────────────────────────────────────────────
@@ -224,7 +189,7 @@ services:
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "bash -c \"cat < /dev/null > /dev/tcp/localhost/8080\""]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -243,14 +208,12 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_URL: http://gateway-service:8083
-      SIMULATOR_URL: http://gateway-service:8083
+      API_URL: http://main-service:8081
+      SIMULATOR_URL: http://simulator-service:8082
     depends_on:
       main-service:
         condition: service_healthy
       simulator-service:
-        condition: service_healthy
-      gateway-service:
         condition: service_healthy
     networks:
       - cookmate-net

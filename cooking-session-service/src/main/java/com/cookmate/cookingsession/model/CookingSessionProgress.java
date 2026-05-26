@@ -1,6 +1,14 @@
-package com.cookmate.main.model;
+package com.cookmate.cookingsession.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,12 +24,18 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "simulation_progress", indexes = {
-        @Index(name = "idx_session_id", columnList = "session_id"),
-        @Index(name = "idx_recipe_id", columnList = "recipe_id")
-})
+@Table(
+        name = "cooking_session_progress",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_cooking_session_step", columnNames = {"session_id", "step_number"})
+        },
+        indexes = {
+                @Index(name = "idx_cooking_progress_session_id", columnList = "session_id"),
+                @Index(name = "idx_cooking_progress_recipe_id", columnList = "recipe_id")
+        }
+)
 @EntityListeners(AuditingEntityListener.class)
-public class SimulationProgress {
+public class CookingSessionProgress {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,6 +43,9 @@ public class SimulationProgress {
 
     @Column(name = "session_id", nullable = false)
     private String sessionId;
+
+    @Column(name = "recipe_id", nullable = false)
+    private String recipeId;
 
     @Column(name = "step_number", nullable = false)
     private Integer stepNumber;
@@ -38,9 +55,6 @@ public class SimulationProgress {
 
     @Column(name = "executed_at", nullable = false)
     private LocalDateTime executedAt;
-
-    @Column(name = "recipe_id", nullable = false)
-    private String recipeId;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

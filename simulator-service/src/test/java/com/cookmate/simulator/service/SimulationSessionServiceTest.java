@@ -1,5 +1,6 @@
 package com.cookmate.simulator.service;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.*;
 import com.cookmate.simulator.exception.*;
@@ -22,6 +23,7 @@ class SimulationSessionServiceTest {
     @Mock private SimulationSessionRepository sessionRepo;
     @Mock private SimulationStepRepository stepRepo;
     @Mock private MainServiceClient mainClient;
+    @Mock private CookingSessionClient cookingSessionClient;
     @InjectMocks private SimulationService service;
 
     private SimulationSession running;

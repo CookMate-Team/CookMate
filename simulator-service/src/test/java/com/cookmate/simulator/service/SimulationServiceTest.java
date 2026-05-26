@@ -1,5 +1,6 @@
 package com.cookmate.simulator.service;
 
+import com.cookmate.simulator.client.CookingSessionClient;
 import com.cookmate.simulator.client.MainServiceClient;
 import com.cookmate.simulator.dto.MainServiceStepDto;
 import com.cookmate.simulator.dto.RecipeStepRequestDto;
@@ -45,6 +46,9 @@ class SimulationServiceTest {
     @Mock
     private MainServiceClient mainServiceClient;
 
+    @Mock
+    private CookingSessionClient cookingSessionClient;
+
     @InjectMocks
     private SimulationService simulationService;
 
@@ -53,6 +57,7 @@ class SimulationServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(sessionRepository.findByStatus(SimulationStatus.RUNNING)).thenReturn(List.of());
 
         testSession = new SimulationSession();
         testSession.setId("test-session-123");
