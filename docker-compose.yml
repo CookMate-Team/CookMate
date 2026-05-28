@@ -21,9 +21,9 @@ services:
     container_name: cookmate-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: cookmate
-      POSTGRES_USER: cookmate
-      POSTGRES_PASSWORD: cookmate
+      POSTGRES_DB: ${DB_NAME:-cookmate}
+      POSTGRES_USER: ${DB_USER:-cookmate}
+      POSTGRES_PASSWORD: ${DB_PASS:-cookmate}
       POSTGRES_INITDB_ARGS: "-c max_connections=200"
     ports:
       - "5432:5432"
@@ -33,7 +33,7 @@ services:
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cookmate -d cookmate && pg_isready -U keycloak -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cookmate} -d ${DB_NAME:-cookmate} && pg_isready -U keycloak -d keycloak"]
       interval: 10s
       timeout: 5s
       retries: 8
@@ -126,39 +126,6 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
-  # Cooking Session Service (port 8083)
-  # Startup order: 3rd (after discovery + postgres)
-  # ─────────────────────────────────────────────
-  cooking-session-service:
-    build:
-      context: ./cooking-session-service
-      dockerfile: Dockerfile
-    container_name: cookmate-cooking-session
-    restart: unless-stopped
-    ports:
-      - "8084:8083"
-    environment:
-      CONFIG_SERVER_URL: http://config-service:8888
-      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
-      DB_HOST: postgres
-      DB_NAME: cookmate
-      DB_USER: cookmate
-      DB_PASS: cookmate
-    depends_on:
-      postgres:
-        condition: service_healthy
-      discovery-service:
-        condition: service_healthy
-    networks:
-      - cookmate-net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 8
-      start_period: 120s
-
-  # ─────────────────────────────────────────────
   # Simulator Service (port 8082)
   # Startup order: 3rd (after discovery + postgres)
   # ─────────────────────────────────────────────
@@ -173,10 +140,10 @@ services:
     environment:
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
-      DB_HOST: postgres
-      DB_NAME: cookmate
-      DB_USER: cookmate
-      DB_PASS: cookmate
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
     depends_on:
       postgres:
         condition: service_healthy
@@ -186,6 +153,43 @@ services:
       - cookmate-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Cooking Session Service (port 8084)
+  # Startup order: 4th (after simulator-service)
+  # ─────────────────────────────────────────────
+  cooking-session-service:
+    build:
+      context: ./cooking-session-service
+      dockerfile: Dockerfile
+    container_name: cookmate-cooking-session
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: "8084"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      # POPRAWKA: Serwis startuje po simulator-service
+      simulator-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -228,7 +232,6 @@ services:
 
   # ─────────────────────────────────────────────
   # Keycloak Identity & Access Management (port 8080)
-  # Startup order: after postgres is healthy
   # ─────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
@@ -251,18 +254,19 @@ services:
       KC_PROXY: edge
       KC_HTTP_ENABLED: "true"
       KC_LOG_LEVEL: INFO
+      KC_HEALTH_ENABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '200 OK' <&3" ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 90s
-    command: ["start-dev", "--import-realm"]
+    command: [ "start-dev", "--import-realm" ]
 
   # ─────────────────────────────────────────────
   # Frontend Service (port 5173)
@@ -276,9 +280,9 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_URL: http://main-service:8081
-      SIMULATOR_URL: http://simulator-service:8082
-      COOKING_SESSION_URL: http://cooking-session-service:8083
+      API_URL: http://localhost:8081
+      SIMULATOR_URL: http://localhost:8082
+      COOKING_SESSION_URL: http://localhost:8084
     depends_on:
       main-service:
         condition: service_healthy
