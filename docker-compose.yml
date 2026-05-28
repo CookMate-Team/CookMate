@@ -126,6 +126,39 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
+  # Cooking Session Service (port 8083)
+  # Startup order: 3rd (after discovery + postgres)
+  # ─────────────────────────────────────────────
+  cooking-session-service:
+    build:
+      context: ./cooking-session-service
+      dockerfile: Dockerfile
+    container_name: cookmate-cooking-session
+    restart: unless-stopped
+    ports:
+      - "8084:8083"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
   # Simulator Service (port 8082)
   # Startup order: 3rd (after discovery + postgres)
   # ─────────────────────────────────────────────
@@ -153,6 +186,41 @@ services:
       - cookmate-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Gateway Service (port 8083)
+  # Startup order: 4th (after discovery-service)
+  # ─────────────────────────────────────────────
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: cookmate-gateway
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      KEYCLOAK_PUBLIC_URL: http://localhost:8080
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_ID: cookmate-client
+      KEYCLOAK_CLIENT_SECRET: cookmate-secret
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 8
@@ -210,8 +278,11 @@ services:
     environment:
       API_URL: http://main-service:8081
       SIMULATOR_URL: http://simulator-service:8082
+      COOKING_SESSION_URL: http://cooking-session-service:8083
     depends_on:
       main-service:
+        condition: service_healthy
+      cooking-session-service:
         condition: service_healthy
       simulator-service:
         condition: service_healthy
