@@ -39,7 +39,7 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 |---------------------------|------|-------------------------------------------------------|
 | `config-service`          | 8888 | Spring Cloud Config Server                            |
 | `discovery-service`       | 8761 | Eureka Discovery Server                               |
-| `gateway-service`         | 8083 | Spring Cloud Gateway + OAuth2 Client      |
+| `gateway-service`         | 8085 | Spring Cloud Gateway + OAuth2 Client      |
 | `main-service`            | 8081 | REST API zarządzania przepisami + PostgreSQL          |
 | `cooking-session-service` | 8083 | Reaktywne zarządzanie sesją gotowania (SSE)           |
 | `simulator-service`       | 8082 | Symulator planowania posiłków (Feign)                 |

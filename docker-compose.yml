@@ -196,7 +196,7 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
-  # Gateway Service (port 8083)
+  # Gateway Service (port 8085)
   # Startup order: 4th (after discovery-service)
   # ─────────────────────────────────────────────
   gateway-service:
@@ -206,7 +206,7 @@ services:
     container_name: cookmate-gateway
     restart: unless-stopped
     ports:
-      - "8083:8083"
+      - "8085:8085"
     environment:
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
@@ -224,7 +224,7 @@ services:
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 8

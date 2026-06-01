@@ -1,6 +1,6 @@
 # Configuration specific to gateway-service
 server:
-  port: 8083
+  port: 8085
 
 spring:
   security:
@@ -34,13 +34,20 @@ spring:
           filters:
             - TokenRelay
           order: 0
+        - id: cooking-session-service
+          uri: lb://cooking-session-service
+          predicates:
+            - Path=/api/cooking-sessions/**
+          filters:
+            - TokenRelay
+          order: 1
         - id: main-service
           uri: lb://main-service
           predicates:
             - Path=/api/**
           filters:
             - TokenRelay
-          order: 1
+          order: 2
 
 management:
   endpoints:
