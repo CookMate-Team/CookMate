@@ -1,0 +1,257 @@
+networks:
+  cookmate-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  keycloak-data:
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database (Zoptymalizowana pamięć)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:18-alpine
+    container_name: cookmate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cookmate
+      POSTGRES_USER: cookmate
+      POSTGRES_PASSWORD: cookmate
+      # Zoptymalizowano parametry pamięci RAM bazy dla małego serwera t3.micro
+      POSTGRES_INITDB_ARGS: "-c max_connections=40 -c shared_buffers=64MB -c work_mem=4MB -c maintenance_work_mem=16MB"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cookmate -d cookmate"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+
+  # ─────────────────────────────────────────────
+  # Config Service (port 8888)
+  # ─────────────────────────────────────────────
+  config-service:
+    build:
+      context: ./config-service
+      dockerfile: Dockerfile
+    container_name: cookmate-config
+    restart: unless-stopped
+    environment:
+      CONFIG_REPO_PATH: /config-repo
+      # Narzucenie limitu sterty sterty JVM (192MB) dla oszczędności RAM
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+    volumes:
+      - ./config-repo:/config-repo:ro
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+  # ─────────────────────────────────────────────
+  # Discovery Service / Eureka (port 8761)
+  # ─────────────────────────────────────────────
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile
+    container_name: cookmate-discovery
+    restart: unless-stopped
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      HOSTNAME: discovery-service
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+    depends_on:
+      config-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+  # ─────────────────────────────────────────────
+  # Main Service (port 8081)
+  # ─────────────────────────────────────────────
+  main-service:
+    build:
+      context: ./main-service
+      dockerfile: Dockerfile
+    container_name: cookmate-main
+    restart: unless-stopped
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Cooking Session Service (port 8083)
+  # ─────────────────────────────────────────────
+  cooking-session-service:
+    build:
+      context: ./cooking-session-service
+      dockerfile: Dockerfile
+    container_name: cookmate-cooking-session
+    restart: unless-stopped
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Simulator Service (port 8082)
+  # ─────────────────────────────────────────────
+  simulator-service:
+    build:
+      context: ./simulator-service
+      dockerfile: Dockerfile
+    container_name: cookmate-simulator
+    restart: unless-stopped
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: postgres
+      DB_NAME: cookmate
+      DB_USER: cookmate
+      DB_PASS: cookmate
+      COOKING_SESSION_SERVICE_URL: http://cooking-session-service:8083
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Keycloak (Port 8080 - Uruchamiany profilowo dla oszczędności RAM)
+  # ─────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: cookmate-keycloak
+    profiles:
+      - auth
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - keycloak-data:/opt/keycloak/data
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: "${KEYCLOAK_DB_USER:-keycloak}"
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak}"
+      KC_DB_URL_PROPERTIES: "?sslmode=disable"
+      KC_HOSTNAME_URL: http://localhost:8080
+      KC_HOSTNAME_ADMIN_URL: http://localhost:8080
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: "true"
+      KC_LOG_LEVEL: INFO
+      # Ograniczenie pamięci RAM dla procesu Keycloak (Java)
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=96m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    command: ["start-dev", "--import-realm"]
+
+  # ─────────────────────────────────────────────
+  # Frontend Service (port 5173 - statyczne pliki)
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cookmate-frontend
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=128"
+    depends_on:
+      main-service:
+        condition: service_healthy
+      simulator-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+
+  # ─────────────────────────────────────────────
+  # Nginx Gateway (Główny punkt wejściowy - Port 80)
+  # ─────────────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: cookmate-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+    networks:
+      - cookmate-net
