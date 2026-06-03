@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,12 +27,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.cookmate.main.service.MealDbClient;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@WithMockUser(roles = "ROLE_USER")
 class RecipeControllerTest {
 
     @Autowired
@@ -56,6 +56,7 @@ class RecipeControllerTest {
         recipeRepository.save(new Recipe("Banana Bread", "Moist bread", "bananas, flour", "Mix and bake", 50));
 
         mockMvc.perform(get("/api/recipes")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .param("page", "0")
                         .param("size", "10")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -82,6 +83,7 @@ class RecipeControllerTest {
                 .recipeId(recipeId).durationMinutes(3).createdAt(LocalDateTime.now()).build());
 
         mockMvc.perform(get("/api/recipes/{recipeId}/steps", recipeId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -95,6 +97,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturnEmptyListWhenNoStepsForRecipe() throws Exception {
         mockMvc.perform(get("/api/recipes/{recipeId}/steps", "recipe-with-no-steps")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -105,6 +108,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturn400WhenPageIsNegative() throws Exception {
         mockMvc.perform(get("/api/recipes")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .param("page", "-1")
                         .param("size", "10"))
                 .andExpect(status().isBadRequest())
@@ -117,6 +121,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturn400WhenSizeIsZero() throws Exception {
         mockMvc.perform(get("/api/recipes")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .param("page", "0")
                         .param("size", "0"))
                 .andExpect(status().isBadRequest())
@@ -128,7 +133,8 @@ class RecipeControllerTest {
 
     @Test
     void shouldReturn404ContractForUnknownRecipe() throws Exception {
-        mockMvc.perform(get("/api/recipes/{id}", 999999L))
+        mockMvc.perform(get("/api/recipes/{id}", 999999L)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.status").value(404))
@@ -153,6 +159,7 @@ class RecipeControllerTest {
                 """;
 
         mockMvc.perform(put("/api/recipes/{id}", 999999L)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isNotFound())
@@ -163,9 +170,9 @@ class RecipeControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ROLE_ADMIN")
     void shouldReturn404ContractForUnknownRecipeOnDelete() throws Exception {
-        mockMvc.perform(delete("/api/recipes/{id}", 999999L))
+        mockMvc.perform(delete("/api/recipes/{id}", 999999L)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value("RECIPE_NOT_FOUND"))
@@ -176,6 +183,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturn400ForMalformedRequestBody() throws Exception {
         mockMvc.perform(post("/api/recipes")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Soup\","))
                 .andExpect(status().isBadRequest())
@@ -188,6 +196,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturn405WhenMethodIsNotSupported() throws Exception {
         mockMvc.perform(patch("/api/recipes")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))

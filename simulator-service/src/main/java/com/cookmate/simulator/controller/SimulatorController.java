@@ -47,6 +47,7 @@ public class SimulatorController {
     }
 
     @PostMapping("/sessions/{sessionId}/step")
+    @PreAuthorize("hasRole('ROLE_USER')")
     @Operation(summary = "Execute specific step", description = "Fallback endpoint to execute a specific step payload.")
     @ApiResponse(responseCode = "200", description = "Step execution result", content = @Content(schema = @Schema(implementation = StepExecutionResultDto.class)))
     public ResponseEntity<StepExecutionResultDto> receiveStep(
@@ -57,6 +58,7 @@ public class SimulatorController {
     }
 
     @PostMapping("/sessions/{sessionId}/steps/execute")
+    @PreAuthorize("hasRole('ROLE_USER')")
     @Operation(summary = "Execute next step", description = "One-click endpoint to execute the next pending step in the session.")
     @ApiResponse(responseCode = "200", description = "Step execution result", content = @Content(schema = @Schema(implementation = StepExecutionResultDto.class)))
     public ResponseEntity<StepExecutionResultDto> executeNextStep(@PathVariable String sessionId) {
@@ -64,6 +66,7 @@ public class SimulatorController {
     }
 
     @PostMapping("/sessions/{sessionId}/rewind")
+    @PreAuthorize("hasRole('ROLE_USER')")
     @Operation(summary = "Rewind session", description = "Moves session progress back to the given step number.")
     @ApiResponse(responseCode = "200", description = "Session rewound", content = @Content(schema = @Schema(implementation = SimulationStatusResponseDto.class)))
     public ResponseEntity<SimulationStatusResponseDto> rewindToStep(
@@ -89,6 +92,7 @@ public class SimulatorController {
     }
 
     @PostMapping("/sessions/{sessionId}/complete")
+    @PreAuthorize("hasRole('ROLE_USER')")
     @Operation(summary = "Complete session manually", description = "Marks session as completed and notifies cooking-session-service.")
     public ResponseEntity<Void> completeSession(@PathVariable String sessionId) {
         simulationService.completeSession(sessionId);

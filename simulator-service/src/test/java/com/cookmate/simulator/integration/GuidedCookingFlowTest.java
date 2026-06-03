@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 /**
  * End-to-end flow test dla guided cooking:
@@ -65,6 +67,7 @@ class GuidedCookingFlowTest {
 
         // === 1. START — utwórz sesję ===
         MvcResult startResult = mockMvc.perform(post("/api/simulator/sessions/start")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
             .andExpect(status().isCreated())
@@ -77,7 +80,8 @@ class GuidedCookingFlowTest {
         verify(mainServiceClient).getRecipeSteps("52772");
 
         // === 2. STATUS — sprawdź stan przed wykonaniem ===
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("RUNNING"))
             .andExpect(jsonPath("$.currentStep").value(0))
@@ -85,26 +89,30 @@ class GuidedCookingFlowTest {
             .andExpect(jsonPath("$.history[1].status").value("PENDING"));
 
         // === 3. EXECUTE STEP 1 ===
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.stepNumber").value(1));
 
         // === 4. STATUS po kroku 1 — sprawdź postęp ===
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.currentStep").value(1))
             .andExpect(jsonPath("$.history[0].status").value("EXECUTED"))
             .andExpect(jsonPath("$.history[1].status").value("PENDING"));
 
         // === 5. EXECUTE STEP 2 ===
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.stepNumber").value(2));
 
         // === 6. STATUS — sesja powinna być COMPLETED ===
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("COMPLETED"))
             .andExpect(jsonPath("$.currentStep").value(2))
@@ -112,7 +120,8 @@ class GuidedCookingFlowTest {
             .andExpect(jsonPath("$.history[1].status").value("EXECUTED"));
 
         // === 7. HISTORY — pełna historia ===
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/history"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/history")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(2)))
             .andExpect(jsonPath("$[0].stepNumber").value(1))
@@ -132,6 +141,7 @@ class GuidedCookingFlowTest {
         // Start
         String sessionId = extractSessionId(
             mockMvc.perform(post("/api/simulator/sessions/start")
+                    .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"recipeId\":\"52772\"}"))
                 .andExpect(status().isCreated())
@@ -139,32 +149,38 @@ class GuidedCookingFlowTest {
         );
 
         // Execute step 1
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(1));
 
         // Execute step 2
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(2));
 
         // Verify COMPLETED
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(jsonPath("$.status").value("COMPLETED"));
 
         // REWIND to step 1
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/rewind?stepNumber=1"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/rewind?stepNumber=1")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("RUNNING"))
             .andExpect(jsonPath("$.currentStep").value(1));
 
         // Re-execute step 2
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(2));
 
         // Verify COMPLETED again
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
 
@@ -178,6 +194,7 @@ class GuidedCookingFlowTest {
 
         String sessionId = extractSessionId(
             mockMvc.perform(post("/api/simulator/sessions/start")
+                    .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"recipeId\":\"52772\"}"))
                 .andExpect(status().isCreated())
@@ -186,6 +203,7 @@ class GuidedCookingFlowTest {
 
         // processStep 1
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":1,\"description\":\"Exec 1\",\"durationSeconds\":5}"))
             .andExpect(status().isOk())
@@ -193,27 +211,32 @@ class GuidedCookingFlowTest {
 
         // processStep 2
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":2,\"description\":\"Exec 2\",\"durationSeconds\":5}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true));
 
         // Verify COMPLETED
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
 
     @Test
     @DisplayName("Error flow: operacja na nieistniejącej sesji → 404")
     void errorFlow_sessionNotFound() throws Exception {
-        mockMvc.perform(post("/api/simulator/sessions/fake-id/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/fake-id/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("SIMULATION_NOT_FOUND"));
 
-        mockMvc.perform(get("/api/simulator/sessions/fake-id/status"))
+        mockMvc.perform(get("/api/simulator/sessions/fake-id/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound());
 
-        mockMvc.perform(get("/api/simulator/sessions/fake-id/history"))
+        mockMvc.perform(get("/api/simulator/sessions/fake-id/history")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound());
     }
 

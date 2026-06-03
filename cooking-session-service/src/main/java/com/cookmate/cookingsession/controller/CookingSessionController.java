@@ -69,6 +69,7 @@ public class CookingSessionController {
     }
 
     @PostMapping("/sessions/{sessionId}/complete")
+    @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Void> completeSession(
             @PathVariable String sessionId
     ) {
