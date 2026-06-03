@@ -22,6 +22,11 @@ spring:
             user-info-uri: http://localhost:9999/userinfo
             jwk-set-uri: http://localhost:9999/jwks
             user-name-attribute: sub
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9999/realms/test
+          jwk-set-uri: http://localhost:9999/jwks
+
 
 server:
   port: 0

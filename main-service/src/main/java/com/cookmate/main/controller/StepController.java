@@ -7,6 +7,7 @@ import com.cookmate.main.service.StepService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -33,6 +34,7 @@ public class StepController {
      * @return response z listą kroków
      */
     @PostMapping("/generate")
+    @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<StepGenerationResponse> generateSteps(
             @Valid @RequestBody StepGenerationRequest request,
             HttpSession session) {

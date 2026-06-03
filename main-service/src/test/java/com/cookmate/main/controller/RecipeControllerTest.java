@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +32,7 @@ import com.cookmate.main.service.MealDbClient;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@WithMockUser(roles = "ROLE_USER")
 class RecipeControllerTest {
 
     @Autowired
@@ -43,6 +46,9 @@ class RecipeControllerTest {
 
     @MockitoBean
     private MealDbClient mealDbClient;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void shouldReturnPaginatedRecipesWithMetadata() throws Exception {
@@ -157,6 +163,7 @@ class RecipeControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ROLE_ADMIN")
     void shouldReturn404ContractForUnknownRecipeOnDelete() throws Exception {
         mockMvc.perform(delete("/api/recipes/{id}", 999999L))
                 .andExpect(status().isNotFound())

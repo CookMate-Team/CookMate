@@ -12,3 +12,13 @@ logging:
   level:
     com.cookmate: DEBUG
     org.springframework.cloud: INFO
+
+# Centralized OAuth2 Resource Server configuration for all business microservices
+# Each service validates JWT tokens issued by Keycloak
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate
+          jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
