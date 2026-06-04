@@ -36,11 +36,16 @@ public class GroqClient {
     }
 
     public Mono<LLMResponseDTO> generateSteps(String recipeInstructions, String ingredients) {
+        long pipelineStart = System.currentTimeMillis();
         logger.info("Rozpoczęcie 3-etapowego generowania kroków (Normalizer -> Planner -> Serializer)...");
 
         return callNormalizer(recipeInstructions, ingredients)
                 .flatMap(this::callPlanner)
                 .flatMap(plannedSteps -> callSerializer(plannedSteps, ingredients))
+                .doOnSuccess(result -> {
+                    long totalDuration = System.currentTimeMillis() - pipelineStart;
+                    logger.info("Pełny potok generowania LLM zakończony pomyślnie w {} ms.", totalDuration);
+                })
                 .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
                         .doBeforeRetry(retrySignal -> logger.warn(
                                 "Próba {} ponowienia całego potoku Groq z powodu błędu: {}",
@@ -54,8 +59,14 @@ public class GroqClient {
 
     private Mono<String> callNormalizer(String recipeInstructions, String ingredients) {
         return Mono.fromCallable(() -> {
+            long startTime = System.currentTimeMillis();
             logger.info("[Etap 1/3] Uruchamianie Normalizatora...");
+            logger.debug("[Etap 1/3] Wejście (recipeInstructions): {}", truncate(recipeInstructions, 200));
+            logger.debug("[Etap 1/3] Wejście (ingredients): {}", truncate(ingredients, 200));
+
             String prompt = buildNormalizerPrompt(recipeInstructions, ingredients);
+            logger.trace("[Etap 1/3] Wygenerowany prompt:\n{}", prompt);
+
             GroqChatRequest request = new GroqChatRequest(
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
@@ -75,15 +86,22 @@ public class GroqClient {
             }
 
             String content = response.choices().get(0).message().content();
-            logger.debug("[Etap 1/3] Normalizator zakończył działanie.");
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("[Etap 1/3] Normalizator zakończył działanie w {} ms.", duration);
+            logger.debug("[Etap 1/3] Wyjście (normalizedSteps): {}", truncate(content, 200));
             return content;
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private Mono<String> callPlanner(String normalizedSteps) {
         return Mono.fromCallable(() -> {
+            long startTime = System.currentTimeMillis();
             logger.info("[Etap 2/3] Uruchamianie Plannera...");
+            logger.debug("[Etap 2/3] Wejście (normalizedSteps): {}", truncate(normalizedSteps, 200));
+
             String prompt = buildPlannerPrompt(normalizedSteps);
+            logger.trace("[Etap 2/3] Wygenerowany prompt:\n{}", prompt);
+
             GroqChatRequest request = new GroqChatRequest(
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
@@ -103,15 +121,23 @@ public class GroqClient {
             }
 
             String content = response.choices().get(0).message().content();
-            logger.debug("[Etap 2/3] Planner zakończył działanie.");
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("[Etap 2/3] Planner zakończył działanie w {} ms.", duration);
+            logger.debug("[Etap 2/3] Wyjście (plannedSteps): {}", truncate(content, 200));
             return content;
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private Mono<LLMResponseDTO> callSerializer(String plannedSteps, String ingredients) {
         return Mono.fromCallable(() -> {
+            long startTime = System.currentTimeMillis();
             logger.info("[Etap 3/3] Uruchamianie Serializatora...");
+            logger.debug("[Etap 3/3] Wejście (plannedSteps): {}", truncate(plannedSteps, 200));
+            logger.debug("[Etap 3/3] Wejście (ingredients): {}", truncate(ingredients, 200));
+
             String prompt = buildSerializerPrompt(plannedSteps, ingredients);
+            logger.trace("[Etap 3/3] Wygenerowany prompt:\n{}", prompt);
+
             GroqChatRequest request = new GroqChatRequest(
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
@@ -126,8 +152,18 @@ public class GroqClient {
                     .retrieve()
                     .body(GroqChatResponse.class);
 
-            return parseAndValidateResponse(response);
+            LLMResponseDTO result = parseAndValidateResponse(response);
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("[Etap 3/3] Serializator zakończył działanie w {} ms.", duration);
+            logger.debug("[Etap 3/3] Wyjście (parsedStepsCount): {}", result.steps() != null ? result.steps().size() : 0);
+            return result;
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "null";
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength) + "... [truncated, total length: " + text.length() + " chars]";
     }
 
     private String buildNormalizerPrompt(String recipeInstructions, String ingredients) {
