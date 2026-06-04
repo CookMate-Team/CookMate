@@ -23,7 +23,7 @@ spring:
             user-name-attribute: preferred_username
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate
+          issuer-uri: ${KEYCLOAK_PUBLIC_URL:http://localhost:8080}/realms/cookmate
           jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
 
 
@@ -58,7 +58,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: "*"
   endpoint:
     health:
       show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.web.reactive: TRACE

@@ -20,5 +20,5 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate
+          issuer-uri: ${KEYCLOAK_PUBLIC_URL:http://localhost:8080}/realms/cookmate
           jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
