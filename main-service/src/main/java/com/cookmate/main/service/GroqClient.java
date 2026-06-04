@@ -2,6 +2,7 @@ package com.cookmate.main.service;
 
 import com.cookmate.main.dto.LLMResponseDTO;
 import com.cookmate.main.exception.ExternalServiceException;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +143,7 @@ public class GroqClient {
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
                     TEMPERATURE,
-                    new JsonResponseFormat("json_object")
+                    new JsonResponseFormat("json_schema", new JsonSchemaInfo("recipe_steps", true, buildSchemaMap()))
             );
 
             GroqChatResponse response = restClient.post()
@@ -158,6 +159,43 @@ public class GroqClient {
             logger.debug("[Etap 3/3] Wyjście (parsedStepsCount): {}", result.steps() != null ? result.steps().size() : 0);
             return result;
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private java.util.Map<String, Object> buildSchemaMap() {
+        return java.util.Map.of(
+            "type", "object",
+            "properties", java.util.Map.of(
+                "steps", java.util.Map.of(
+                    "type", "array",
+                    "items", java.util.Map.of(
+                        "type", "object",
+                        "properties", java.util.Map.of(
+                            "step_number", java.util.Map.of("type", "integer"),
+                            "description", java.util.Map.of("type", "string"),
+                            "main_ingredient", java.util.Map.of("type", List.of("string", "null")),
+                            "action", java.util.Map.of(
+                                "type", "string",
+                                "enum", List.of("CUT", "CHOP", "STIR", "MARINATE", "BLEND", "FRY", "POT", "BAKE", "WEIGH", "GRILL", "WAIT", "POUR", "MIX")
+                            ),
+                            "parameters", java.util.Map.of(
+                                "type", "object",
+                                "properties", java.util.Map.of(
+                                    "temperature", java.util.Map.of("type", "integer"),
+                                    "speed", java.util.Map.of("type", "integer")
+                                ),
+                                "required", List.of("temperature", "speed"),
+                                "additionalProperties", false
+                            ),
+                            "duration_minutes", java.util.Map.of("type", "integer")
+                        ),
+                        "required", List.of("step_number", "description", "action", "parameters", "duration_minutes"),
+                        "additionalProperties", false
+                    )
+                )
+            ),
+            "required", List.of("steps"),
+            "additionalProperties", false
+        );
     }
 
     private String truncate(String text, int maxLength) {
@@ -442,8 +480,16 @@ public class GroqClient {
             JsonResponseFormat response_format
     ) {}
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record JsonResponseFormat(
-            String type
+            String type,
+            JsonSchemaInfo json_schema
+    ) {}
+
+    public record JsonSchemaInfo(
+            String name,
+            Boolean strict,
+            java.util.Map<String, Object> schema
     ) {}
 
     public record GroqMessage(
