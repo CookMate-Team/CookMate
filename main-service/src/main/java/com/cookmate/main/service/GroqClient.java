@@ -452,18 +452,6 @@ public class GroqClient {
             logger.debug("Odpowiedź z Groq otrzymana, parsowanie JSON... Rozmiar odpowiedzi: {} znaków", content.length());
 
             LLMResponseDTO parsed = objectMapper.readValue(content, LLMResponseDTO.class);
-            if (parsed.steps() == null || parsed.steps().isEmpty()) {
-                throw new IllegalStateException("LLM zwrócił pustą listę kroków.");
-            }
-
-            for (var step : parsed.steps()) {
-                if (step.action() == null) {
-                    throw new IllegalStateException("Krok nr " + step.stepNumber() + " nie zawiera obowiązkowego pola action (null).");
-                }
-                if (step.description() == null || step.description().isBlank()) {
-                    throw new IllegalStateException("Krok nr " + step.stepNumber() + " nie zawiera opisu.");
-                }
-            }
             logger.info("Pomyślnie sparsowano {} kroków", parsed.steps().size());
             return parsed;
         } catch (Exception e) {
