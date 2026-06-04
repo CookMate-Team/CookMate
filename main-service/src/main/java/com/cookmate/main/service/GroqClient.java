@@ -82,6 +82,7 @@ public class GroqClient {
                 3. DETAILED DESCRIPTIONS: Write long, instructional descriptions. Explain how to set up the device for that specific stage.
                 4. DOMINANT ACTIONS ONLY: Use ONLY ONE from: CUT, CHOP, STIR, MARINATE, BLEND, FRYING_PAN, POT, BAKE, WEIGH, GRILL, WAIT, POUR, MIX.
                 5. PARAMETERS: Always include "temperature" and "speed" (0-10) in the parameters object to guide the device simulator.
+                6. WEIGH AND MEASURE INGREDIENTS: When planning steps that involve adding ingredients, use the WEIGH action for dry/solid ingredients and the POUR action for liquid ingredients. You MUST extract the precise quantity or weight (e.g., grams, milliliters, pieces) from the "Ingredients list" provided below and explicitly mention it in the step "description" (e.g., "Weigh 500g of chicken breast using the built-in scale"). Do not just say "Add chicken", say "Weigh and add 500g of chicken".
 
                 Each step MUST include:
                 - "step_number": sequential integer.
