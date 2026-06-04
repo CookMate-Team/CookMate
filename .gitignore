@@ -26,3 +26,5 @@ logs/
 # Environment files
 .env
 *.env.local
+
+Prez*.md

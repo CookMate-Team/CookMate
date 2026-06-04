@@ -86,8 +86,13 @@ public class StepService {
         String recipeInstructions = meal.strInstructions();
         String recipeName = meal.strMeal();
 
-        logger.info("Wysyłanie przepisu '{}' do Groq LLM...", recipeName);
-        var llmResponse = groqClient.generateSteps(recipeInstructions).block();
+        List<String> ingredients = parseIngredients(meal);
+        String formattedIngredients = ingredients.stream()
+                .map(ing -> "- " + ing)
+                .collect(Collectors.joining("\n"));
+
+        logger.info("Wysyłanie przepisu '{}' z {} składnikami do Groq LLM...", recipeName, ingredients.size());
+        var llmResponse = groqClient.generateSteps(recipeInstructions, formattedIngredients).block();
         if (llmResponse == null || llmResponse.steps().isEmpty()) {
             throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
         }

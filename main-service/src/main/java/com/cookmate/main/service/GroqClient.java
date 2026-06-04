@@ -19,6 +19,7 @@ public class GroqClient {
 
     private static final Logger logger = LoggerFactory.getLogger(GroqClient.class);
     private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+    //    Zmien na model GPT-OSS20B albo 120B
     private static final String MODEL = "llama-3.1-8b-instant";
     private static final double TEMPERATURE = 0.7;
 
@@ -33,11 +34,11 @@ public class GroqClient {
         this.apiKey = apiKey;
     }
 
-    public Mono<LLMResponseDTO> generateSteps(String recipeInstructions) {
+    public Mono<LLMResponseDTO> generateSteps(String recipeInstructions, String ingredients) {
         logger.info("Wysyłanie żądania do Groq LLM...");
 
         return Mono.fromCallable(() -> {
-            String prompt = buildPrompt(recipeInstructions);
+            String prompt = buildPrompt(recipeInstructions, ingredients);
             GroqChatRequest request = new GroqChatRequest(
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
@@ -65,7 +66,7 @@ public class GroqClient {
         .onErrorMap(error -> error instanceof ExternalServiceException ? error : new ExternalServiceException("Groq", error));
     }
 
-    private String buildPrompt(String recipeInstructions) {
+    private String buildPrompt(String recipeInstructions, String ingredients) {
         return """
                 You are an expert culinary assistant for the CookMate system.\s
                 CookMate is a multi-functional cooking device (like a Thermomix) that combines a pot, frying pan, blender, and steamer into one machine.
@@ -120,9 +121,12 @@ public class GroqClient {
                   ]
                 }
 
+                Ingredients list:
+                %s
+
                 Recipe to adapt for CookMate:
                 %s
-               """ + recipeInstructions;
+               """.formatted(ingredients, recipeInstructions);
     }
 
     private LLMResponseDTO parseAndValidateResponse(GroqChatResponse response) {
