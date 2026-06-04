@@ -47,7 +47,7 @@ public class GroqClient {
                     long totalDuration = System.currentTimeMillis() - pipelineStart;
                     logger.info("Pełny potok generowania LLM zakończony pomyślnie w {} ms.", totalDuration);
                 })
-                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                .retryWhen(Retry.backoff(2, Duration.ofSeconds(2))
                         .doBeforeRetry(retrySignal -> logger.warn(
                                 "Próba {} ponowienia całego potoku Groq z powodu błędu: {}",
                                 retrySignal.totalRetries() + 1,
@@ -91,7 +91,16 @@ public class GroqClient {
             logger.info("[Etap 1/3] Normalizator zakończył działanie w {} ms.", duration);
             logger.debug("[Etap 1/3] Wyjście (normalizedSteps): {}", truncate(content, 200));
             return content;
-        }).subscribeOn(Schedulers.boundedElastic());
+        })
+        .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
+                .filter(this::isRateLimitOrNetworkError)
+                .doBeforeRetry(retrySignal -> logger.warn(
+                        "[Etap 1/3] Ponawianie próby {} z powodu błędu: {}",
+                        retrySignal.totalRetries() + 1,
+                        retrySignal.failure().getMessage()
+                ))
+        )
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     private Mono<String> callPlanner(String normalizedSteps) {
@@ -126,7 +135,16 @@ public class GroqClient {
             logger.info("[Etap 2/3] Planner zakończył działanie w {} ms.", duration);
             logger.debug("[Etap 2/3] Wyjście (plannedSteps): {}", truncate(content, 200));
             return content;
-        }).subscribeOn(Schedulers.boundedElastic());
+        })
+        .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
+                .filter(this::isRateLimitOrNetworkError)
+                .doBeforeRetry(retrySignal -> logger.warn(
+                        "[Etap 2/3] Ponawianie próby {} z powodu błędu: {}",
+                        retrySignal.totalRetries() + 1,
+                        retrySignal.failure().getMessage()
+                ))
+        )
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     private Mono<LLMResponseDTO> callSerializer(String plannedSteps, String ingredients) {
@@ -158,7 +176,23 @@ public class GroqClient {
             logger.info("[Etap 3/3] Serializator zakończył działanie w {} ms.", duration);
             logger.debug("[Etap 3/3] Wyjście (parsedStepsCount): {}", result.steps() != null ? result.steps().size() : 0);
             return result;
-        }).subscribeOn(Schedulers.boundedElastic());
+        })
+        .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
+                .filter(this::isRateLimitOrNetworkError)
+                .doBeforeRetry(retrySignal -> logger.warn(
+                        "[Etap 3/3] Ponawianie próby {} z powodu błędu: {}",
+                        retrySignal.totalRetries() + 1,
+                        retrySignal.failure().getMessage()
+                ))
+        )
+        .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private boolean isRateLimitOrNetworkError(Throwable throwable) {
+        if (throwable instanceof org.springframework.web.client.HttpStatusCodeException httpException) {
+            return httpException.getStatusCode().value() == 429;
+        }
+        return throwable instanceof java.io.IOException;
     }
 
     private java.util.Map<String, Object> buildSchemaMap() {

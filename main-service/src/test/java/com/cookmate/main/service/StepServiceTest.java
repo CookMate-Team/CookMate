@@ -221,4 +221,76 @@ class StepServiceTest {
         verify(stepRepository).saveAll(anyList());
         verify(stepMapper).toDTO(stepEntity);
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldApplyGuardrailsAndSequenceCorrectlyWhenGeneratingSteps() {
+        String mealId = "999";
+        StepGenerationRequest request = new StepGenerationRequest(mealId);
+
+        when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId)).thenReturn(List.of());
+
+        Meal mockMeal = new Meal(
+                mealId, "Test Recipe", null, "Test", "Test Area", "Instructions...",
+                "thumb", "tags", "yt", "src", "img", "CC", "date",
+                "Ingredient", "10g", null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
+        when(mealDbClient.lookupById(mealId)).thenReturn(reactor.core.publisher.Mono.just(new MealSearchResponse(List.of(mockMeal))));
+
+        // Gapped and out-of-order step numbers with unsafe parameters
+        LLMStepDTO step1 = new LLMStepDTO(5, "Weighing step", ActionType.WEIGH, "Flour", 1, new java.util.HashMap<>(Map.of("temperature", 100, "speed", 5)));
+        LLMStepDTO step2 = new LLMStepDTO(2, "Chopping step", ActionType.CHOP, "Onion", 1, new java.util.HashMap<>(Map.of("temperature", 80, "speed", 4)));
+        LLMStepDTO step3 = new LLMStepDTO(8, "Pot step", ActionType.POT, "Water", 10, new java.util.HashMap<>(Map.of("temperature", 100, "speed", 6)));
+        LLMStepDTO step4 = new LLMStepDTO(12, "Blending hot", ActionType.BLEND, "Soup", 2, new java.util.HashMap<>(Map.of("temperature", 90, "speed", 8)));
+        LLMStepDTO step5 = new LLMStepDTO(13, "Blending cold", ActionType.BLEND, "Smoothie", 2, new java.util.HashMap<>(Map.of("temperature", 40, "speed", 8)));
+
+        LLMResponseDTO llmResponse = new LLMResponseDTO(List.of(step1, step2, step3, step4, step5));
+        when(groqClient.generateSteps(anyString(), anyString())).thenReturn(reactor.core.publisher.Mono.just(llmResponse));
+
+        when(stepRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        stepService.generateSteps(request);
+
+        // Assert and capture
+        org.mockito.ArgumentCaptor<List<Step>> stepsCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(stepRepository).saveAll(stepsCaptor.capture());
+        List<Step> savedSteps = stepsCaptor.getValue();
+
+        assertThat(savedSteps).hasSize(5);
+
+        // Verify sorted and re-indexed step numbers
+        assertThat(savedSteps.get(0).getStepNumber()).isEqualTo(1); // was 2 (CHOP)
+        assertThat(savedSteps.get(1).getStepNumber()).isEqualTo(2); // was 5 (WEIGH)
+        assertThat(savedSteps.get(2).getStepNumber()).isEqualTo(3); // was 8 (POT)
+        assertThat(savedSteps.get(3).getStepNumber()).isEqualTo(4); // was 12 (BLEND hot)
+        assertThat(savedSteps.get(4).getStepNumber()).isEqualTo(5); // was 13 (BLEND cold)
+
+        // Verify Guardrail 1: WEIGH (original temp=100, speed=5 -> expected temp=0, speed=0)
+        Step weighStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.WEIGH).findFirst().orElseThrow();
+        assertThat(weighStep.getParameters().get("temperature")).isEqualTo(0);
+        assertThat(weighStep.getParameters().get("speed")).isEqualTo(0);
+
+        // Verify Guardrail 2: CHOP (original temp=80, speed=4 -> expected temp=0, speed=4)
+        Step chopStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.CHOP).findFirst().orElseThrow();
+        assertThat(chopStep.getParameters().get("temperature")).isEqualTo(0);
+        assertThat(chopStep.getParameters().get("speed")).isEqualTo(4);
+
+        // Verify Guardrail 3: POT (original temp=100, speed=6 -> expected temp=100, speed=3)
+        Step potStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.POT).findFirst().orElseThrow();
+        assertThat(potStep.getParameters().get("temperature")).isEqualTo(100);
+        assertThat(potStep.getParameters().get("speed")).isEqualTo(3);
+
+        // Verify Guardrail 4: BLEND hot (original temp=90, speed=8 -> expected temp=90, speed=4)
+        Step blendHot = savedSteps.stream().filter(s -> s.getDescription().contains("hot")).findFirst().orElseThrow();
+        assertThat(blendHot.getParameters().get("temperature")).isEqualTo(90);
+        assertThat(blendHot.getParameters().get("speed")).isEqualTo(4);
+
+        // Verify Guardrail 4 (negative case): BLEND cold (original temp=40, speed=8 -> expected temp=40, speed=8)
+        Step blendCold = savedSteps.stream().filter(s -> s.getDescription().contains("cold")).findFirst().orElseThrow();
+        assertThat(blendCold.getParameters().get("temperature")).isEqualTo(40);
+        assertThat(blendCold.getParameters().get("speed")).isEqualTo(8);
+    }
 }
