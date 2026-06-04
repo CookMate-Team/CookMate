@@ -29,30 +29,32 @@ spring:
 
   cloud:
     gateway:
-      default-filters:
-        - SaveSession
-      routes:
-        - id: simulator-service
-          uri: lb://simulator-service
-          predicates:
-            - Path=/api/simulator/**
-          filters:
-            - TokenRelay
-          order: 0
-        - id: cooking-session-service
-          uri: lb://cooking-session-service
-          predicates:
-            - Path=/api/cooking-sessions/**
-          filters:
-            - TokenRelay
-          order: 1
-        - id: main-service
-          uri: lb://main-service
-          predicates:
-            - Path=/api/**
-          filters:
-            - TokenRelay
-          order: 2
+      server:
+        webflux:
+          default-filters:
+            - SaveSession
+          routes:
+            - id: simulator-service
+              uri: lb://simulator-service
+              predicates:
+                - Path=/api/simulator/**
+              filters:
+                - TokenRelay
+              order: 0
+            - id: cooking-session-service
+              uri: lb://cooking-session-service
+              predicates:
+                - Path=/api/cooking-sessions/**
+              filters:
+                - TokenRelay
+              order: 1
+            - id: main-service
+              uri: lb://main-service
+              predicates:
+                - Path=/api/**
+              filters:
+                - TokenRelay
+              order: 2
 
 management:
   endpoints:
