@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
@@ -35,10 +36,82 @@ public class GroqClient {
     }
 
     public Mono<LLMResponseDTO> generateSteps(String recipeInstructions, String ingredients) {
-        logger.info("Wysyłanie żądania do Groq LLM...");
+        logger.info("Rozpoczęcie 3-etapowego generowania kroków (Normalizer -> Planner -> Serializer)...");
 
+        return callNormalizer(recipeInstructions, ingredients)
+                .flatMap(this::callPlanner)
+                .flatMap(plannedSteps -> callSerializer(plannedSteps, ingredients))
+                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                        .doBeforeRetry(retrySignal -> logger.warn(
+                                "Próba {} ponowienia całego potoku Groq z powodu błędu: {}",
+                                retrySignal.totalRetries() + 1,
+                                retrySignal.failure().getMessage()
+                        ))
+                )
+                .doOnError(error -> logger.error("Błąd krytyczny komunikacji z Groq po wyczerpaniu limitu prób: {}", error.getMessage()))
+                .onErrorMap(error -> error instanceof ExternalServiceException ? error : new ExternalServiceException("Groq", error));
+    }
+
+    private Mono<String> callNormalizer(String recipeInstructions, String ingredients) {
         return Mono.fromCallable(() -> {
-            String prompt = buildPrompt(recipeInstructions, ingredients);
+            logger.info("[Etap 1/3] Uruchamianie Normalizatora...");
+            String prompt = buildNormalizerPrompt(recipeInstructions, ingredients);
+            GroqChatRequest request = new GroqChatRequest(
+                    MODEL,
+                    List.of(new GroqMessage("user", prompt)),
+                    TEMPERATURE,
+                    null
+            );
+
+            GroqChatResponse response = restClient.post()
+                    .uri(GROQ_API_URL)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .body(request)
+                    .retrieve()
+                    .body(GroqChatResponse.class);
+
+            if (response == null || response.choices() == null || response.choices().isEmpty()) {
+                throw new IllegalStateException("Otrzymano pustą odpowiedź z Normalizatora.");
+            }
+
+            String content = response.choices().get(0).message().content();
+            logger.debug("[Etap 1/3] Normalizator zakończył działanie.");
+            return content;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private Mono<String> callPlanner(String normalizedSteps) {
+        return Mono.fromCallable(() -> {
+            logger.info("[Etap 2/3] Uruchamianie Plannera...");
+            String prompt = buildPlannerPrompt(normalizedSteps);
+            GroqChatRequest request = new GroqChatRequest(
+                    MODEL,
+                    List.of(new GroqMessage("user", prompt)),
+                    TEMPERATURE,
+                    null
+            );
+
+            GroqChatResponse response = restClient.post()
+                    .uri(GROQ_API_URL)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .body(request)
+                    .retrieve()
+                    .body(GroqChatResponse.class);
+
+            if (response == null || response.choices() == null || response.choices().isEmpty()) {
+                throw new IllegalStateException("Otrzymano pustą odpowiedź z Plannera.");
+            }
+
+            String content = response.choices().get(0).message().content();
+            logger.debug("[Etap 2/3] Planner zakończył działanie.");
+            return content;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private Mono<LLMResponseDTO> callSerializer(String plannedSteps, String ingredients) {
+        return Mono.fromCallable(() -> {
+            logger.info("[Etap 3/3] Uruchamianie Serializatora...");
+            String prompt = buildSerializerPrompt(plannedSteps, ingredients);
             GroqChatRequest request = new GroqChatRequest(
                     MODEL,
                     List.of(new GroqMessage("user", prompt)),
@@ -54,16 +127,7 @@ public class GroqClient {
                     .body(GroqChatResponse.class);
 
             return parseAndValidateResponse(response);
-        })
-        .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
-            .doBeforeRetry(retrySignal -> logger.warn(
-                    "Próba {} ponowienia wywołania Groq API z powodu błędu: {}",
-                    retrySignal.totalRetries() + 1,
-                    retrySignal.failure().getMessage()
-            ))
-        )
-        .doOnError(error -> logger.error("Błąd krytyczny komunikacji z Groq po wyczerpaniu limitu prób: {}", error.getMessage()))
-        .onErrorMap(error -> error instanceof ExternalServiceException ? error : new ExternalServiceException("Groq", error));
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private String buildNormalizerPrompt(String recipeInstructions, String ingredients) {
