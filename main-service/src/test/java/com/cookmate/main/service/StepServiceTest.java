@@ -1,5 +1,11 @@
 package com.cookmate.main.service;
 
+import com.cookmate.main.dto.Meal;
+import com.cookmate.main.dto.MealSearchResponse;
+import com.cookmate.main.dto.LLMResponseDTO;
+import com.cookmate.main.dto.LLMStepDTO;
+import com.cookmate.main.dto.StepGenerationRequest;
+import com.cookmate.main.dto.StepGenerationResponse;
 import com.cookmate.main.dto.StepDTO;
 import com.cookmate.main.exception.StepNotFoundException;
 import com.cookmate.main.mapper.StepMapper;
@@ -14,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +35,12 @@ class StepServiceTest {
 
     @Mock
     private StepMapper stepMapper;
+
+    @Mock
+    private MealDbClient mealDbClient;
+
+    @Mock
+    private GroqClient groqClient;
 
     @InjectMocks
     private StepService stepService;
@@ -101,5 +114,183 @@ class StepServiceTest {
         verify(stepRepository).findByRecipeIdOrderByStepNumberAsc(recipeId);
         verify(stepMapper).toDTO(step1);
         verify(stepMapper).toDTO(step2);
+    }
+
+    @Test
+    void shouldCorrectlyParseAndFormatIngredientsWhenGeneratingSteps() {
+        String mealId = "12345";
+        StepGenerationRequest request = new StepGenerationRequest(mealId);
+
+        // 1. Mock repository to return no existing steps
+        when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId))
+                .thenReturn(List.of());
+
+        // 2. Mock Meal with various combinations of ingredients & measures
+        Meal mockMeal = new Meal(
+                mealId,
+                "Test Chicken Recipe",
+                null,
+                "Chicken",
+                "Italian",
+                "Instructions text...",
+                "thumb.jpg",
+                "tags",
+                "youtube.com",
+                "source",
+                "imgSource",
+                "confirmed",
+                "2026-06-04",
+                "Chicken", "500g",         // 1. normal
+                "Garlic", "",              // 2. empty measure
+                "Salt", null,              // 3. null measure
+                "  ", "1 tsp",             // 4. empty ingredient name
+                null, "1 cup",             // 5. null ingredient name
+                null, null,                // 6
+                null, null,                // 7
+                null, null,                // 8
+                null, null,                // 9
+                null, null,                // 10
+                null, null,                // 11
+                null, null,                // 12
+                null, null,                // 13
+                null, null,                // 14
+                null, null,                // 15
+                null, null,                // 16
+                null, null,                // 17
+                null, null,                // 18
+                null, null,                // 19
+                null, null                 // 20
+        );
+
+        MealSearchResponse mockMealResponse = new MealSearchResponse(List.of(mockMeal));
+        when(mealDbClient.lookupById(mealId)).thenReturn(reactor.core.publisher.Mono.just(mockMealResponse));
+
+        // 3. Mock GroqClient response
+        LLMStepDTO mockLlmStep = new LLMStepDTO(
+                1,
+                "Weigh 500g of chicken",
+                ActionType.WEIGH,
+                "Chicken",
+                5,
+                Map.of()
+        );
+        LLMResponseDTO mockLlmResponse = new LLMResponseDTO(List.of(mockLlmStep));
+
+        // Expect the formatted ingredients to be:
+        // "- Chicken (500g)\n- Garlic\n- Salt"
+        String expectedIngredients = "- Chicken (500g)\n- Garlic\n- Salt";
+        when(groqClient.generateSteps("Instructions text...", expectedIngredients))
+                .thenReturn(reactor.core.publisher.Mono.just(mockLlmResponse));
+
+        // 4. Mock stepRepository.saveAll and stepMapper
+        Step stepEntity = Step.builder()
+                .id(10L)
+                .stepNumber(1)
+                .description("Weigh 500g of chicken")
+                .action(ActionType.WEIGH)
+                .mainIngredient("Chicken")
+                .durationMinutes(5)
+                .parameters(Map.of())
+                .recipeId(mealId)
+                .build();
+        when(stepRepository.saveAll(anyList())).thenReturn(List.of(stepEntity));
+
+        StepDTO stepDto = StepDTO.builder()
+                .id(10L)
+                .stepNumber(1)
+                .description("Weigh 500g of chicken")
+                .action(ActionType.WEIGH)
+                .recipeId(mealId)
+                .durationMinutes(5)
+                .build();
+        when(stepMapper.toDTO(stepEntity)).thenReturn(stepDto);
+
+        // Act
+        StepGenerationResponse response = stepService.generateSteps(request);
+
+        // Assert
+        assertThat(response).isNotNull();
+        assertThat(response.recipeId()).isEqualTo(mealId);
+        assertThat(response.recipeName()).isEqualTo("Test Chicken Recipe");
+        assertThat(response.steps()).hasSize(1);
+        assertThat(response.steps().get(0).description()).isEqualTo("Weigh 500g of chicken");
+
+        verify(stepRepository).findByRecipeIdOrderByStepNumberAsc(mealId);
+        verify(mealDbClient).lookupById(mealId);
+        verify(groqClient).generateSteps("Instructions text...", expectedIngredients);
+        verify(stepRepository).saveAll(anyList());
+        verify(stepMapper).toDTO(stepEntity);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldApplyGuardrailsAndSequenceCorrectlyWhenGeneratingSteps() {
+        String mealId = "999";
+        StepGenerationRequest request = new StepGenerationRequest(mealId);
+
+        when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId)).thenReturn(List.of());
+
+        Meal mockMeal = new Meal(
+                mealId, "Test Recipe", null, "Test", "Test Area", "Instructions...",
+                "thumb", "tags", "yt", "src", "img", "CC", "date",
+                "Ingredient", "10g", null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
+        when(mealDbClient.lookupById(mealId)).thenReturn(reactor.core.publisher.Mono.just(new MealSearchResponse(List.of(mockMeal))));
+
+        // Gapped and out-of-order step numbers with unsafe parameters
+        LLMStepDTO step1 = new LLMStepDTO(5, "Weighing step", ActionType.WEIGH, "Flour", 1, new java.util.HashMap<>(Map.of("temperature", 100, "speed", 5)));
+        LLMStepDTO step2 = new LLMStepDTO(2, "Chopping step", ActionType.CHOP, "Onion", 1, new java.util.HashMap<>(Map.of("temperature", 80, "speed", 4)));
+        LLMStepDTO step3 = new LLMStepDTO(8, "Pot step", ActionType.POT, "Water", 10, new java.util.HashMap<>(Map.of("temperature", 100, "speed", 6)));
+        LLMStepDTO step4 = new LLMStepDTO(12, "Blending hot", ActionType.BLEND, "Soup", 2, new java.util.HashMap<>(Map.of("temperature", 90, "speed", 8)));
+        LLMStepDTO step5 = new LLMStepDTO(13, "Blending cold", ActionType.BLEND, "Smoothie", 2, new java.util.HashMap<>(Map.of("temperature", 40, "speed", 8)));
+
+        LLMResponseDTO llmResponse = new LLMResponseDTO(List.of(step1, step2, step3, step4, step5));
+        when(groqClient.generateSteps(anyString(), anyString())).thenReturn(reactor.core.publisher.Mono.just(llmResponse));
+
+        when(stepRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        stepService.generateSteps(request);
+
+        // Assert and capture
+        org.mockito.ArgumentCaptor<List<Step>> stepsCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(stepRepository).saveAll(stepsCaptor.capture());
+        List<Step> savedSteps = stepsCaptor.getValue();
+
+        assertThat(savedSteps).hasSize(5);
+
+        // Verify sorted and re-indexed step numbers
+        assertThat(savedSteps.get(0).getStepNumber()).isEqualTo(1); // was 2 (CHOP)
+        assertThat(savedSteps.get(1).getStepNumber()).isEqualTo(2); // was 5 (WEIGH)
+        assertThat(savedSteps.get(2).getStepNumber()).isEqualTo(3); // was 8 (POT)
+        assertThat(savedSteps.get(3).getStepNumber()).isEqualTo(4); // was 12 (BLEND hot)
+        assertThat(savedSteps.get(4).getStepNumber()).isEqualTo(5); // was 13 (BLEND cold)
+
+        // Verify Guardrail 1: WEIGH (original temp=100, speed=5 -> expected temp=0, speed=0)
+        Step weighStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.WEIGH).findFirst().orElseThrow();
+        assertThat(weighStep.getParameters().get("temperature")).isEqualTo(0);
+        assertThat(weighStep.getParameters().get("speed")).isEqualTo(0);
+
+        // Verify Guardrail 2: CHOP (original temp=80, speed=4 -> expected temp=0, speed=4)
+        Step chopStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.CHOP).findFirst().orElseThrow();
+        assertThat(chopStep.getParameters().get("temperature")).isEqualTo(0);
+        assertThat(chopStep.getParameters().get("speed")).isEqualTo(4);
+
+        // Verify Guardrail 3: POT (original temp=100, speed=6 -> expected temp=100, speed=3)
+        Step potStep = savedSteps.stream().filter(s -> s.getAction() == ActionType.POT).findFirst().orElseThrow();
+        assertThat(potStep.getParameters().get("temperature")).isEqualTo(100);
+        assertThat(potStep.getParameters().get("speed")).isEqualTo(3);
+
+        // Verify Guardrail 4: BLEND hot (original temp=90, speed=8 -> expected temp=90, speed=4)
+        Step blendHot = savedSteps.stream().filter(s -> s.getDescription().contains("hot")).findFirst().orElseThrow();
+        assertThat(blendHot.getParameters().get("temperature")).isEqualTo(90);
+        assertThat(blendHot.getParameters().get("speed")).isEqualTo(4);
+
+        // Verify Guardrail 4 (negative case): BLEND cold (original temp=40, speed=8 -> expected temp=40, speed=8)
+        Step blendCold = savedSteps.stream().filter(s -> s.getDescription().contains("cold")).findFirst().orElseThrow();
+        assertThat(blendCold.getParameters().get("temperature")).isEqualTo(40);
+        assertThat(blendCold.getParameters().get("speed")).isEqualTo(8);
     }
 }
