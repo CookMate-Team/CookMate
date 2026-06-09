@@ -40,7 +40,7 @@
       "bearerOnly": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "cookmate-secret",

@@ -1,0 +1,100 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: My first collection
+meta:
+  id: wrk_916414481f0e4fa29acb641d63e3e2b2
+  created: 1780552224598
+  modified: 1780552224598
+  description: ""
+collection:
+  - url: http://localhost:8085/api/recipes
+    name: recipes
+    meta:
+      id: req_f994a7c6624545e2aa030eb650d40720
+      created: 1780552224619
+      modified: 1780606278333
+      isPrivate: false
+      description: ""
+      sortKey: -1780552224619
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/12.6.0
+        description: ""
+        disabled: false
+    authentication:
+      type: bearer
+      disabled: false
+      token: eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoc1k1ZXRhT2xSOFoyaDFETXJ6Q0JSWmlBUElSR0JIY3lIX3JVMVlkR2xNIn0.eyJleHAiOjE3ODA2MDY1NzEsImlhdCI6MTc4MDYwNjI3MSwianRpIjoiZWEwYzQ4OGUtYTQ0YS00ZTE2LTg4YjYtMmUzYzRjYmQyN2YyIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9jb29rbWF0ZSIsInN1YiI6IjM5YjhhZGU5LWIyNDUtNDJlZC04NjQyLTMzN2ZlMTE5ZDJhNiIsInR5cCI6IkJlYXJlciIsImF6cCI6ImNvb2ttYXRlLWNsaWVudCIsInNpZCI6ImIwMzRhMTIwLTFiNzYtNDRkZC1hNzQ5LTM5YTdkNTkzYTIwYiIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cDovL2xvY2FsaG9zdDo4MDgzIiwiaHR0cDovL2xvY2FsaG9zdDo4MDgxIiwiaHR0cDovL2xvY2FsaG9zdDo1MTczIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJST0xFX1VTRVIiLCJST0xFX0FETUlOIl19LCJzY29wZSI6ImVtYWlsIHByb2ZpbGUiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6IlRlc3QgVXNlciIsInByZWZlcnJlZF91c2VybmFtZSI6InRlc3QudXNlciIsImdpdmVuX25hbWUiOiJUZXN0IiwiZmFtaWx5X25hbWUiOiJVc2VyIiwiZW1haWwiOiJ0ZXN0LnVzZXJAY29va21hdGUubG9jYWwifQ.SAj9Aiul5yTFiXPIeQW1_lQZGL5WbjIP18t9WSIrNKD6s1LsrNvhQ9WEq1zDBJr45pAlWDuDxGSMF1LvSV4NIYHlT8XrJ26vWV_O6khVTLqnZL8IFonUV7YM1Z2h9nUbLw_yPEz60D4LQuPo5tJQZ1C8wBgMEclhP4g88ndvX2vXPXy2NTo-h1NqyxqWtkXNikZEChPYaUcqirrJ23BTUtvuDdzmAv3PFu7h0syVRoH1KN9oKBeeuRsmsTLoexNC_dOMdFnHHgi0GWyJ2pWkdjtNARn3cRkQ66Rqy-r9tEVwlpvRmC7g3OlhnfBC7xHxxobN26Mel-ZPezwHHo-tDQ
+      prefix: ""
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: http://localhost:8080/realms/cookmate/protocol/openid-connect/token
+    name: token
+    meta:
+      id: req_536dec40d2ad42eb9cea9f0f4c66232d
+      created: 1780552634468
+      modified: 1780606308125
+      isPrivate: false
+      description: ""
+      sortKey: -1780552634468
+    method: POST
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - name: client_id
+          value: cookmate-client
+          description: ""
+          disabled: false
+        - name: client_secret
+          value: cookmate-secret
+          description: ""
+          disabled: false
+        - name: username
+          value: test.user
+          description: ""
+          disabled: false
+        - name: password
+          value: test12345
+          description: ""
+          disabled: false
+        - name: grant_type
+          value: password
+          description: ""
+          disabled: false
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/12.6.0
+        description: ""
+        disabled: false
+    authentication:
+      type: none
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_871907c20f900e3501749382212895245be4e38a
+    created: 1780552224610
+    modified: 1780552224610
+environments:
+  name: Base Environment
+  meta:
+    id: env_871907c20f900e3501749382212895245be4e38a
+    created: 1780552224608
+    modified: 1780552224608
+    isPrivate: false

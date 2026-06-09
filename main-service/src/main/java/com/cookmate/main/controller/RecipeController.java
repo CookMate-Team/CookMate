@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -108,6 +109,7 @@ public class RecipeController {
      * @return created recipe
      */
     @PostMapping
+    @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Recipe> create(@Valid @RequestBody RecipeCreateRequest request) {
         Recipe saved = recipeService.save(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -121,6 +123,7 @@ public class RecipeController {
      * @return updated recipe
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Recipe> update(
         @PathVariable Long id,
         @Valid @RequestBody RecipeUpdateRequest request) {
@@ -141,6 +144,7 @@ public class RecipeController {
      * @return no content if successful
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         recipeService.deleteByIdOrThrow(id);
         return ResponseEntity.noContent().build();

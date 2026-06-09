@@ -46,6 +46,16 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("GET /api/** with malformed Bearer token → 401")
+    void apiWithMalformedToken_returns401() {
+        webTestClient.get()
+                .uri("/api/recipes")
+                .header("Authorization", "Bearer invalid.malformed.token")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
     @DisplayName("CORS preflight allows configured origin")
     void corsPreflightAllowsConfiguredOrigin() {
         webTestClient.options()

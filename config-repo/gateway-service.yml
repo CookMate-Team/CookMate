@@ -21,39 +21,51 @@ spring:
             user-info-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/userinfo
             jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
             user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_PUBLIC_URL:http://localhost:8080}/realms/cookmate
+          jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:http://keycloak:8080}/realms/cookmate/protocol/openid-connect/certs
+
 
   cloud:
     gateway:
-      default-filters:
-        - SaveSession
-      routes:
-        - id: simulator-service
-          uri: lb://simulator-service
-          predicates:
-            - Path=/api/simulator/**
-          filters:
-            - TokenRelay
-          order: 0
-        - id: cooking-session-service
-          uri: lb://cooking-session-service
-          predicates:
-            - Path=/api/cooking-sessions/**
-          filters:
-            - TokenRelay
-          order: 1
-        - id: main-service
-          uri: lb://main-service
-          predicates:
-            - Path=/api/**
-          filters:
-            - TokenRelay
-          order: 2
+      server:
+        webflux:
+          default-filters:
+            - SaveSession
+          routes:
+            - id: simulator-service
+              uri: lb://simulator-service
+              predicates:
+                - Path=/api/simulator/**
+              filters:
+                - TokenRelay
+              order: 0
+            - id: cooking-session-service
+              uri: lb://cooking-session-service
+              predicates:
+                - Path=/api/cooking-sessions/**
+              filters:
+                - TokenRelay
+              order: 1
+            - id: main-service
+              uri: lb://main-service
+              predicates:
+                - Path=/api/**
+              filters:
+                - TokenRelay
+              order: 2
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: "*"
   endpoint:
     health:
       show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.web.reactive: TRACE

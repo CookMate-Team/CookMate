@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -31,8 +34,11 @@ class DiscoveryControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean // Nowy standard Spring 4
+    @MockitoBean
     private MealDbClient mealDbClient;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void shouldReturnMealsWhenSearchingByName() throws Exception {
@@ -44,7 +50,8 @@ class DiscoveryControllerTest {
 
         // Obsługa asynchronicznego Mono w MockMvc
         MvcResult mvcResult = mockMvc.perform(get("/api/v1/discovery/search")
-                        .param("name", "Arrabiata"))
+                        .param("name", "Arrabiata")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
@@ -61,7 +68,8 @@ class DiscoveryControllerTest {
 
         when(mealDbClient.listFullCategories()).thenReturn(Mono.just(categoryResponse));
 
-        MvcResult mvcResult = mockMvc.perform(get("/api/v1/discovery/categories"))
+        MvcResult mvcResult = mockMvc.perform(get("/api/v1/discovery/categories")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
@@ -79,7 +87,8 @@ class DiscoveryControllerTest {
         when(mealDbClient.listAllBy("c")).thenReturn(Mono.just(listResponse));
 
         MvcResult mvcResult = mockMvc.perform(get("/api/v1/discovery/list")
-                        .param("type", "c"))
+                        .param("type", "c")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 

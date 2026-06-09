@@ -15,6 +15,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 
 import java.time.Instant;
 import java.util.List;
@@ -191,7 +193,11 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) throws Exception {
+        if (ex instanceof AccessDeniedException || ex instanceof AuthorizationDeniedException) {
+            throw ex;
+        }
+
         Throwable rootCause = ex;
         while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
             rootCause = rootCause.getCause();
