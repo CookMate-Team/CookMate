@@ -22,7 +22,7 @@ public class GroqClient {
     private static final Logger logger = LoggerFactory.getLogger(GroqClient.class);
     private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
     //    Zmien na model GPT-OSS20B albo 120B
-    private static final String MODEL = "llama-3.1-8b-instant";
+    private static final String MODEL = "openai/gpt-oss-120b";
     private static final double TEMPERATURE = 0.7;
 
     private final RestClient restClient;
@@ -222,7 +222,7 @@ public class GroqClient {
                             ),
                             "duration_minutes", java.util.Map.of("type", "integer")
                         ),
-                        "required", List.of("step_number", "description", "action", "parameters", "duration_minutes"),
+                        "required", List.of("step_number", "description", "main_ingredient", "action", "parameters", "duration_minutes"),
                         "additionalProperties", false
                     )
                 )

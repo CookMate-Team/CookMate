@@ -26,5 +26,6 @@ logs/
 # Environment files
 .env
 *.env.local
+SUMATYWNY POSTER/
 
 Prez*.md
