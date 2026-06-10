@@ -33,9 +33,9 @@ class CookingSessionClientTest {
             "executedAt", "2026-05-18T12:00:00",
             "recipeId", "r-42"
         );
-        doNothing().when(cookingSessionClient).notifyStepCompleted(event);
+        doNothing().when(cookingSessionClient).notifyStepCompleted("Bearer test-token", event);
 
-        cookingSessionClient.notifyStepCompleted(event);
+        cookingSessionClient.notifyStepCompleted("Bearer test-token", event);
     }
 
     @Test
@@ -46,9 +46,9 @@ class CookingSessionClientTest {
             Collections.emptyMap(), null, new RequestTemplate()
         );
         doThrow(new FeignException.InternalServerError("500", feignRequest, null, null))
-            .when(cookingSessionClient).notifyStepCompleted(Map.of());
+            .when(cookingSessionClient).notifyStepCompleted("Bearer test-token", Map.of());
 
         assertThrows(FeignException.InternalServerError.class,
-            () -> cookingSessionClient.notifyStepCompleted(Map.of()));
+            () -> cookingSessionClient.notifyStepCompleted("Bearer test-token", Map.of()));
     }
 }

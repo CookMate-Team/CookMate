@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,10 +51,19 @@ class GuidedCookingFlowTest {
     @MockitoBean
     private CookingSessionClient cookingSessionClient;
 
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
+
     @BeforeEach
     void cleanDb() {
         stepRepo.deleteAll();
         sessionRepo.deleteAll();
+
+        org.springframework.security.oauth2.jwt.Jwt mockJwt = org.mockito.Mockito.mock(org.springframework.security.oauth2.jwt.Jwt.class);
+        org.mockito.Mockito.when(mockJwt.getSubject()).thenReturn("user");
+        org.mockito.Mockito.when(mockJwt.getClaimAsString("preferred_username")).thenReturn("test.user");
+        org.mockito.Mockito.when(mockJwt.getClaimAsMap("realm_access")).thenReturn(java.util.Map.of("roles", java.util.List.of("ROLE_USER")));
+        org.mockito.Mockito.when(jwtDecoder.decode(org.mockito.Mockito.anyString())).thenReturn(mockJwt);
     }
 
     @Test
@@ -67,6 +77,7 @@ class GuidedCookingFlowTest {
 
         // === 1. START — utwórz sesję ===
         MvcResult startResult = mockMvc.perform(post("/api/simulator/sessions/start")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
@@ -90,6 +101,7 @@ class GuidedCookingFlowTest {
 
         // === 3. EXECUTE STEP 1 ===
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
@@ -105,6 +117,7 @@ class GuidedCookingFlowTest {
 
         // === 5. EXECUTE STEP 2 ===
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
@@ -141,6 +154,7 @@ class GuidedCookingFlowTest {
         // Start
         String sessionId = extractSessionId(
             mockMvc.perform(post("/api/simulator/sessions/start")
+                    .header("Authorization", "Bearer mock-token")
                     .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"recipeId\":\"52772\"}"))
@@ -150,12 +164,14 @@ class GuidedCookingFlowTest {
 
         // Execute step 1
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(1));
 
         // Execute step 2
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(2));
@@ -174,6 +190,7 @@ class GuidedCookingFlowTest {
 
         // Re-execute step 2
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.stepNumber").value(2));
@@ -194,6 +211,7 @@ class GuidedCookingFlowTest {
 
         String sessionId = extractSessionId(
             mockMvc.perform(post("/api/simulator/sessions/start")
+                    .header("Authorization", "Bearer mock-token")
                     .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"recipeId\":\"52772\"}"))
@@ -203,6 +221,7 @@ class GuidedCookingFlowTest {
 
         // processStep 1
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":1,\"description\":\"Exec 1\",\"durationSeconds\":5}"))
@@ -211,6 +230,7 @@ class GuidedCookingFlowTest {
 
         // processStep 2
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":2,\"description\":\"Exec 2\",\"durationSeconds\":5}"))
@@ -227,6 +247,7 @@ class GuidedCookingFlowTest {
     @DisplayName("Error flow: operacja na nieistniejącej sesji → 404")
     void errorFlow_sessionNotFound() throws Exception {
         mockMvc.perform(post("/api/simulator/sessions/fake-id/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("SIMULATION_NOT_FOUND"));
