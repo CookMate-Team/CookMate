@@ -31,7 +31,8 @@ import java.time.LocalDateTime;
         },
         indexes = {
                 @Index(name = "idx_cooking_progress_session_id", columnList = "session_id"),
-                @Index(name = "idx_cooking_progress_recipe_id", columnList = "recipe_id")
+                @Index(name = "idx_cooking_progress_recipe_id", columnList = "recipe_id"),
+                @Index(name = "idx_cooking_progress_user_id", columnList = "user_id")
         }
 )
 @EntityListeners(AuditingEntityListener.class)
@@ -43,6 +44,9 @@ public class CookingSessionProgress {
 
     @Column(name = "session_id", nullable = false)
     private String sessionId;
+
+    @Column(name = "user_id", nullable = false, length = 36)
+    private String userId;
 
     @Column(name = "recipe_id", nullable = false)
     private String recipeId;

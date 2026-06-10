@@ -11,12 +11,15 @@ import java.util.Optional;
 @Repository
 public interface CookingSessionRepository extends JpaRepository<CookingSession, String> {
 
-    List<CookingSession> findByRecipeIdAndStatus(String recipeId, CookingSessionStatus status);
+    List<CookingSession> findByRecipeIdAndStatusAndUserId(String recipeId, CookingSessionStatus status, String userId);
 
-    Optional<CookingSession> findFirstByRecipeIdAndStatusOrderByLastExecutedAtDesc(
+    Optional<CookingSession> findFirstByRecipeIdAndStatusAndUserIdOrderByLastExecutedAtDesc(
             String recipeId,
-            CookingSessionStatus status
+            CookingSessionStatus status,
+            String userId
     );
 
-    List<CookingSession> findByStatus(CookingSessionStatus status);
+    List<CookingSession> findByStatusAndUserId(CookingSessionStatus status, String userId);
+
+    Optional<CookingSession> findBySessionIdAndUserId(String sessionId, String userId);
 }

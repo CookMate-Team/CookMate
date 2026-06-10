@@ -11,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,39 +33,46 @@ public class CookingSessionController {
     @PostMapping("/progress")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<CookingSessionProgressDto> receiveProgress(
-            @Valid @RequestBody StepCompletionEventDto event
+            @Valid @RequestBody StepCompletionEventDto event,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event);
+        String userId = jwt.getSubject();
+        CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @GetMapping("/recipes/{recipeId}/history")
     public ResponseEntity<List<CookingSessionProgressDto>> getHistory(
-            @PathVariable String recipeId
+            @PathVariable String recipeId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return ResponseEntity.ok(cookingSessionService.getHistoryByRecipe(recipeId));
+        return ResponseEntity.ok(cookingSessionService.getHistoryByRecipe(recipeId, jwt.getSubject()));
     }
 
     @GetMapping("/recipes/{recipeId}/latest")
     public ResponseEntity<CookingSessionProgressDto> getLatest(
-            @PathVariable String recipeId
+            @PathVariable String recipeId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        CookingSessionProgressDto latest = cookingSessionService.getLatestByRecipe(recipeId);
+        CookingSessionProgressDto latest = cookingSessionService.getLatestByRecipe(recipeId, jwt.getSubject());
         return latest == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(latest);
     }
 
     @GetMapping("/recipes/{recipeId}/active")
     public ResponseEntity<ActiveCookingSessionDto> getActiveSession(
-            @PathVariable String recipeId
+            @PathVariable String recipeId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return cookingSessionService.getActiveSessionDetails(recipeId)
+        return cookingSessionService.getActiveSessionDetails(recipeId, jwt.getSubject())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/active")
-    public ResponseEntity<ActiveCookingSessionDto> getActiveSessionGlobal() {
-        return cookingSessionService.getActiveSessionGlobal()
+    public ResponseEntity<ActiveCookingSessionDto> getActiveSessionGlobal(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return cookingSessionService.getActiveSessionGlobal(jwt.getSubject())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -71,17 +80,19 @@ public class CookingSessionController {
     @PostMapping("/sessions/{sessionId}/complete")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Void> completeSession(
-            @PathVariable String sessionId
+            @PathVariable String sessionId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        cookingSessionService.completeSession(sessionId);
+        cookingSessionService.completeSession(sessionId, jwt.getSubject());
         return ResponseEntity.ok().build();
     }
 
     @GetMapping(value = "/recipes/{recipeId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<CookingSessionProgressDto>> streamProgress(
-            @PathVariable String recipeId
+            @PathVariable String recipeId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return cookingSessionService.streamProgress(recipeId)
+        return cookingSessionService.streamProgress(recipeId, jwt.getSubject())
                 .map(progress -> ServerSentEvent.builder(progress)
                         .event("progress")
                         .build());
