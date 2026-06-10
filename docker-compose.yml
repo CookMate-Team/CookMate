@@ -294,6 +294,35 @@ services:
       - cookmate-net
 
   # ─────────────────────────────────────────────
+  # Meal Planner Service (port 8086)
+  # Startup order: 3rd (after discovery-service)
+  # ─────────────────────────────────────────────
+  meal-planner-service:
+    build:
+      context: ./meal-planner-service
+      dockerfile: Dockerfile
+    container_name: cookmate-meal-planner
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      main-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
   # SonarQube Code Quality Platform (port 9000)
   # ─────────────────────────────────────────────
   sonarqube:
