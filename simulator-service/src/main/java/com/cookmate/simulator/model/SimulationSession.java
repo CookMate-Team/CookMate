@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -16,7 +17,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "simulation_sessions")
+@Table(name = "simulation_sessions", indexes = {
+        @Index(name = "idx_simulation_sessions_user_id", columnList = "user_id")
+})
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -26,6 +29,9 @@ public class SimulationSession {
     @Id
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
+
+    @Column(name = "user_id", nullable = false, length = 36)
+    private String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

@@ -46,8 +46,8 @@ public class SimulationService {
     private final CookingSessionClient cookingSessionClient;
 
     @Transactional
-    public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
-        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
+    public SimulationStatusResponseDto startSession(StartSimulationRequestDto request, String userId, String authHeader) {
+        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatusAndUserId(SimulationStatus.RUNNING, userId);
 
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
         if (recipeSteps.isEmpty()) {
@@ -58,6 +58,7 @@ public class SimulationService {
 
         SimulationSession session = new SimulationSession();
         session.setId(UUID.randomUUID().toString());
+        session.setUserId(userId);
         session.setStatus(SimulationStatus.RUNNING);
         session.setCurrentStep(0);
         session.setTotalSteps(normalizedSteps.size());
@@ -81,7 +82,8 @@ public class SimulationService {
                     oldSession.getCurrentStep(),
                     "COMPLETED",
                     LocalDateTime.now(),
-                    oldSession.getRecipeId()
+                    oldSession.getRecipeId(),
+                    authHeader
             );
         }
 
@@ -90,16 +92,17 @@ public class SimulationService {
                 0,
                 "RUNNING",
                 LocalDateTime.now(),
-                session.getRecipeId()
+                session.getRecipeId(),
+                authHeader
         );
 
         return mapStatusResponse(session, steps);
     }
 
     @Transactional
-    public StepExecutionResultDto processStep(String sessionId, RecipeStepRequestDto stepDto) {
+    public StepExecutionResultDto processStep(String sessionId, RecipeStepRequestDto stepDto, String userId, String authHeader) {
         synchronized (getExecutionLock(sessionId)) {
-            SimulationSession session = getSessionOrThrow(sessionId);
+            SimulationSession session = getSessionOrThrow(sessionId, userId);
             validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
 
             SimulationStep step = simulationStepRepository.findBySessionIdAndStepNumber(sessionId, stepDto.stepNumber())
@@ -118,7 +121,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId(), authHeader);
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -128,9 +131,9 @@ public class SimulationService {
     }
 
     @Transactional
-    public StepExecutionResultDto executeNextStep(String sessionId) {
+    public StepExecutionResultDto executeNextStep(String sessionId, String userId, String authHeader) {
         synchronized (getExecutionLock(sessionId)) {
-            SimulationSession session = getSessionOrThrow(sessionId);
+            SimulationSession session = getSessionOrThrow(sessionId, userId);
             validateState(session, SimulationStatus.RUNNING, ONLY_RUNNING_ALLOWED);
 
             SimulationStep nextStep = simulationStepRepository
@@ -153,7 +156,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId(), authHeader);
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -163,9 +166,9 @@ public class SimulationService {
     }
 
     @Transactional
-    public SimulationStatusResponseDto rewindToStep(String sessionId, int stepNumber) {
+    public SimulationStatusResponseDto rewindToStep(String sessionId, int stepNumber, String userId) {
         synchronized (getExecutionLock(sessionId)) {
-            SimulationSession session = getSessionOrThrow(sessionId);
+            SimulationSession session = getSessionOrThrow(sessionId, userId);
             List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
 
             if (stepNumber < 0 || stepNumber > steps.size()) {
@@ -199,14 +202,14 @@ public class SimulationService {
         }
     }
 
-    public SimulationStatusResponseDto getStatus(String sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
+    public SimulationStatusResponseDto getStatus(String sessionId, String userId) {
+        SimulationSession session = getSessionOrThrow(sessionId, userId);
         List<SimulationStep> steps = simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId);
         return mapStatusResponse(session, steps);
     }
 
-    public List<SimulationStepHistoryItemDto> history(String sessionId) {
-        getSessionOrThrow(sessionId);
+    public List<SimulationStepHistoryItemDto> history(String sessionId, String userId) {
+        getSessionOrThrow(sessionId, userId);
         return mapHistory(simulationStepRepository.findBySessionIdOrderByStepNumberAsc(sessionId));
     }
 
@@ -214,8 +217,8 @@ public class SimulationService {
         return sessionExecutionLocks.computeIfAbsent(sessionId, key -> new Object());
     }
 
-    private SimulationSession getSessionOrThrow(String sessionId) {
-        return simulationSessionRepository.findById(sessionId)
+    private SimulationSession getSessionOrThrow(String sessionId, String userId) {
+        return simulationSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new SimulationSessionNotFoundException(sessionId));
     }
 
@@ -321,7 +324,7 @@ public class SimulationService {
     }
 
     /**
-     * Asynchronicznie wysyła notyfikację o wykonanym kroku do cooking-session-service.
+     * Asynchronicznie wysłać notyfikację o wykonanym kroku do cooking-session-service.
      * Nie blokuje bieżącego wątku - wysyłka odbywa się w tle.
      * Jeśli wysyłka się nie powiedzie, loguje błąd ale nie rzuca wyjątku.
      *
@@ -330,8 +333,9 @@ public class SimulationService {
      * @param status status kroku (np. EXECUTED)
      * @param executedAt czas wykonania
      * @param recipeId ID przepisu
+     * @param authHeader nagłówek autoryzacji JWT
      */
-    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
+    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId, String authHeader) {
         final Logger logger = LoggerFactory.getLogger(SimulationService.class);
         
         CompletableFuture.runAsync(() -> {
@@ -344,7 +348,7 @@ public class SimulationService {
                         "executedAt", executedAt.format(formatter),
                         "recipeId", recipeId
                 );
-                cookingSessionClient.notifyStepCompleted(event);
+                cookingSessionClient.notifyStepCompleted(authHeader, event);
                 logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
             } catch (Exception e) {
                 logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
@@ -353,12 +357,9 @@ public class SimulationService {
     }
 
     @Transactional
-    public void completeSession(String sessionId) {
+    public void completeSession(String sessionId, String userId, String authHeader) {
         synchronized (getExecutionLock(sessionId)) {
-            SimulationSession session = simulationSessionRepository.findById(sessionId).orElse(null);
-            if (session == null) {
-                throw new SimulationSessionNotFoundException(sessionId);
-            }
+            SimulationSession session = getSessionOrThrow(sessionId, userId);
             session.setStatus(SimulationStatus.COMPLETED);
             session.setCompletedAt(LocalDateTime.now());
             simulationSessionRepository.save(session);
@@ -368,7 +369,8 @@ public class SimulationService {
                     session.getCurrentStep(),
                     "COMPLETED",
                     LocalDateTime.now(),
-                    session.getRecipeId()
+                    session.getRecipeId(),
+                    authHeader
             );
         }
     }
