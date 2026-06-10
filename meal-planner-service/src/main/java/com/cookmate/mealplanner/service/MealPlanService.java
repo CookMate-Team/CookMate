@@ -6,6 +6,8 @@ import com.cookmate.mealplanner.dto.DayPlan;
 import com.cookmate.mealplanner.dto.MealItem;
 import com.cookmate.mealplanner.dto.MealSearchResponse;
 import com.cookmate.mealplanner.dto.WeeklyPlanResponse;
+import com.cookmate.mealplanner.exception.MainServiceCommunicationException;
+import com.cookmate.mealplanner.exception.MealPlanGenerationException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,11 +37,17 @@ public class MealPlanService {
             throw new IllegalArgumentException("mealsPerDay must be between 1 and 5");
         }
 
-        List<CategoryResponse.Category> categories = mainServiceClient.getCategories().categories();
+        List<CategoryResponse.Category> categories;
+        try {
+            categories = mainServiceClient.getCategories().categories();
+        } catch (Exception e) {
+            logger.error("Failed to fetch categories from main-service", e);
+            throw new MainServiceCommunicationException("Failed to fetch categories from main-service", e);
+        }
 
         if (categories == null || categories.isEmpty()) {
             logger.error("No categories available from main-service");
-            throw new IllegalStateException("No categories available from main-service");
+            throw new MealPlanGenerationException("No categories available from main-service");
         }
 
         logger.debug("Fetched {} categories from main-service", categories.size());
@@ -58,7 +66,14 @@ public class MealPlanService {
     }
 
     private List<MealItem> pickMeals(String category, int count) {
-        MealSearchResponse response = mainServiceClient.getMealsByCategory(category);
+        MealSearchResponse response;
+        try {
+            response = mainServiceClient.getMealsByCategory(category);
+        } catch (Exception e) {
+            logger.error("Failed to fetch meals for category={} from main-service", category, e);
+            throw new MainServiceCommunicationException(
+                    "Failed to fetch meals for category: " + category, e);
+        }
 
         if (response == null || response.meals() == null || response.meals().isEmpty()) {
             logger.warn("No meals found for category={}", category);

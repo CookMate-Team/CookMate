@@ -3,6 +3,9 @@ spring:
     name: meal-planner-service
   config:
     import: "optional:configserver:${CONFIG_SERVER_URL:http://config-service:8888}"
+  threads:
+    virtual:
+      enabled: true
   cloud:
     loadbalancer:
       ribbon:
@@ -19,9 +22,31 @@ eureka:
     fetch-registry: true
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: basic
+  compression:
+    request:
+      enabled: true
+      min-request-size: 2048
+    response:
+      enabled: true
+
+meal-planner-service:
+  main-service-url: ${MAIN_SERVICE_URL:http://main-service:8081}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
