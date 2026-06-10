@@ -18,7 +18,10 @@ logging:
 spring:
   datasource:
     hikari:
-      maximum-pool-size: 100
+      maximum-pool-size: 30       # 3 services × 30 = 90 + keycloak/sonar ~40 = 130 << max_connections=500
+      minimum-idle: 5
+      connection-timeout: 30000   # 30s before throwing exception (prevent thread starvation)
+      idle-timeout: 600000        # 10 min idle before releasing connection
   security:
     oauth2:
       resourceserver:
