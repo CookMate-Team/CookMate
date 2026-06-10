@@ -16,6 +16,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9999/realms/test
 eureka:
   client:
-    enabled: false   # Wyłącza klienta Eureka
+    enabled: false   # Wyłącza klienta Eureka

@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -44,6 +47,9 @@ class SimulationControllerIntegrationTest {
     @MockitoBean
     private CookingSessionClient cookingSessionClient;
 
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
+
     @BeforeEach
     void cleanDb() {
         stepRepo.deleteAll();
@@ -58,6 +64,7 @@ class SimulationControllerIntegrationTest {
         mockMainSteps("52772");
 
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
             .andExpect(status().isCreated())
@@ -71,6 +78,7 @@ class SimulationControllerIntegrationTest {
     @DisplayName("POST /sessions/start — 400 gdy brak recipeId")
     void startSimulation_returns400WhenNoRecipeId() throws Exception {
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"\"}"))
             .andExpect(status().isBadRequest());
@@ -83,6 +91,7 @@ class SimulationControllerIntegrationTest {
             .thenThrow(new RuntimeException("Connection refused"));
 
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
             .andExpect(status().isServiceUnavailable())
@@ -96,7 +105,8 @@ class SimulationControllerIntegrationTest {
     void executeNextStep_returns200() throws Exception {
         String sessionId = createSession("52772");
 
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.stepNumber").value(1));
@@ -105,7 +115,8 @@ class SimulationControllerIntegrationTest {
     @Test
     @DisplayName("POST /sessions/{id}/steps/execute — 404 dla nieistniejącej sesji")
     void executeNextStep_returns404() throws Exception {
-        mockMvc.perform(post("/api/simulator/sessions/nonexistent/steps/execute"))
+        mockMvc.perform(post("/api/simulator/sessions/nonexistent/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("SIMULATION_NOT_FOUND"));
     }
@@ -121,6 +132,7 @@ class SimulationControllerIntegrationTest {
             """;
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
             .andExpect(status().isOk())
@@ -133,6 +145,7 @@ class SimulationControllerIntegrationTest {
         String sessionId = createSession("52772");
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":null}"))
             .andExpect(status().isBadRequest());
@@ -145,7 +158,8 @@ class SimulationControllerIntegrationTest {
     void getStatus_returns200() throws Exception {
         String sessionId = createSession("52772");
 
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.sessionId").value(sessionId))
             .andExpect(jsonPath("$.status").value("RUNNING"));
@@ -154,7 +168,8 @@ class SimulationControllerIntegrationTest {
     @Test
     @DisplayName("GET /sessions/{id}/status — 404 dla nieistniejącej sesji")
     void getStatus_returns404() throws Exception {
-        mockMvc.perform(get("/api/simulator/sessions/fake/status"))
+        mockMvc.perform(get("/api/simulator/sessions/fake/status")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound());
     }
 
@@ -165,7 +180,8 @@ class SimulationControllerIntegrationTest {
     void getHistory_returns200() throws Exception {
         String sessionId = createSession("52772");
 
-        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/history"))
+        mockMvc.perform(get("/api/simulator/sessions/" + sessionId + "/history")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(2)))
             .andExpect(jsonPath("$[0].status").value("PENDING"));
@@ -178,9 +194,11 @@ class SimulationControllerIntegrationTest {
     void rewind_returns200() throws Exception {
         String sessionId = createSession("52772");
         // Najpierw wykonaj krok
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute"));
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))));
 
-        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/rewind?stepNumber=0"))
+        mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/rewind?stepNumber=0")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.currentStep").value(0))
             .andExpect(jsonPath("$.status").value("RUNNING"));
@@ -198,6 +216,7 @@ class SimulationControllerIntegrationTest {
     private String createSession(String recipeId) throws Exception {
         mockMainSteps(recipeId);
         MvcResult result = mockMvc.perform(post("/api/simulator/sessions/start")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"" + recipeId + "\"}"))
             .andExpect(status().isCreated())
