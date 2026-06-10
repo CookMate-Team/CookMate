@@ -55,6 +55,14 @@ public class DiscoveryController {
     }
 
     /**
+     * Filtrowanie po kategorii.
+     */
+    @GetMapping("/filter/category")
+    public Mono<MealSearchResponse> filterByCategory(@RequestParam String c) {
+        return mealDbClient.filterByCategory(c);
+    }
+
+    /**
      * Pobieranie słowników (kategorie, obszary, składniki).
      * @param type 'c' dla kategorii, 'a' dla obszarów, 'i' dla składników.
      */
