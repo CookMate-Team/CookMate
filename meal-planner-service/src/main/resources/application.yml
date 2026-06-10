@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: meal-planner-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://config-service:8888}"
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+
+server:
+  port: 8086
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://discovery-service:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
