@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,8 +44,11 @@ public class SimulatorController {
     @PreAuthorize("hasRole('ROLE_USER')")
     @Operation(summary = "Start simulation session", description = "Creates a new session and loads recipe steps from main-service.")
     @ApiResponse(responseCode = "201", description = "Session started", content = @Content(schema = @Schema(implementation = SimulationStatusResponseDto.class)))
-    public ResponseEntity<SimulationStatusResponseDto> startSimulation(@Valid @RequestBody StartSimulationRequestDto request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(simulationService.startSession(request));
+    public ResponseEntity<SimulationStatusResponseDto> startSimulation(
+            @Valid @RequestBody StartSimulationRequestDto request,
+            @AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt != null ? jwt.getSubject() : null;
+        return ResponseEntity.status(HttpStatus.CREATED).body(simulationService.startSession(request, userId));
     }
 
     @PostMapping("/sessions/{sessionId}/step")

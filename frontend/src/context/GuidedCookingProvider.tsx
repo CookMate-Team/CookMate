@@ -146,6 +146,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
             setActiveSession(newSession);
           } catch (err: any) {
             setStartSessionError(err.message || 'Failed to start guided cooking automatically');
+            activeRecipeIdRef.current = null; // Allow retry on error
           } finally {
             setIsStartingSession(false);
           }
@@ -153,6 +154,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       } catch (error: any) {
         setStartSessionError(error.message || 'Error checking session status');
         setIsStartingSession(false);
+        activeRecipeIdRef.current = null; // Allow retry on error
       }
     },
     [stopStreaming, queryClient]
@@ -204,6 +206,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       setActiveSession(newSession);
     } catch (err: any) {
       setStartSessionError(err.message || 'Failed to force reset and start session');
+      activeRecipeIdRef.current = null; // Allow retry on error
     } finally {
       setIsStartingSession(false);
     }

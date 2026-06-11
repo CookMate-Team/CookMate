@@ -4,11 +4,13 @@ import { Footer } from './components/Footer';
 import { RecipeGallery } from './components/RecipeGallery';
 import { GuidedCookingLayout } from './components/GuidedCookingLayout';
 import { GuidedCookingProvider } from './context/GuidedCookingProvider';
-import { useRecipeStore } from './store/useRecipeStore';
+import { useRecipeStore } from './store/useRecipeStore';import { useAuth } from './hooks/useAuth';
 
 function AppContent() {
   const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
   const source = useRecipeStore((state) => state.source);
+  const { data: user, isLoading: isAuthLoading } = useAuth();
+  const isAuthenticated = !!user?.authenticated;
 
   const handleStartCooking = (recipeId: string) => {
     setCookingRecipeId(recipeId);
@@ -23,6 +25,13 @@ function AppContent() {
     setCookingRecipeId(null);
   }, [source]);
 
+  // Reset cooking recipe view if the user is no longer logged in (e.g. session invalidated or expired)
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      setCookingRecipeId(null);
+    }
+  }, [isAuthenticated, isAuthLoading]);
+
   // ── Guided Cooking Mode ──
   if (cookingRecipeId) {
     return (
@@ -31,6 +40,7 @@ function AppContent() {
         <GuidedCookingLayout
           recipeId={cookingRecipeId}
           onClose={handleCloseCooking}
+          isAuthenticated={isAuthenticated}
         />
       </div>
     );

@@ -13,6 +13,7 @@ function ActiveRecipeName({ recipeId }: { recipeId: string }) {
 interface GuidedCookingLayoutProps {
   recipeId: string;
   onClose: () => void;
+  isAuthenticated: boolean;
 }
 
 type ActiveView = 'recipe' | 'simulator';
@@ -26,10 +27,10 @@ type ActiveView = 'recipe' | 'simulator';
  *
  * The simulator panel is currently a green placeholder square.
  */
-export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutProps) {
+export function GuidedCookingLayout({ recipeId, onClose, isAuthenticated }: GuidedCookingLayoutProps) {
   const [activeView, setActiveView] = useState<ActiveView>('recipe');
   const { data, isLoading, isError } = useMealDetails(recipeId);
-  const { data: dbSteps } = useRecipeSteps(recipeId);
+  const { data: dbSteps } = useRecipeSteps(recipeId, isAuthenticated);
   const {
     currentStep,
     startStreaming,
@@ -65,9 +66,10 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
   }, [currentStep]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     startStreaming(recipeId);
     return () => stopStreaming();
-  }, [recipeId, startStreaming, stopStreaming]);
+  }, [recipeId, isAuthenticated, startStreaming, stopStreaming]);
 
   if (isStartingSession) {
     return (

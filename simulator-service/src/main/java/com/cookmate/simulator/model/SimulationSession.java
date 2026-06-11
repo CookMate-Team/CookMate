@@ -40,6 +40,9 @@ public class SimulationSession {
     @Column(name = "recipe_id", nullable = false)
     private String recipeId;
 
+    @Column(name = "user_id")
+    private String userId;
+
     @Column(name = "total_recipes", nullable = false)
     private int totalRecipes;
 

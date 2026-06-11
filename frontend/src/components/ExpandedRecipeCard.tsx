@@ -1,4 +1,5 @@
 import { useMealDetails } from '../hooks/useMealDetails';
+import { useAuth } from '../hooks/useAuth';
 
 interface ExpandedRecipeCardProps {
   id: string | null;
@@ -8,6 +9,8 @@ interface ExpandedRecipeCardProps {
 
 export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedRecipeCardProps) {
   const { data, isLoading, isError } = useMealDetails(id);
+  const { data: user } = useAuth();
+  const isAuthenticated = !!user?.authenticated;
 
   if (!id) return null;
 
@@ -98,10 +101,21 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedReci
               {onStartCooking && id && (
                 <button
                   id="start-cooking-btn"
-                  onClick={(e) => { e.stopPropagation(); onStartCooking(id); }}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isAuthenticated) {
+                      onStartCooking(id);
+                    } else {
+                      window.location.href = '/oauth2/authorization/keycloak';
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 px-6 py-2.5 font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 ${
+                    isAuthenticated
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                      : 'bg-stone-800 hover:bg-stone-900 text-white'
+                  }`}
                 >
-                  Start cooking
+                  {isAuthenticated ? 'Start cooking' : '🔒 Sign in to start cooking'}
                 </button>
               )}
               {meal.strYoutube && (
