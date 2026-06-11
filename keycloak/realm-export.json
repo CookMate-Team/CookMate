@@ -47,12 +47,18 @@
       "redirectUris": [
         "http://localhost:5173/*",
         "http://localhost:8081/*",
-        "http://localhost:8083/*"
+        "http://localhost:8083/*",
+        "http://localhost:8085/*",
+        "http://localhost/*",
+        "http://gateway-service:8085/*"
       ],
       "webOrigins": [
         "http://localhost:5173",
         "http://localhost:8081",
-        "http://localhost:8083"
+        "http://localhost:8083",
+        "http://localhost:8085",
+        "http://localhost",
+        "http://gateway-service:8085"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"

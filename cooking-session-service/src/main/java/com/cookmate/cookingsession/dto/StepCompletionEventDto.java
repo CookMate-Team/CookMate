@@ -23,5 +23,8 @@ public record StepCompletionEventDto(
         LocalDateTime executedAt,
 
         @NotBlank(message = "recipeId is required")
-        String recipeId
+        String recipeId,
+
+        // Optional: userId from the JWT subject, used to scope sessions per-user
+        String userId
 ) {}

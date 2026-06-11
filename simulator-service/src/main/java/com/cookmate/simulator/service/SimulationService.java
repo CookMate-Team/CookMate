@@ -46,7 +46,7 @@ public class SimulationService {
     private final CookingSessionClient cookingSessionClient;
 
     @Transactional
-    public SimulationStatusResponseDto startSession(StartSimulationRequestDto request) {
+    public SimulationStatusResponseDto startSession(StartSimulationRequestDto request, String userId) {
         List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
 
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
@@ -62,6 +62,7 @@ public class SimulationService {
         session.setCurrentStep(0);
         session.setTotalSteps(normalizedSteps.size());
         session.setRecipeId(request.recipeId());
+        session.setUserId(userId);
         session.setTotalRecipes(1);
         session.setMessage(null);
         simulationSessionRepository.save(session);
@@ -81,7 +82,8 @@ public class SimulationService {
                     oldSession.getCurrentStep(),
                     "COMPLETED",
                     LocalDateTime.now(),
-                    oldSession.getRecipeId()
+                    oldSession.getRecipeId(),
+                    oldSession.getUserId()
             );
         }
 
@@ -90,7 +92,8 @@ public class SimulationService {
                 0,
                 "RUNNING",
                 LocalDateTime.now(),
-                session.getRecipeId()
+                session.getRecipeId(),
+                userId
         );
 
         return mapStatusResponse(session, steps);
@@ -331,19 +334,21 @@ public class SimulationService {
      * @param executedAt czas wykonania
      * @param recipeId ID przepisu
      */
-    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId) {
+    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId, String userId) {
         final Logger logger = LoggerFactory.getLogger(SimulationService.class);
         
         CompletableFuture.runAsync(() -> {
             try {
                 java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-                Map<String, Object> event = Map.of(
-                        "sessionId", sessionId,
-                        "stepNumber", stepNumber,
-                        "status", status,
-                        "executedAt", executedAt.format(formatter),
-                        "recipeId", recipeId
-                );
+                java.util.HashMap<String, Object> event = new java.util.HashMap<>();
+                event.put("sessionId", sessionId);
+                event.put("stepNumber", stepNumber);
+                event.put("status", status);
+                event.put("executedAt", executedAt.format(formatter));
+                event.put("recipeId", recipeId);
+                if (userId != null) {
+                    event.put("userId", userId);
+                }
                 cookingSessionClient.notifyStepCompleted(event);
                 logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
             } catch (Exception e) {
@@ -368,7 +373,8 @@ public class SimulationService {
                     session.getCurrentStep(),
                     "COMPLETED",
                     LocalDateTime.now(),
-                    session.getRecipeId()
+                    session.getRecipeId(),
+                    session.getUserId()
             );
         }
     }
