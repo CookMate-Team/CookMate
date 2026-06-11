@@ -38,14 +38,15 @@ public class GroqClient {
 
     public Mono<LLMResponseDTO> generateSteps(String recipeInstructions, String ingredients) {
         long pipelineStart = System.currentTimeMillis();
-        logger.info("Rozpoczęcie 3-etapowego generowania kroków (Normalizer -> Planner -> Serializer)...");
+        logger.info("Rozpoczęcie 4-etapowego generowania kroków (Normalizer -> Planner -> Serializer -> Validator)...");
 
         return callNormalizer(recipeInstructions, ingredients)
                 .flatMap(this::callPlanner)
                 .flatMap(plannedSteps -> callSerializer(plannedSteps, ingredients))
+                .flatMap(generatedDto -> callValidator(generatedDto, ingredients))
                 .doOnSuccess(result -> {
                     long totalDuration = System.currentTimeMillis() - pipelineStart;
-                    logger.info("Pełny potok generowania LLM zakończony pomyślnie w {} ms.", totalDuration);
+                    logger.info("Pełny 4-etapowy potok generowania LLM zakończony pomyślnie w {} ms.", totalDuration);
                 })
                 .retryWhen(Retry.backoff(2, Duration.ofSeconds(2))
                         .doBeforeRetry(retrySignal -> logger.warn(
@@ -186,6 +187,106 @@ public class GroqClient {
                 ))
         )
         .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private Mono<LLMResponseDTO> callValidator(LLMResponseDTO generatedDto, String ingredients) {
+        return Mono.fromCallable(() -> {
+                    long startTime = System.currentTimeMillis();
+                    logger.info("[Etap 4/4] Uruchamianie Walidatora...");
+
+                    try {
+                        // Konwertuj DTO z powrotem do JSON
+                        String generatedJson = objectMapper.writeValueAsString(generatedDto);
+                        logger.debug("[Etap 4/4] Sprawdzanie poprawności. Liczba kroków: {}",
+                                generatedDto.steps() != null ? generatedDto.steps().size() : 0);
+                        logger.trace("[Etap 4/4] Wygenerowany JSON:\n{}", truncate(generatedJson, 300));
+
+                        String prompt = buildValidatorPrompt(generatedJson, ingredients);
+                        logger.trace("[Etap 4/4] Wygenerowany prompt walidatora:\n{}", prompt);
+
+                        GroqChatRequest request = new GroqChatRequest(
+                                MODEL,
+                                List.of(
+                                        new GroqMessage("system", getValidatorSystemPrompt()),
+                                        new GroqMessage("user", prompt)
+                                ),
+                                0.2,
+                                null
+                        );
+
+                        GroqChatResponse response = restClient.post()
+                                .uri(GROQ_API_URL)
+                                .header("Authorization", "Bearer " + apiKey)
+                                .body(request)
+                                .retrieve()
+                                .body(GroqChatResponse.class);
+
+                        if (response == null || response.choices() == null || response.choices().isEmpty()) {
+                            throw new IllegalStateException("Otrzymano pustą odpowiedź z Walidatora.");
+                        }
+
+                        String validationResult = response.choices().get(0).message().content().trim();
+                        long duration = System.currentTimeMillis() - startTime;
+                        logger.info("[Etap 4/4] Walidacja ukończona w {} ms.", duration);
+
+                        // Jeśli walidator nie zwrócił PASS, rzuć wyjątek aby wyzwolić retry
+                        if (!validationResult.startsWith("PASS")) {
+                            logger.warn("[Etap 4/4] Walidacja nie powiodła się: {}", truncate(validationResult, 200));
+                            throw new IllegalStateException("Walidacja nie powiodła się: " + validationResult);
+                        }
+
+                        logger.info("[Etap 4/4] ✓ Walidacja przeszła pomyślnie!");
+                        return generatedDto;
+                    } catch (Exception e) {
+                        logger.warn("Błąd walidacji: {}", e.getMessage());
+                        throw new RuntimeException("Błąd walidacji", e);
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private String getValidatorSystemPrompt() {
+        return """
+            # Context
+            You are a Culinary Expert in safety and quality control for the CookMate multi-cooker recipes.
+            
+            # Role
+            Your role is to verify the generated recipe steps against the following criteria:
+            
+            # Restrictions
+            1. **Ingredient Completeness** - whether all ingredients from the list are actually used in the recipe steps.
+            2. **Logical Chronology** - whether the steps follow a sensible culinary sequence.
+            3. **Safety** - whether the appliance parameters (temperature, time, speed) are safe and realistic.
+            4. **JSON Structure Consistency** - whether the JSON format is valid and correct.
+            
+            # Output
+            You must return EXACTLY:
+            - `PASS` if all validations are successful.
+            - `FAIL: [detailed description of the problem]` if you detect any error.
+            
+            # Tips
+            Be strict and detailed when describing the issues.
+            """;
+    }
+
+    private String buildValidatorPrompt(String generatedJson, String ingredients) {
+        return """
+            Verify the following generated recipe for the CookMate appliance:
+            
+            **Available Ingredients:**
+            %s
+            
+            **Generated Recipe (JSON):**
+            %s
+            
+            Check if:
+            1. All ingredients are used.
+            2. The chronology of the steps makes sense.
+            3. Temperatures and speeds are safe (max temperature 200°C, max speed 10).
+            4. The JSON is properly formatted.
+            
+            Respond with PASS or FAIL with a justification.
+            """.formatted(ingredients, generatedJson);
     }
 
     private boolean isRateLimitOrNetworkError(Throwable throwable) {
