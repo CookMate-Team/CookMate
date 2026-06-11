@@ -1,6 +1,12 @@
 # Configuration specific to gateway-service
 server:
   port: 8085
+  forward-headers-strategy: framework
+  reactive:
+    session:
+      cookie:
+        secure: false
+        same-site: lax
 
 spring:
   security:

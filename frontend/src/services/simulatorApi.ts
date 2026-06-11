@@ -21,6 +21,7 @@ export const generateSteps = async (mealId: string): Promise<void> => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mealId }),
+    credentials: 'include',
   });
   if (!response.ok) {
     const errorBody = await response.text();
@@ -36,6 +37,7 @@ export const startSimulation = async (
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
+    credentials: 'include',
   });
   if (!response.ok) {
     const errorBody = await response.text();
@@ -50,7 +52,7 @@ export const executeNextStep = async (
 ): Promise<StepExecutionResult> => {
   const response = await fetch(
     `${API_BASE_URL}/sessions/${sessionId}/steps/execute`,
-    { method: 'POST' }
+    { method: 'POST', credentials: 'include' }
   );
   if (!response.ok) {
     const errorBody = await response.text();
@@ -64,7 +66,8 @@ export const getSimulationStatus = async (
   sessionId: string
 ): Promise<SimulationStatusResponse> => {
   const response = await fetch(
-    `${API_BASE_URL}/sessions/${sessionId}/status`
+    `${API_BASE_URL}/sessions/${sessionId}/status`,
+    { credentials: 'include' }
   );
   if (!response.ok) {
     const errorBody = await response.text();
@@ -78,7 +81,8 @@ export const getSimulationHistory = async (
   sessionId: string
 ): Promise<SimulationStepHistoryItem[]> => {
   const response = await fetch(
-    `${API_BASE_URL}/sessions/${sessionId}/history`
+    `${API_BASE_URL}/sessions/${sessionId}/history`,
+    { credentials: 'include' }
   );
   if (!response.ok) {
     const errorBody = await response.text();
@@ -94,7 +98,7 @@ export const rewindSimulation = async (
 ): Promise<SimulationStatusResponse> => {
   const response = await fetch(
     `${API_BASE_URL}/sessions/${sessionId}/rewind?stepNumber=${stepNumber}`,
-    { method: 'POST' }
+    { method: 'POST', credentials: 'include' }
   );
   if (!response.ok) {
     const errorBody = await response.text();
@@ -108,7 +112,8 @@ export const getActiveCookingSession = async (
   recipeId: string
 ): Promise<ActiveCookingSession | null> => {
   const response = await fetch(
-    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/active`
+    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/active`,
+    { credentials: 'include' }
   );
   if (response.status === 404) {
     return null;
@@ -125,7 +130,8 @@ export const getCookingSessionHistory = async (
   recipeId: string
 ): Promise<CookingSessionProgressItem[]> => {
   const response = await fetch(
-    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/history`
+    `${COOKING_SESSION_API_URL}/recipes/${recipeId}/history`,
+    { credentials: 'include' }
   );
   if (response.status === 404) {
     return [];
@@ -139,7 +145,7 @@ export const getCookingSessionHistory = async (
 
 /** Get global active cooking session (or null if none). */
 export const getActiveCookingSessionGlobal = async (): Promise<ActiveCookingSession | null> => {
-  const response = await fetch(`${COOKING_SESSION_API_URL}/active`);
+  const response = await fetch(`${COOKING_SESSION_API_URL}/active`, { credentials: 'include' });
   if (response.status === 404) {
     return null;
   }
@@ -160,6 +166,7 @@ export const completeSimulationSession = async (
 ): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
     method: 'POST',
+    credentials: 'include',
   });
   if (!response.ok) {
     const errorBody = await response.text();
@@ -173,6 +180,7 @@ export const completeCookingSession = async (
 ): Promise<void> => {
   const response = await fetch(`${COOKING_SESSION_API_URL}/sessions/${sessionId}/complete`, {
     method: 'POST',
+    credentials: 'include',
   });
   if (!response.ok) {
     const errorBody = await response.text();

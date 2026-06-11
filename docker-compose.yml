@@ -116,6 +116,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     networks:
       - cookmate-net
     healthcheck:
@@ -149,6 +151,8 @@ services:
         condition: service_healthy
       discovery-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     networks:
       - cookmate-net
     healthcheck:
@@ -159,7 +163,7 @@ services:
       start_period: 120s
 
   # ─────────────────────────────────────────────
-  # Cooking Session Service (port 8084)
+  # Cooking Session Service (port 8083)
   # Startup order: 4th (after simulator-service)
   # ─────────────────────────────────────────────
   cooking-session-service:
@@ -169,9 +173,9 @@ services:
     container_name: cookmate-cooking-session
     restart: unless-stopped
     ports:
-      - "8084:8084"
+      - "8083:8083"
     environment:
-      SERVER_PORT: "8084"
+      SERVER_PORT: "8083"
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
       DB_HOST: ${DB_HOST}
@@ -186,10 +190,12 @@ services:
       # POPRAWKA: Serwis startuje po simulator-service
       simulator-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     networks:
       - cookmate-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 8

@@ -13,7 +13,7 @@ export function useAuth() {
     queryKey: ['auth-user'],
     queryFn: async () => {
       try {
-        const response = await fetch('/api/v1/users/me');
+        const response = await fetch('/api/v1/users/me', { credentials: 'include' });
         if (response.status === 401) {
           return null; // Not logged in
         }

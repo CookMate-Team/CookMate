@@ -77,7 +77,7 @@ public class SimulationService {
             oldSession.setStatus(SimulationStatus.COMPLETED);
             oldSession.setCompletedAt(LocalDateTime.now());
             simulationSessionRepository.save(oldSession);
-            notifyCookingSessionAsync(
+            notifyCookingSession(
                     oldSession.getId(),
                     oldSession.getCurrentStep(),
                     "COMPLETED",
@@ -87,7 +87,7 @@ public class SimulationService {
             );
         }
 
-        notifyCookingSessionAsync(
+        notifyCookingSession(
                 session.getId(),
                 0,
                 "RUNNING",
@@ -121,7 +121,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId(), session.getUserId());
+            notifyCookingSession(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId(), session.getUserId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -156,7 +156,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId(), session.getUserId());
+            notifyCookingSession(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId(), session.getUserId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())
@@ -334,27 +334,24 @@ public class SimulationService {
      * @param executedAt czas wykonania
      * @param recipeId ID przepisu
      */
-    private void notifyCookingSessionAsync(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId, String userId) {
+    private void notifyCookingSession(String sessionId, Integer stepNumber, String status, LocalDateTime executedAt, String recipeId, String userId) {
         final Logger logger = LoggerFactory.getLogger(SimulationService.class);
-        
-        CompletableFuture.runAsync(() -> {
-            try {
-                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-                java.util.HashMap<String, Object> event = new java.util.HashMap<>();
-                event.put("sessionId", sessionId);
-                event.put("stepNumber", stepNumber);
-                event.put("status", status);
-                event.put("executedAt", executedAt.format(formatter));
-                event.put("recipeId", recipeId);
-                if (userId != null) {
-                    event.put("userId", userId);
-                }
-                cookingSessionClient.notifyStepCompleted(event);
-                logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
-            } catch (Exception e) {
-                logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
+        try {
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+            java.util.HashMap<String, Object> event = new java.util.HashMap<>();
+            event.put("sessionId", sessionId);
+            event.put("stepNumber", stepNumber);
+            event.put("status", status);
+            event.put("executedAt", executedAt.format(formatter));
+            event.put("recipeId", recipeId);
+            if (userId != null) {
+                event.put("userId", userId);
             }
-        });
+            cookingSessionClient.notifyStepCompleted(event);
+            logger.info("Notyfikacja wysłana do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber);
+        } catch (Exception e) {
+            logger.error("Błąd podczas wysyłania notyfikacji do cooking-session-service: sessionId={}, stepNumber={}", sessionId, stepNumber, e);
+        }
     }
 
     @Transactional
@@ -368,7 +365,7 @@ public class SimulationService {
             session.setCompletedAt(LocalDateTime.now());
             simulationSessionRepository.save(session);
 
-            notifyCookingSessionAsync(
+            notifyCookingSession(
                     sessionId,
                     session.getCurrentStep(),
                     "COMPLETED",
