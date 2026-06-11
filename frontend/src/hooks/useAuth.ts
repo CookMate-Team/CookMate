@@ -26,6 +26,9 @@ export function useAuth() {
       }
     },
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    // Re-check every 30s (vs 5min) so we detect gateway restarts/session loss quickly
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60 * 1000, // Also poll every 60s in background
   });
 }

@@ -229,7 +229,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       const recipeId = activeSession.recipeId;
       setIsStreaming(true);
 
-      const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream`);
+      const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream?sessionId=${activeSession.sessionId}`);
       eventSourceRef.current = source;
 
       source.addEventListener('progress', (event) => {

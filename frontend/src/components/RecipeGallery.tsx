@@ -7,6 +7,7 @@ import { ExpandedRecipeCard } from './ExpandedRecipeCard';
 import { useGridCols } from '../hooks/useGridCols';
 import gsap from 'gsap';
 import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
+import { useAuth } from '../hooks/useAuth';
 import { completeSimulationSession, completeCookingSession } from '../services/simulatorApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
@@ -128,7 +129,9 @@ const MOCK_RECIPES = [
 
 export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: string) => void }) {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
-  const { data: activeSession } = useGlobalActiveSession();
+  const { data: user } = useAuth();
+  const isAuthenticated = !!user?.authenticated;
+  const { data: activeSession } = useGlobalActiveSession(isAuthenticated);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [pendingRecipeId, setPendingRecipeId] = useState<string | null>(null);

@@ -1,16 +1,19 @@
 import { useEffect } from 'react';
 import { useRecipeStore } from '../store/useRecipeStore';
 import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
+import { useAuth } from '../hooks/useAuth';
 
 export function SourceToggle({ className = '' }: { className?: string }) {
   const { source, setSource } = useRecipeStore();
-  const { data: activeSession } = useGlobalActiveSession();
+  const { data: user } = useAuth();
+  const isAuthenticated = !!user?.authenticated;
+  const { data: activeSession } = useGlobalActiveSession(isAuthenticated);
 
   useEffect(() => {
-    if (source === 'ACTIVE' && !activeSession) {
+    if (source === 'ACTIVE' && (!isAuthenticated || !activeSession)) {
       setSource('DISCOVERY');
     }
-  }, [source, activeSession, setSource]);
+  }, [source, activeSession, setSource, isAuthenticated]);
 
   return (
     <div className={`flex items-center ${className}`}>
