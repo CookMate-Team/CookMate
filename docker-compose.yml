@@ -249,8 +249,9 @@ services:
       KC_DB_USERNAME: "${KEYCLOAK_DB_USER:-keycloak}"
       KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak}"
       KC_DB_URL_PROPERTIES: "?sslmode=disable"
-      KC_HOSTNAME_URL: http://localhost:8080
-      KC_HOSTNAME_ADMIN_URL: http://localhost:8080
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
       KC_PROXY: edge
       KC_HTTP_ENABLED: "true"
       KC_LOG_LEVEL: INFO
@@ -280,9 +281,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_URL: http://localhost:8081
-      SIMULATOR_URL: http://localhost:8082
-      COOKING_SESSION_URL: http://localhost:8084
+      GATEWAY_URL: http://gateway-service:8085
+      API_URL: http://gateway-service:8085
+      SIMULATOR_URL: http://gateway-service:8085
+      COOKING_SESSION_URL: http://gateway-service:8085
     depends_on:
       main-service:
         condition: service_healthy

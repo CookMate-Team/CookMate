@@ -12,6 +12,7 @@ logging:
   level:
     com.cookmate: DEBUG
     org.springframework.cloud: INFO
+    org.springframework.security: DEBUG
 
 # Centralized OAuth2 Resource Server configuration for all business microservices
 # Each service validates JWT tokens issued by Keycloak
