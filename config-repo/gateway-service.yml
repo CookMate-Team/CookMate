@@ -67,5 +67,5 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: TRACE
-    org.springframework.web.reactive: TRACE
+    org.springframework.cloud.gateway: WARN
+    org.springframework.web.reactive: WARN

@@ -6,6 +6,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 60000
+        response-timeout: 120000
 
 # Fallback values (overridden by config-server)
 server:

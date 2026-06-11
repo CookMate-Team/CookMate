@@ -5,6 +5,7 @@ import feign.RequestTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import java.util.concurrent.TimeUnit;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -27,4 +28,12 @@ public class FeignConfig {
             }
         };
     }
+    @Bean
+    public feign.Request.Options feignOptions() {
+        // 60 seconds connect timeout, 120 seconds read timeout
+        return new feign.Request.Options(60000, TimeUnit.MILLISECONDS,
+                                         120000, TimeUnit.MILLISECONDS,
+                                         true);
+    }
+
 }
