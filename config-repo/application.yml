@@ -10,12 +10,21 @@ management:
 
 logging:
   level:
-    com.cookmate: DEBUG
+    com.cookmate: INFO
     org.springframework.cloud: INFO
 
 # Centralized OAuth2 Resource Server configuration for all business microservices
 # Each service validates JWT tokens issued by Keycloak
 spring:
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    hikari:
+      maximum-pool-size: 300       # increased pool for higher VU load
+      minimum-idle: 5
+      connection-timeout: 30000   # 30s before throwing exception (prevent thread starvation)
+      idle-timeout: 600000        # 10 min idle before releasing connection
   security:
     oauth2:
       resourceserver:

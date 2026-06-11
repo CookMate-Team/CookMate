@@ -7,5 +7,6 @@ public record CookingSessionProgressDto(
         String recipeId,
         Integer stepNumber,
         String status,
-        LocalDateTime executedAt
+        LocalDateTime executedAt,
+        String userId
 ) {}

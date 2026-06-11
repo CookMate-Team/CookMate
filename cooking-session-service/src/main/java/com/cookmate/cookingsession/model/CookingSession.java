@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "cooking_sessions", indexes = {
         @Index(name = "idx_cooking_sessions_recipe_id", columnList = "recipe_id"),
-        @Index(name = "idx_cooking_sessions_status", columnList = "status")
+        @Index(name = "idx_cooking_sessions_status", columnList = "status"),
+        @Index(name = "idx_cooking_sessions_user_id", columnList = "user_id")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class CookingSession {
@@ -36,6 +37,9 @@ public class CookingSession {
 
     @Column(name = "recipe_id", nullable = false)
     private String recipeId;
+
+    @Column(name = "user_id", nullable = false, length = 36)
+    private String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

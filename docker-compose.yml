@@ -20,11 +20,12 @@ services:
     image: postgres:18-alpine
     container_name: cookmate-postgres
     restart: unless-stopped
+    # max_connections via command works even when volume already exists (unlike POSTGRES_INITDB_ARGS)
+    command: postgres -c max_connections=800 -c shared_buffers=256MB
     environment:
       POSTGRES_DB: ${DB_NAME:-cookmate}
       POSTGRES_USER: ${DB_USER:-cookmate}
       POSTGRES_PASSWORD: ${DB_PASS:-cookmate}
-      POSTGRES_INITDB_ARGS: "-c max_connections=200"
     ports:
       - "5432:5432"
     volumes:

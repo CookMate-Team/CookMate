@@ -57,10 +57,11 @@ class SimulationServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        when(sessionRepository.findByStatus(SimulationStatus.RUNNING)).thenReturn(List.of());
+        when(sessionRepository.findByStatusAndUserId(SimulationStatus.RUNNING, "test-user-123")).thenReturn(List.of());
 
         testSession = new SimulationSession();
         testSession.setId("test-session-123");
+        testSession.setUserId("test-user-123");
         testSession.setStatus(SimulationStatus.RUNNING);
         testSession.setCurrentStep(0);
         testSession.setTotalSteps(2);
@@ -80,7 +81,7 @@ class SimulationServiceTest {
         when(sessionRepository.save(any(SimulationSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(stepRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = simulationService.startSession(new StartSimulationRequestDto("meal-1"));
+        var response = simulationService.startSession(new StartSimulationRequestDto("meal-1"), "test-user-123", "Bearer test-token");
 
         assertNotNull(response);
         assertEquals(SimulationStatus.RUNNING.name(), response.status());
@@ -93,7 +94,7 @@ class SimulationServiceTest {
         when(mainServiceClient.getRecipeSteps("meal-1")).thenReturn(List.of());
         assertThrows(
                 InvalidSimulationStateException.class,
-                () -> simulationService.startSession(new StartSimulationRequestDto("meal-1"))
+                () -> simulationService.startSession(new StartSimulationRequestDto("meal-1"), "test-user-123", "Bearer test-token")
         );
     }
 
@@ -104,14 +105,14 @@ class SimulationServiceTest {
         pending.setStepNumber(1);
         pending.setStatus(StepStatus.PENDING);
 
-        when(sessionRepository.findById("test-session-123")).thenReturn(Optional.of(testSession));
+        when(sessionRepository.findByIdAndUserId("test-session-123", "test-user-123")).thenReturn(Optional.of(testSession));
         when(stepRepository.findFirstBySessionIdAndStatusOrderByStepNumberAsc("test-session-123", StepStatus.PENDING))
                 .thenReturn(Optional.of(pending));
         when(stepRepository.countBySessionIdAndStatus("test-session-123", StepStatus.PENDING)).thenReturn(1L);
         when(stepRepository.save(any(SimulationStep.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(sessionRepository.save(any(SimulationSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        StepExecutionResultDto response = simulationService.executeNextStep("test-session-123");
+        StepExecutionResultDto response = simulationService.executeNextStep("test-session-123", "test-user-123", "Bearer test-token");
 
         assertTrue(response.getSuccess());
         assertEquals(1, response.getStepNumber());
@@ -120,14 +121,14 @@ class SimulationServiceTest {
 
     @Test
     void testProcessStepDirectSuccess() {
-        when(sessionRepository.findById("test-session-123")).thenReturn(Optional.of(testSession));
+        when(sessionRepository.findByIdAndUserId("test-session-123", "test-user-123")).thenReturn(Optional.of(testSession));
         when(stepRepository.findBySessionIdAndStepNumber("test-session-123", 1)).thenReturn(Optional.empty());
         when(stepRepository.countBySessionIdAndStatus("test-session-123", StepStatus.PENDING)).thenReturn(1L);
         when(stepRepository.save(any(SimulationStep.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(sessionRepository.save(any(SimulationSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         RecipeStepRequestDto stepRequest = new RecipeStepRequestDto(1, "Test step", 1, "180C", "200g", "Note");
-        StepExecutionResultDto response = simulationService.processStep("test-session-123", stepRequest);
+        StepExecutionResultDto response = simulationService.processStep("test-session-123", stepRequest, "test-user-123", "Bearer test-token");
 
         assertTrue(response.getSuccess());
         assertEquals(1, response.getStepNumber());
@@ -135,8 +136,8 @@ class SimulationServiceTest {
 
     @Test
     void testGetStatusNotFound() {
-        when(sessionRepository.findById("unknown-session")).thenReturn(Optional.empty());
-        assertThrows(SimulationSessionNotFoundException.class, () -> simulationService.getStatus("unknown-session"));
+        when(sessionRepository.findByIdAndUserId("unknown-session", "test-user-123")).thenReturn(Optional.empty());
+        assertThrows(SimulationSessionNotFoundException.class, () -> simulationService.getStatus("unknown-session", "test-user-123"));
     }
 
     @Test
@@ -153,13 +154,13 @@ class SimulationServiceTest {
         step2.setStatus(StepStatus.EXECUTED);
         step2.setExecutedAt(LocalDateTime.now());
 
-        when(sessionRepository.findById("test-session-123")).thenReturn(Optional.of(testSession));
+        when(sessionRepository.findByIdAndUserId("test-session-123", "test-user-123")).thenReturn(Optional.of(testSession));
         when(stepRepository.findBySessionIdOrderByStepNumberAsc("test-session-123")).thenReturn(new ArrayList<>(List.of(step1, step2)));
         when(stepRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(sessionRepository.save(any(SimulationSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(stepRepository.countBySessionIdAndStatus("test-session-123", StepStatus.EXECUTED)).thenReturn(1L);
 
-        var status = simulationService.rewindToStep("test-session-123", 1);
+        var status = simulationService.rewindToStep("test-session-123", 1, "test-user-123");
 
         assertEquals(1, status.currentStep());
         assertEquals(SimulationStatus.RUNNING.name(), status.status());

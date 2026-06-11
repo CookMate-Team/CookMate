@@ -33,6 +33,7 @@ class SimulationSessionServiceTest {
         MockitoAnnotations.openMocks(this);
         running = new SimulationSession();
         running.setId("s-123");
+        running.setUserId("user-123");
         running.setStatus(SimulationStatus.RUNNING);
         running.setCurrentStep(0);
         running.setTotalSteps(3);
@@ -50,10 +51,11 @@ class SimulationSessionServiceTest {
             new MainServiceStepDto(2L, 2, "Step 2", null, 3, "r-42")
         );
         when(mainClient.getRecipeSteps("r-42")).thenReturn(steps);
+        when(sessionRepo.findByStatusAndUserId(SimulationStatus.RUNNING, "user-123")).thenReturn(List.of());
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(stepRepo.saveAll(any())).thenAnswer(i -> i.getArgument(0));
 
-        var resp = service.startSession(new StartSimulationRequestDto("r-42"));
+        var resp = service.startSession(new StartSimulationRequestDto("r-42"), "user-123", "Bearer test-token");
 
         assertNotNull(resp.sessionId());
         assertEquals("RUNNING", resp.status());
@@ -67,7 +69,7 @@ class SimulationSessionServiceTest {
     void startSession_throwsWhenNoSteps() {
         when(mainClient.getRecipeSteps("r-42")).thenReturn(List.of());
         assertThrows(InvalidSimulationStateException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), "user-123", "Bearer test-token"));
     }
 
     @Test
@@ -75,7 +77,7 @@ class SimulationSessionServiceTest {
     void startSession_throwsOnMainServiceError() {
         when(mainClient.getRecipeSteps("r-42")).thenThrow(new RuntimeException("Connection refused"));
         var ex = assertThrows(MainServiceCommunicationException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), "user-123", "Bearer test-token"));
         assertTrue(ex.getMessage().contains("r-42"));
     }
 
@@ -85,7 +87,7 @@ class SimulationSessionServiceTest {
         when(mainClient.getRecipeSteps("r-42")).thenReturn(
             List.of(new MainServiceStepDto(1L, 1, "", null, 5, "r-42")));
         assertThrows(InvalidSimulationStateException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), "user-123", "Bearer test-token"));
     }
 
     // --- executeNextStep ---
@@ -94,14 +96,14 @@ class SimulationSessionServiceTest {
     @DisplayName("executeNextStep — wykonuje PENDING krok")
     void executeNextStep_executesPendingStep() {
         var pending = mkStep("s-123", 1, StepStatus.PENDING);
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
         when(stepRepo.findFirstBySessionIdAndStatusOrderByStepNumberAsc("s-123", StepStatus.PENDING))
             .thenReturn(Optional.of(pending));
         when(stepRepo.countBySessionIdAndStatus("s-123", StepStatus.PENDING)).thenReturn(2L);
         when(stepRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var r = service.executeNextStep("s-123");
+        var r = service.executeNextStep("s-123", "user-123", "Bearer test-token");
         assertTrue(r.getSuccess());
         assertEquals(1, r.getStepNumber());
     }
@@ -109,28 +111,28 @@ class SimulationSessionServiceTest {
     @Test
     @DisplayName("executeNextStep — false gdy brak PENDING")
     void executeNextStep_falseWhenNoPending() {
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
         when(stepRepo.findFirstBySessionIdAndStatusOrderByStepNumberAsc("s-123", StepStatus.PENDING))
             .thenReturn(Optional.empty());
         when(stepRepo.countBySessionIdAndStatus("s-123", StepStatus.PENDING)).thenReturn(0L);
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        assertFalse(service.executeNextStep("s-123").getSuccess());
+        assertFalse(service.executeNextStep("s-123", "user-123", "Bearer test-token").getSuccess());
     }
 
     @Test
     @DisplayName("executeNextStep — wyjątek dla nieistniejącej sesji")
     void executeNextStep_throwsSessionNotFound() {
-        when(sessionRepo.findById("x")).thenReturn(Optional.empty());
-        assertThrows(SimulationSessionNotFoundException.class, () -> service.executeNextStep("x"));
+        when(sessionRepo.findByIdAndUserId("x", "user-123")).thenReturn(Optional.empty());
+        assertThrows(SimulationSessionNotFoundException.class, () -> service.executeNextStep("x", "user-123", "Bearer test-token"));
     }
 
     @Test
     @DisplayName("executeNextStep — wyjątek gdy sesja COMPLETED")
     void executeNextStep_throwsWhenCompleted() {
         running.setStatus(SimulationStatus.COMPLETED);
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
-        assertThrows(InvalidSimulationStateException.class, () -> service.executeNextStep("s-123"));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
+        assertThrows(InvalidSimulationStateException.class, () -> service.executeNextStep("s-123", "user-123", "Bearer test-token"));
     }
 
     // --- processStep ---
@@ -138,13 +140,13 @@ class SimulationSessionServiceTest {
     @Test
     @DisplayName("processStep — przetwarza krok z sukcesem")
     void processStep_success() {
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
         when(stepRepo.findBySessionIdAndStepNumber("s-123", 1)).thenReturn(Optional.empty());
         when(stepRepo.countBySessionIdAndStatus("s-123", StepStatus.PENDING)).thenReturn(2L);
         when(stepRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var r = service.processStep("s-123", new RecipeStepRequestDto(1, "Heat pan", 30, "200C", "100g", "note"));
+        var r = service.processStep("s-123", new RecipeStepRequestDto(1, "Heat pan", 30, "200C", "100g", "note"), "user-123", "Bearer test-token");
         assertTrue(r.getSuccess());
         assertEquals(1, r.getStepNumber());
     }
@@ -154,19 +156,19 @@ class SimulationSessionServiceTest {
     @Test
     @DisplayName("getStatus — wyjątek dla nieistniejącej sesji")
     void getStatus_throwsNotFound() {
-        when(sessionRepo.findById("x")).thenReturn(Optional.empty());
-        assertThrows(SimulationSessionNotFoundException.class, () -> service.getStatus("x"));
+        when(sessionRepo.findByIdAndUserId("x", "user-123")).thenReturn(Optional.empty());
+        assertThrows(SimulationSessionNotFoundException.class, () -> service.getStatus("x", "user-123"));
     }
 
     @Test
     @DisplayName("getStatus — zwraca poprawny status")
     void getStatus_returnsCorrectStatus() {
         var steps = List.of(mkStep("s-123", 1, StepStatus.EXECUTED), mkStep("s-123", 2, StepStatus.PENDING));
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
         when(stepRepo.findBySessionIdOrderByStepNumberAsc("s-123")).thenReturn(steps);
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var st = service.getStatus("s-123");
+        var st = service.getStatus("s-123", "user-123");
         assertEquals("RUNNING", st.status());
         assertEquals(1, st.currentStep());
     }
@@ -178,12 +180,12 @@ class SimulationSessionServiceTest {
     void rewindToStep_rewinds() {
         var s1 = mkStep("s-123", 1, StepStatus.EXECUTED); s1.setExecutedAt(LocalDateTime.now());
         var s2 = mkStep("s-123", 2, StepStatus.EXECUTED); s2.setExecutedAt(LocalDateTime.now());
-        when(sessionRepo.findById("s-123")).thenReturn(Optional.of(running));
+        when(sessionRepo.findByIdAndUserId("s-123", "user-123")).thenReturn(Optional.of(running));
         when(stepRepo.findBySessionIdOrderByStepNumberAsc("s-123")).thenReturn(new ArrayList<>(List.of(s1, s2)));
         when(stepRepo.saveAll(any())).thenAnswer(i -> i.getArgument(0));
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var r = service.rewindToStep("s-123", 1);
+        var r = service.rewindToStep("s-123", 1, "user-123");
         assertEquals(1, r.currentStep());
         assertEquals("RUNNING", r.status());
     }

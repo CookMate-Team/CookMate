@@ -34,9 +34,9 @@ public class CookingSessionService {
             .directBestEffort();
 
     @Transactional
-    public CookingSessionProgressDto handleProgressEvent(StepCompletionEventDto event) {
-        logger.info("Otrzymano event postępu: sessionId={}, stepNumber={}, recipeId={}",
-                event.sessionId(), event.stepNumber(), event.recipeId());
+    public CookingSessionProgressDto handleProgressEvent(StepCompletionEventDto event, String userId) {
+        logger.info("Otrzymano event postępu: sessionId={}, stepNumber={}, recipeId={}, userId={}",
+                event.sessionId(), event.stepNumber(), event.recipeId(), userId);
 
         Optional<CookingSessionProgress> existing = cookingSessionProgressRepository
                 .findFirstBySessionIdAndStepNumber(event.sessionId(), event.stepNumber());
@@ -45,7 +45,7 @@ public class CookingSessionService {
             return toProgressDto(existing.get());
         }
 
-        upsertSession(event);
+        upsertSession(event, userId);
 
         CookingSessionProgress progress = CookingSessionProgress.builder()
                 .sessionId(event.sessionId())
@@ -53,6 +53,7 @@ public class CookingSessionService {
                 .stepNumber(event.stepNumber())
                 .status(event.status())
                 .executedAt(event.executedAt())
+                .userId(userId)
                 .build();
 
         CookingSessionProgress saved = cookingSessionProgressRepository.save(progress);
@@ -64,8 +65,8 @@ public class CookingSessionService {
         return toProgressDto(saved);
     }
 
-    public List<CookingSessionProgressDto> getHistoryByRecipe(String recipeId) {
-        Optional<CookingSession> activeSession = getActiveSession(recipeId);
+    public List<CookingSessionProgressDto> getHistoryByRecipe(String recipeId, String userId) {
+        Optional<CookingSession> activeSession = getActiveSession(recipeId, userId);
         if (activeSession.isEmpty()) {
             return List.of();
         }
@@ -76,8 +77,8 @@ public class CookingSessionService {
                 .toList();
     }
 
-    public CookingSessionProgressDto getLatestByRecipe(String recipeId) {
-        Optional<CookingSession> activeSession = getActiveSession(recipeId);
+    public CookingSessionProgressDto getLatestByRecipe(String recipeId, String userId) {
+        Optional<CookingSession> activeSession = getActiveSession(recipeId, userId);
         if (activeSession.isEmpty()) {
             return null;
         }
@@ -87,53 +88,55 @@ public class CookingSessionService {
                 .orElse(null);
     }
 
-    public Optional<ActiveCookingSessionDto> getActiveSessionDetails(String recipeId) {
-        return getActiveSession(recipeId).map(this::toActiveDto);
+    public Optional<ActiveCookingSessionDto> getActiveSessionDetails(String recipeId, String userId) {
+        return getActiveSession(recipeId, userId).map(this::toActiveDto);
     }
 
-    public Optional<ActiveCookingSessionDto> getActiveSessionGlobal() {
-        return cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING)
+    public Optional<ActiveCookingSessionDto> getActiveSessionGlobal(String userId) {
+        return cookingSessionRepository.findByStatusAndUserId(CookingSessionStatus.RUNNING, userId)
                 .stream()
                 .findFirst()
                 .map(this::toActiveDto);
     }
 
     @Transactional
-    public void completeSession(String sessionId) {
-        cookingSessionRepository.findById(sessionId).ifPresent(session -> {
+    public void completeSession(String sessionId, String userId) {
+        cookingSessionRepository.findBySessionIdAndUserId(sessionId, userId).ifPresent(session -> {
             session.setStatus(CookingSessionStatus.COMPLETED);
             session.setCompletedAt(LocalDateTime.now());
             cookingSessionRepository.save(session);
-            logger.info("Session {} manually completed", sessionId);
+            logger.info("Session {} manually completed for user {}", sessionId, userId);
         });
     }
 
-    public Flux<CookingSessionProgressDto> streamProgress(String recipeId) {
+    public Flux<CookingSessionProgressDto> streamProgress(String recipeId, String userId) {
         return progressSink.asFlux()
-                .filter(event -> event.recipeId().equals(recipeId));
+                .filter(event -> event.recipeId().equals(recipeId) && userId.equals(event.userId()));
     }
 
-    private Optional<CookingSession> getActiveSession(String recipeId) {
-        return cookingSessionRepository.findFirstByRecipeIdAndStatusOrderByLastExecutedAtDesc(
+    private Optional<CookingSession> getActiveSession(String recipeId, String userId) {
+        return cookingSessionRepository.findFirstByRecipeIdAndStatusAndUserIdOrderByLastExecutedAtDesc(
                 recipeId,
-                CookingSessionStatus.RUNNING
+                CookingSessionStatus.RUNNING,
+                userId
         );
     }
 
-    private CookingSession upsertSession(StepCompletionEventDto event) {
+    private CookingSession upsertSession(StepCompletionEventDto event, String userId) {
         CookingSession session = cookingSessionRepository.findById(event.sessionId()).orElse(null);
         boolean isCompletedEvent = "COMPLETED".equals(event.status());
         CookingSessionStatus targetStatus = isCompletedEvent ? CookingSessionStatus.COMPLETED : CookingSessionStatus.RUNNING;
 
         if (targetStatus == CookingSessionStatus.RUNNING) {
-            completeAllOtherSessionsGlobally(event.sessionId());
+            completeAllOtherSessionsGlobally(event.sessionId(), userId);
         }
 
         if (session == null) {
-            completeOtherSessions(event.recipeId(), event.sessionId());
+            completeOtherSessions(event.recipeId(), event.sessionId(), userId);
             session = CookingSession.builder()
                     .sessionId(event.sessionId())
                     .recipeId(event.recipeId())
+                    .userId(userId)
                     .status(targetStatus)
                     .currentStep(event.stepNumber())
                     .lastExecutedAt(event.executedAt())
@@ -144,6 +147,7 @@ public class CookingSessionService {
             session.setCurrentStep(Math.max(currentStep, event.stepNumber()));
             session.setLastExecutedAt(event.executedAt());
             session.setStatus(targetStatus);
+            session.setUserId(userId);
             if (isCompletedEvent) {
                 session.setCompletedAt(event.executedAt());
             } else {
@@ -153,9 +157,9 @@ public class CookingSessionService {
         return cookingSessionRepository.save(session);
     }
 
-    private void completeOtherSessions(String recipeId, String currentSessionId) {
+    private void completeOtherSessions(String recipeId, String currentSessionId, String userId) {
         List<CookingSession> runningSessions = cookingSessionRepository
-                .findByRecipeIdAndStatus(recipeId, CookingSessionStatus.RUNNING);
+                .findByRecipeIdAndStatusAndUserId(recipeId, CookingSessionStatus.RUNNING, userId);
         if (runningSessions.isEmpty()) {
             return;
         }
@@ -175,8 +179,8 @@ public class CookingSessionService {
     }
 
     @Transactional
-    public void completeAllOtherSessionsGlobally(String currentSessionId) {
-        List<CookingSession> runningSessions = cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING);
+    public void completeAllOtherSessionsGlobally(String currentSessionId, String userId) {
+        List<CookingSession> runningSessions = cookingSessionRepository.findByStatusAndUserId(CookingSessionStatus.RUNNING, userId);
         if (runningSessions.isEmpty()) {
             return;
         }
@@ -188,7 +192,7 @@ public class CookingSessionService {
                 session.setStatus(CookingSessionStatus.COMPLETED);
                 session.setCompletedAt(now);
                 updated = true;
-                logger.info("Session {} globally completed due to new active session {}", session.getSessionId(), currentSessionId);
+                logger.info("Session {} globally completed for user {} due to new active session {}", session.getSessionId(), userId, currentSessionId);
             }
         }
         if (updated) {
@@ -202,7 +206,8 @@ public class CookingSessionService {
                 progress.getRecipeId(),
                 progress.getStepNumber(),
                 progress.getStatus(),
-                progress.getExecutedAt()
+                progress.getExecutedAt(),
+                progress.getUserId()
         );
     }
 

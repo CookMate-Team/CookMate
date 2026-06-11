@@ -54,6 +54,12 @@ class SimulationControllerIntegrationTest {
     void cleanDb() {
         stepRepo.deleteAll();
         sessionRepo.deleteAll();
+
+        org.springframework.security.oauth2.jwt.Jwt mockJwt = org.mockito.Mockito.mock(org.springframework.security.oauth2.jwt.Jwt.class);
+        org.mockito.Mockito.when(mockJwt.getSubject()).thenReturn("user");
+        org.mockito.Mockito.when(mockJwt.getClaimAsString("preferred_username")).thenReturn("test.user");
+        org.mockito.Mockito.when(mockJwt.getClaimAsMap("realm_access")).thenReturn(java.util.Map.of("roles", java.util.List.of("ROLE_USER")));
+        org.mockito.Mockito.when(jwtDecoder.decode(org.mockito.Mockito.anyString())).thenReturn(mockJwt);
     }
 
     // --- POST /api/simulator/sessions/start ---
@@ -64,6 +70,7 @@ class SimulationControllerIntegrationTest {
         mockMainSteps("52772");
 
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
@@ -78,6 +85,7 @@ class SimulationControllerIntegrationTest {
     @DisplayName("POST /sessions/start — 400 gdy brak recipeId")
     void startSimulation_returns400WhenNoRecipeId() throws Exception {
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"\"}"))
@@ -91,6 +99,7 @@ class SimulationControllerIntegrationTest {
             .thenThrow(new RuntimeException("Connection refused"));
 
         mockMvc.perform(post("/api/simulator/sessions/start")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"52772\"}"))
@@ -106,6 +115,7 @@ class SimulationControllerIntegrationTest {
         String sessionId = createSession("52772");
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
@@ -116,6 +126,7 @@ class SimulationControllerIntegrationTest {
     @DisplayName("POST /sessions/{id}/steps/execute — 404 dla nieistniejącej sesji")
     void executeNextStep_returns404() throws Exception {
         mockMvc.perform(post("/api/simulator/sessions/nonexistent/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("SIMULATION_NOT_FOUND"));
@@ -132,6 +143,7 @@ class SimulationControllerIntegrationTest {
             """;
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -145,6 +157,7 @@ class SimulationControllerIntegrationTest {
         String sessionId = createSession("52772");
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/step")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepNumber\":null}"))
@@ -195,9 +208,11 @@ class SimulationControllerIntegrationTest {
         String sessionId = createSession("52772");
         // Najpierw wykonaj krok
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/steps/execute")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))));
 
         mockMvc.perform(post("/api/simulator/sessions/" + sessionId + "/rewind?stepNumber=0")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.currentStep").value(0))
@@ -216,6 +231,7 @@ class SimulationControllerIntegrationTest {
     private String createSession(String recipeId) throws Exception {
         mockMainSteps(recipeId);
         MvcResult result = mockMvc.perform(post("/api/simulator/sessions/start")
+                .header("Authorization", "Bearer mock-token")
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"recipeId\":\"" + recipeId + "\"}"))
