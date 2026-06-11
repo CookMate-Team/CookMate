@@ -3,7 +3,7 @@ name: Deploy CookMate to AWS
 on:
   push:
     branches:
-      - main 
+      - main
 
 jobs:
   deploy:
@@ -22,4 +22,5 @@ jobs:
         script: |
           cd ~/CookMate
           git pull origin main
-          docker compose up -d --build
+          docker compose up -d --build --remove-orphans
+          docker image prune -f
