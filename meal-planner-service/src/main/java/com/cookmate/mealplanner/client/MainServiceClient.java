@@ -1,9 +1,11 @@
 package com.cookmate.mealplanner.client;
 
 import com.cookmate.mealplanner.dto.CategoryResponse;
+import com.cookmate.mealplanner.dto.MealDetailListResponse;
 import com.cookmate.mealplanner.dto.MealSearchResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @FeignClient(
@@ -17,4 +19,7 @@ public interface MainServiceClient {
 
     @GetMapping("/api/v1/discovery/filter/category")
     MealSearchResponse getMealsByCategory(@RequestParam("c") String category);
+
+    @GetMapping("/api/v1/discovery/lookup/{id}")
+    MealDetailListResponse lookupById(@PathVariable("id") String id);
 }
