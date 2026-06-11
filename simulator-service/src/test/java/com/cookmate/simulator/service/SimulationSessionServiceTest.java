@@ -53,7 +53,7 @@ class SimulationSessionServiceTest {
         when(sessionRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(stepRepo.saveAll(any())).thenAnswer(i -> i.getArgument(0));
 
-        var resp = service.startSession(new StartSimulationRequestDto("r-42"));
+        var resp = service.startSession(new StartSimulationRequestDto("r-42"), null);
 
         assertNotNull(resp.sessionId());
         assertEquals("RUNNING", resp.status());
@@ -67,7 +67,7 @@ class SimulationSessionServiceTest {
     void startSession_throwsWhenNoSteps() {
         when(mainClient.getRecipeSteps("r-42")).thenReturn(List.of());
         assertThrows(InvalidSimulationStateException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), null));
     }
 
     @Test
@@ -75,7 +75,7 @@ class SimulationSessionServiceTest {
     void startSession_throwsOnMainServiceError() {
         when(mainClient.getRecipeSteps("r-42")).thenThrow(new RuntimeException("Connection refused"));
         var ex = assertThrows(MainServiceCommunicationException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), null));
         assertTrue(ex.getMessage().contains("r-42"));
     }
 
@@ -85,7 +85,7 @@ class SimulationSessionServiceTest {
         when(mainClient.getRecipeSteps("r-42")).thenReturn(
             List.of(new MainServiceStepDto(1L, 1, "", null, 5, "r-42")));
         assertThrows(InvalidSimulationStateException.class,
-            () -> service.startSession(new StartSimulationRequestDto("r-42")));
+            () -> service.startSession(new StartSimulationRequestDto("r-42"), null));
     }
 
     // --- executeNextStep ---

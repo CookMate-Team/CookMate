@@ -80,7 +80,7 @@ class SimulationServiceTest {
         when(sessionRepository.save(any(SimulationSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(stepRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = simulationService.startSession(new StartSimulationRequestDto("meal-1"));
+        var response = simulationService.startSession(new StartSimulationRequestDto("meal-1"), null);
 
         assertNotNull(response);
         assertEquals(SimulationStatus.RUNNING.name(), response.status());
@@ -93,7 +93,7 @@ class SimulationServiceTest {
         when(mainServiceClient.getRecipeSteps("meal-1")).thenReturn(List.of());
         assertThrows(
                 InvalidSimulationStateException.class,
-                () -> simulationService.startSession(new StartSimulationRequestDto("meal-1"))
+                () -> simulationService.startSession(new StartSimulationRequestDto("meal-1"), null)
         );
     }
 

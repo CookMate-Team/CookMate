@@ -47,7 +47,7 @@ public class SimulationService {
 
     @Transactional
     public SimulationStatusResponseDto startSession(StartSimulationRequestDto request, String userId) {
-        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatus(SimulationStatus.RUNNING);
+        List<SimulationSession> runningSessions = simulationSessionRepository.findByStatusAndUserId(SimulationStatus.RUNNING, userId);
 
         List<MainServiceStepDto> recipeSteps = fetchRecipeSteps(request.recipeId());
         if (recipeSteps.isEmpty()) {
@@ -121,7 +121,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, stepDto.stepNumber(), completed ? "COMPLETED" : "EXECUTED", step.getExecutedAt(), session.getRecipeId(), session.getUserId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(stepDto.stepNumber())
@@ -156,7 +156,7 @@ public class SimulationService {
 
             // Asynchronicznie wysłać notyfikację do main-service
             boolean completed = session.getStatus() == SimulationStatus.COMPLETED;
-            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId());
+            notifyCookingSessionAsync(sessionId, nextStep.getStepNumber(), completed ? "COMPLETED" : "EXECUTED", nextStep.getExecutedAt(), session.getRecipeId(), session.getUserId());
 
             return StepExecutionResultDto.builder()
                     .stepNumber(nextStep.getStepNumber())

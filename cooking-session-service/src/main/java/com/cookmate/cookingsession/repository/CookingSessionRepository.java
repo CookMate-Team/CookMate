@@ -19,4 +19,20 @@ public interface CookingSessionRepository extends JpaRepository<CookingSession, 
     );
 
     List<CookingSession> findByStatus(CookingSessionStatus status);
+
+    // Per-user queries
+    Optional<CookingSession> findFirstByUserIdAndStatusOrderByLastExecutedAtDesc(
+            String userId,
+            CookingSessionStatus status
+    );
+
+    Optional<CookingSession> findFirstByUserIdAndRecipeIdAndStatusOrderByLastExecutedAtDesc(
+            String userId,
+            String recipeId,
+            CookingSessionStatus status
+    );
+
+    List<CookingSession> findByUserIdAndStatus(String userId, CookingSessionStatus status);
+
+    List<CookingSession> findByUserIdAndRecipeIdAndStatus(String userId, String recipeId, CookingSessionStatus status);
 }

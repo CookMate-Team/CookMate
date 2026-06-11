@@ -64,8 +64,10 @@ public class CookingSessionService {
         return toProgressDto(saved);
     }
 
-    public List<CookingSessionProgressDto> getHistoryByRecipe(String recipeId) {
-        Optional<CookingSession> activeSession = getActiveSession(recipeId);
+    public List<CookingSessionProgressDto> getHistoryByRecipe(String recipeId, String userId) {
+        Optional<CookingSession> activeSession = userId != null
+                ? getActiveSessionForUser(userId, recipeId)
+                : getActiveSession(recipeId);
         if (activeSession.isEmpty()) {
             return List.of();
         }
@@ -76,8 +78,10 @@ public class CookingSessionService {
                 .toList();
     }
 
-    public CookingSessionProgressDto getLatestByRecipe(String recipeId) {
-        Optional<CookingSession> activeSession = getActiveSession(recipeId);
+    public CookingSessionProgressDto getLatestByRecipe(String recipeId, String userId) {
+        Optional<CookingSession> activeSession = userId != null
+                ? getActiveSessionForUser(userId, recipeId)
+                : getActiveSession(recipeId);
         if (activeSession.isEmpty()) {
             return null;
         }
@@ -87,15 +91,26 @@ public class CookingSessionService {
                 .orElse(null);
     }
 
-    public Optional<ActiveCookingSessionDto> getActiveSessionDetails(String recipeId) {
-        return getActiveSession(recipeId).map(this::toActiveDto);
+    public Optional<ActiveCookingSessionDto> getActiveSessionDetails(String recipeId, String userId) {
+        Optional<CookingSession> session = userId != null
+                ? getActiveSessionForUser(userId, recipeId)
+                : getActiveSession(recipeId);
+        return session.map(this::toActiveDto);
     }
 
-    public Optional<ActiveCookingSessionDto> getActiveSessionGlobal() {
-        return cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING)
-                .stream()
-                .findFirst()
+    /** Returns the current user's active session (any recipe). */
+    public Optional<ActiveCookingSessionDto> getActiveSessionForUser(String userId) {
+        if (userId == null) return Optional.empty();
+        return cookingSessionRepository
+                .findFirstByUserIdAndStatusOrderByLastExecutedAtDesc(userId, CookingSessionStatus.RUNNING)
                 .map(this::toActiveDto);
+    }
+
+    /** Returns the current user's active session for a specific recipe. */
+    private Optional<CookingSession> getActiveSessionForUser(String userId, String recipeId) {
+        return cookingSessionRepository
+                .findFirstByUserIdAndRecipeIdAndStatusOrderByLastExecutedAtDesc(
+                        userId, recipeId, CookingSessionStatus.RUNNING);
     }
 
     @Transactional
@@ -108,9 +123,10 @@ public class CookingSessionService {
         });
     }
 
-    public Flux<CookingSessionProgressDto> streamProgress(String recipeId) {
+    public Flux<CookingSessionProgressDto> streamProgress(String recipeId, String sessionId) {
         return progressSink.asFlux()
-                .filter(event -> event.recipeId().equals(recipeId));
+                .filter(event -> event.recipeId().equals(recipeId) &&
+                        (sessionId == null || event.sessionId().equals(sessionId)));
     }
 
     private Optional<CookingSession> getActiveSession(String recipeId) {
@@ -126,14 +142,15 @@ public class CookingSessionService {
         CookingSessionStatus targetStatus = isCompletedEvent ? CookingSessionStatus.COMPLETED : CookingSessionStatus.RUNNING;
 
         if (targetStatus == CookingSessionStatus.RUNNING) {
-            completeAllOtherSessionsGlobally(event.sessionId());
+            completeAllOtherSessionsForUser(event.sessionId(), event.userId());
         }
 
         if (session == null) {
-            completeOtherSessions(event.recipeId(), event.sessionId());
+            completeOtherSessionsForUser(event.recipeId(), event.sessionId(), event.userId());
             session = CookingSession.builder()
                     .sessionId(event.sessionId())
                     .recipeId(event.recipeId())
+                    .userId(event.userId() != null ? event.userId() : "unknown")
                     .status(targetStatus)
                     .currentStep(event.stepNumber())
                     .lastExecutedAt(event.executedAt())
@@ -153,9 +170,12 @@ public class CookingSessionService {
         return cookingSessionRepository.save(session);
     }
 
-    private void completeOtherSessions(String recipeId, String currentSessionId) {
+    private void completeOtherSessionsForUser(String recipeId, String currentSessionId, String userId) {
+        if (userId == null) {
+            userId = "unknown";
+        }
         List<CookingSession> runningSessions = cookingSessionRepository
-                .findByRecipeIdAndStatus(recipeId, CookingSessionStatus.RUNNING);
+                .findByUserIdAndRecipeIdAndStatus(userId, recipeId, CookingSessionStatus.RUNNING);
         if (runningSessions.isEmpty()) {
             return;
         }
@@ -175,8 +195,11 @@ public class CookingSessionService {
     }
 
     @Transactional
-    public void completeAllOtherSessionsGlobally(String currentSessionId) {
-        List<CookingSession> runningSessions = cookingSessionRepository.findByStatus(CookingSessionStatus.RUNNING);
+    public void completeAllOtherSessionsForUser(String currentSessionId, String userId) {
+        if (userId == null) {
+            userId = "unknown";
+        }
+        List<CookingSession> runningSessions = cookingSessionRepository.findByUserIdAndStatus(userId, CookingSessionStatus.RUNNING);
         if (runningSessions.isEmpty()) {
             return;
         }
@@ -188,7 +211,7 @@ public class CookingSessionService {
                 session.setStatus(CookingSessionStatus.COMPLETED);
                 session.setCompletedAt(now);
                 updated = true;
-                logger.info("Session {} globally completed due to new active session {}", session.getSessionId(), currentSessionId);
+                logger.info("Session {} completed for user {} due to new active session {}", session.getSessionId(), userId, currentSessionId);
             }
         }
         if (updated) {

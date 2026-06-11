@@ -10,4 +10,5 @@ import java.util.List;
 @Repository
 public interface SimulationSessionRepository extends JpaRepository<SimulationSession, String> {
     List<SimulationSession> findByStatus(SimulationStatus status);
+    List<SimulationSession> findByStatusAndUserId(SimulationStatus status, String userId);
 }
