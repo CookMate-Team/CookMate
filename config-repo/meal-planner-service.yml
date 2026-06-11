@@ -1,0 +1,13 @@
+# Configuration specific to meal-planner-service
+server:
+  port: 8086
+
+meal-planner-service:
+  main-service-url: http://main-service:8081
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true

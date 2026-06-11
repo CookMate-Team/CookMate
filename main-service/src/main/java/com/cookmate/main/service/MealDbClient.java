@@ -48,6 +48,13 @@ public class MealDbClient {
     }
 
     /**
+     * Filtrowanie po kategorii (?c=)
+     */
+    public Mono<MealSearchResponse> filterByCategory(String category) {
+        return fetch("/filter.php?c=" + category, MealSearchResponse.class);
+    }
+
+    /**
      * Listy słownikowe (list.php?c=list, a=list, i=list)
      */
     public Mono<CommonListResponse> listAllBy(String type) {
