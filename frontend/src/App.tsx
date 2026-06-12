@@ -34,6 +34,7 @@ function AppContent() {
 
   const handleStartCooking = (recipeId: string) => {
     if (!isAuthenticated) {
+      localStorage.setItem('pendingRecipeId', recipeId);
       setShowLoginModal(true);
       return;
     }
@@ -48,6 +49,17 @@ function AppContent() {
   useEffect(() => {
     setCookingRecipeId(null);
   }, [source]);
+
+  // Restore pending cooking session after successful login
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pendingId = localStorage.getItem('pendingRecipeId');
+      if (pendingId) {
+        setCookingRecipeId(pendingId);
+        localStorage.removeItem('pendingRecipeId');
+      }
+    }
+  }, [isAuthenticated]);
 
   // ── Guided Cooking Mode ──
   if (cookingRecipeId) {
@@ -85,7 +97,10 @@ function AppContent() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
             <button 
-              onClick={() => setShowLoginModal(false)}
+              onClick={() => {
+                localStorage.removeItem('pendingRecipeId');
+                setShowLoginModal(false);
+              }}
               className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -109,7 +124,10 @@ function AppContent() {
                 Zaloguj się
               </button>
               <button
-                onClick={() => setShowLoginModal(false)}
+                onClick={() => {
+                  localStorage.removeItem('pendingRecipeId');
+                  setShowLoginModal(false);
+                }}
                 className="w-full bg-stone-100 text-stone-700 font-medium py-3 px-4 rounded-xl hover:bg-stone-200 transition-colors"
               >
                 Anuluj
