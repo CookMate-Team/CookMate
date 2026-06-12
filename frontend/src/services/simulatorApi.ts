@@ -112,7 +112,7 @@ export const getActiveCookingSession = async (
   const response = await authFetch(
     `${COOKING_SESSION_API_URL}/recipes/${recipeId}/active`
   );
-  if (response.status === 404) {
+  if (response.status === 404 || response.status === 204) {
     return null;
   }
   if (!response.ok) {
@@ -129,7 +129,7 @@ export const getCookingSessionHistory = async (
   const response = await authFetch(
     `${COOKING_SESSION_API_URL}/recipes/${recipeId}/history`
   );
-  if (response.status === 404) {
+  if (response.status === 404 || response.status === 204) {
     return [];
   }
   if (!response.ok) {
@@ -142,7 +142,7 @@ export const getCookingSessionHistory = async (
 /** Get global active cooking session (or null if none). */
 export const getActiveCookingSessionGlobal = async (): Promise<ActiveCookingSession | null> => {
   const response = await authFetch(`${COOKING_SESSION_API_URL}/active`);
-  if (response.status === 404) {
+  if (response.status === 404 || response.status === 204) {
     return null;
   }
   if (!response.ok) {
@@ -190,5 +190,5 @@ export const completeCookingSession = async (
 export function buildSseUrl(recipeId: string): string {
   const token = keycloak.token;
   const base = `${COOKING_SESSION_API_URL}/recipes/${recipeId}/stream`;
-  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
 }

@@ -16,6 +16,7 @@ import {
   startSimulation,
   completeSimulationSession,
   completeCookingSession,
+  buildSseUrl,
 } from '../services/simulatorApi';
 import type { ActiveCookingSession, CookingSessionProgressItem } from '../types/simulator';
 
@@ -226,14 +227,21 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       const recipeId = activeSession.recipeId;
       setIsStreaming(true);
 
-      const source = new EventSource(`/api/cooking-sessions/recipes/${recipeId}/stream`);
+      const sseUrl = buildSseUrl(recipeId);
+      const source = new EventSource(sseUrl);
       eventSourceRef.current = source;
 
+      source.onopen = () => console.log('SSE connection opened successfully');
+
       source.addEventListener('progress', (event) => {
+        console.log('SSE Progress Event received:', event.data);
         try {
           const parsed = JSON.parse(event.data) as CookingSessionProgressItem;
+          console.log('Parsed progress:', parsed);
           if (activeRecipeIdRef.current === parsed.recipeId) {
             mergeProgress(parsed);
+          } else {
+            console.warn('Recipe ID mismatch in SSE event', activeRecipeIdRef.current, parsed.recipeId);
           }
         } catch (error) {
           console.error('Error parsing SSE progress payload:', error);
@@ -241,9 +249,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
       });
 
       source.onerror = (event) => {
-        if (eventSourceRef.current) {
-          console.warn('Cooking session SSE connection state change:', event);
-        }
+        console.error('Cooking session SSE connection state change / error:', event);
       };
 
       return () => {

@@ -22,7 +22,7 @@ simulator-service:
   greeting: "Welcome to CookMate Simulator Service"
 
 cooking-session-service:
-  url: ${COOKING_SESSION_SERVICE_URL:http://cooking-session-service:8083}
+  url: ${COOKING_SESSION_SERVICE_URL:http://cooking-session-service:8084}
 
 springdoc:
   api-docs:

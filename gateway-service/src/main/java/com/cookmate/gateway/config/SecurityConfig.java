@@ -13,6 +13,7 @@ import org.springframework.security.web.server.authorization.HttpStatusServerAcc
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -20,6 +21,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+        ServerBearerTokenAuthenticationConverter bearerTokenConverter = new ServerBearerTokenAuthenticationConverter();
+        bearerTokenConverter.setAllowUriQueryParameter(true);
+
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
@@ -33,6 +37,7 @@ public class SecurityConfig {
                 .oauth2Login(Customizer.withDefaults())
                 .oauth2Client(Customizer.withDefaults())
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenConverter(bearerTokenConverter)
                         .jwt(Customizer.withDefaults())
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling

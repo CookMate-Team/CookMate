@@ -73,7 +73,7 @@ public class CookingSessionController {
         return Mono.fromCallable(() -> 
             cookingSessionService.getActiveSessionDetails(recipeId, jwt.getSubject())
                     .map(ResponseEntity::ok)
-                    .orElseGet(() -> ResponseEntity.notFound().build())
+                    .orElseGet(() -> ResponseEntity.noContent().build())
         );
     }
 
@@ -84,7 +84,7 @@ public class CookingSessionController {
         return Mono.fromCallable(() -> 
             cookingSessionService.getActiveSessionGlobal(jwt.getSubject())
                     .map(ResponseEntity::ok)
-                    .orElseGet(() -> ResponseEntity.notFound().build())
+                    .orElseGet(() -> ResponseEntity.noContent().build())
         );
     }
 
