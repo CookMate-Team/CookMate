@@ -12,6 +12,9 @@
   "requiredCredentials": [
     "password"
   ],
+  "defaultRoles": [
+    "ROLE_USER"
+  ],
   "roles": {
     "realm": [
       {
