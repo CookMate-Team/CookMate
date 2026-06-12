@@ -281,10 +281,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_URL: http://localhost:8081
-      SIMULATOR_URL: http://localhost:8082
-      COOKING_SESSION_URL: http://localhost:8084
+      GATEWAY_URL: http://gateway-service:8085
     depends_on:
+      gateway-service:
+        condition: service_healthy
       main-service:
         condition: service_healthy
       cooking-session-service:

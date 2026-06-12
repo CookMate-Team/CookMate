@@ -47,9 +47,7 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://localhost:8081");
-        config.addAllowedOrigin("http://localhost:8082");
-        config.addAllowedOrigin("http://localhost:8083");
+        config.addAllowedOrigin("http://localhost:8085");
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setMaxAge(3600L);

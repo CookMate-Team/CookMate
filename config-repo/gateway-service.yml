@@ -34,27 +34,36 @@ spring:
           default-filters:
             - SaveSession
           routes:
+            - id: cooking-session-sse
+              uri: lb://cooking-session-service
+              predicates:
+                - Path=/api/cooking-sessions/recipes/*/stream
+              filters:
+                - TokenRelay
+              metadata:
+                response-timeout: -1
+              order: 0
             - id: simulator-service
               uri: lb://simulator-service
               predicates:
                 - Path=/api/simulator/**
               filters:
                 - TokenRelay
-              order: 0
+              order: 1
             - id: cooking-session-service
               uri: lb://cooking-session-service
               predicates:
                 - Path=/api/cooking-sessions/**
               filters:
                 - TokenRelay
-              order: 1
+              order: 2
             - id: main-service
               uri: lb://main-service
               predicates:
                 - Path=/api/**
               filters:
                 - TokenRelay
-              order: 2
+              order: 3
 
 management:
   endpoints:
