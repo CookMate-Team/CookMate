@@ -8,6 +8,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('load', async () => {
+        try {
+          console.log('[DEBUG] Fetching /api/v1/users/me');
+          const res1 = await fetch('/api/v1/users/me', { credentials: 'include' });
+          console.log('[DEBUG] /api/v1/users/me status:', res1.status);
+          
+          console.log('[DEBUG] Fetching /api/cooking-sessions/active');
+          const res2 = await fetch('/api/cooking-sessions/active', { credentials: 'include' });
+          console.log('[DEBUG] /api/cooking-sessions/active status:', res2.status);
+          
+          console.log('[DEBUG] Document cookies:', document.cookie);
+        } catch (e) {
+          console.error('[DEBUG] Error:', e);
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

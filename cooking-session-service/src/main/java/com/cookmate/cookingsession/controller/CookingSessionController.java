@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -32,11 +33,13 @@ public class CookingSessionController {
 
     @PostMapping("/progress")
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<CookingSessionProgressDto> receiveProgress(
+    public Mono<ResponseEntity<CookingSessionProgressDto>> receiveProgress(
             @Valid @RequestBody StepCompletionEventDto event
     ) {
-        CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return Mono.fromCallable(() -> {
+            CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        });
     }
 
     @GetMapping("/recipes/{recipeId}/history")
@@ -77,11 +80,11 @@ public class CookingSessionController {
 
     @PostMapping("/sessions/{sessionId}/complete")
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<Void> completeSession(
+    public Mono<ResponseEntity<Void>> completeSession(
             @PathVariable String sessionId
     ) {
-        cookingSessionService.completeSession(sessionId);
-        return ResponseEntity.ok().build();
+        return Mono.fromRunnable(() -> cookingSessionService.completeSession(sessionId))
+                .thenReturn(ResponseEntity.ok().build());
     }
 
     @GetMapping(value = "/recipes/{recipeId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

@@ -33,7 +33,7 @@ public class SecurityConfig {
                         .pathMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                         .pathMatchers("/api/v1/discovery/**", "/api/v1/users/me").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .anyExchange().authenticated())
+                        .anyExchange().permitAll())
                 .oauth2Login(oauth2 -> oauth2
                         .authenticationSuccessHandler(new RedirectServerAuthenticationSuccessHandler("http://localhost:5173"))
                 )

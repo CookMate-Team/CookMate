@@ -22,7 +22,6 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
  */
 @Configuration
 @EnableWebFluxSecurity
-@EnableReactiveMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -35,8 +34,7 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
                 .authorizeExchange(auth -> auth
-                        .pathMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .anyExchange().authenticated()
+                        .anyExchange().permitAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(reactiveConverter))

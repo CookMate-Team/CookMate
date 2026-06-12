@@ -1,0 +1,371 @@
+networks:
+  cookmate-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  keycloak-data:
+  sonarqube_conf:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonarqube_temp:
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:18-alpine
+    container_name: cookmate-postgres
+    restart: unless-stopped
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      POSTGRES_DB: ${DB_NAME:-cookmate}
+      POSTGRES_USER: ${DB_USER:-cookmate}
+      POSTGRES_PASSWORD: ${DB_PASS:-cookmate}
+      POSTGRES_INITDB_ARGS: "-c max_connections=200"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cookmate} -d ${DB_NAME:-cookmate} && pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+
+  # ─────────────────────────────────────────────
+  # Config Service (port 8888)
+  # Startup order: 1st
+  # ─────────────────────────────────────────────
+  config-service:
+    build:
+      context: ./config-service
+      dockerfile: Dockerfile
+    container_name: cookmate-config
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_REPO_PATH: /config-repo
+    volumes:
+      - ./config-repo:/config-repo:ro
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+  # ─────────────────────────────────────────────
+  # Discovery Service / Eureka (port 8761)
+  # Startup order: 2nd (after config-service)
+  # ─────────────────────────────────────────────
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile
+    container_name: cookmate-discovery
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_SERVER_URL: http://config-service:8888
+      HOSTNAME: discovery-service
+    depends_on:
+      config-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+  # ─────────────────────────────────────────────
+  # Main Service (port 8081)
+  # Startup order: 3rd (after discovery + postgres)
+  # ─────────────────────────────────────────────
+  main-service:
+    build:
+      context: ./main-service
+      dockerfile: Dockerfile
+    container_name: cookmate-main
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Simulator Service (port 8082)
+  # Startup order: 3rd (after discovery + postgres)
+  # ─────────────────────────────────────────────
+  simulator-service:
+    build:
+      context: ./simulator-service
+      dockerfile: Dockerfile
+    container_name: cookmate-simulator
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Cooking Session Service (port 8083)
+  # Startup order: 4th (after simulator-service)
+  # ─────────────────────────────────────────────
+  cooking-session-service:
+    build:
+      context: ./cooking-session-service
+      dockerfile: Dockerfile
+    container_name: cookmate-cooking-session
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      SERVER_PORT: "8083"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      # POPRAWKA: Serwis startuje po simulator-service
+      simulator-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Gateway Service (port 8085)
+  # Startup order: 4th (after discovery-service)
+  # ─────────────────────────────────────────────
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: cookmate-gateway
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      KEYCLOAK_PUBLIC_URL: http://localhost:8080
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_ID: cookmate-client
+      KEYCLOAK_CLIENT_SECRET: cookmate-secret
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # Keycloak Identity & Access Management (port 8080)
+  # ─────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: cookmate-keycloak
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: "${KEYCLOAK_DB_USER:-keycloak}"
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak}"
+      KC_DB_URL_PROPERTIES: "?sslmode=disable"
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: "true"
+      KC_LOG_LEVEL: INFO
+      KC_HEALTH_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '200 OK' <&3" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    command: [ "start-dev", "--import-realm" ]
+
+  # ─────────────────────────────────────────────
+  # Frontend Service (port 5173)
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cookmate-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      GATEWAY_URL: http://gateway-service:8085
+      API_URL: http://gateway-service:8085
+      SIMULATOR_URL: http://gateway-service:8085
+      COOKING_SESSION_URL: http://gateway-service:8085
+    depends_on:
+      main-service:
+        condition: service_healthy
+      cooking-session-service:
+        condition: service_healthy
+      simulator-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+
+  # ─────────────────────────────────────────────
+  # Meal Planner Service (port 8086)
+  # Startup order: 3rd (after discovery-service)
+  # ─────────────────────────────────────────────
+  meal-planner-service:
+    build:
+      context: ./meal-planner-service
+      dockerfile: Dockerfile
+    container_name: cookmate-meal-planner
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      CONFIG_SERVER_URL: http://config-service:8888
+      EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      main-service:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
+
+  # ─────────────────────────────────────────────
+  # SonarQube Code Quality Platform (port 9000)
+  # ─────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:10.7.0-community
+    container_name: cookmate-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx384m"
+      SONAR_JDBC_USERNAME: "${SONAR_JDBC_USERNAME:-sonar}"
+      SONAR_JDBC_PASSWORD: "${SONAR_JDBC_PASSWORD:-sonar}"
+      SONAR_JDBC_URL: "${SONAR_JDBC_URL:-jdbc:postgresql://postgres:5432/sonar}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cookmate-net
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - sonarqube_conf:/opt/sonarqube/conf
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_temp:/opt/sonarqube/temp
