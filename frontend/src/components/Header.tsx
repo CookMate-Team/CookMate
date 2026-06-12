@@ -45,15 +45,31 @@ export function Header({ onHomeClick }: HeaderProps) {
           </a>
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); onHomeClick?.(); }}
-            className="text-white hover:text-amber-100 font-medium transition-colors"
+            onClick={(e) => { 
+              e.preventDefault(); 
+              if (!isAuthenticated) {
+                login();
+              } else {
+                onHomeClick?.(); 
+              }
+            }}
+            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
+            title={!isAuthenticated ? "Zaloguj się, aby uzyskać dostęp" : undefined}
           >
             Favorites
           </a>
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); onHomeClick?.(); }}
-            className="text-white hover:text-amber-100 font-medium transition-colors"
+            onClick={(e) => { 
+              e.preventDefault(); 
+              if (!isAuthenticated) {
+                login();
+              } else {
+                onHomeClick?.(); 
+              }
+            }}
+            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
+            title={!isAuthenticated ? "Zaloguj się, aby uzyskać dostęp" : undefined}
           >
             Create Recipe
           </a>

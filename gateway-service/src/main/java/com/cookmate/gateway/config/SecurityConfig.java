@@ -27,6 +27,7 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/health").permitAll()
                         .pathMatchers("/login", "/logout").permitAll()
                         .pathMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
+                        .pathMatchers("/api/v1/discovery/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated())
                 .oauth2Login(Customizer.withDefaults())

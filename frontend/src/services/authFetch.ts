@@ -6,11 +6,13 @@ import keycloak from '../auth/keycloak';
  * Jeśli odświeżenie się nie powiedzie (sesja wygasła), przekierowuje do logowania.
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  try {
-    await keycloak.updateToken(30);
-  } catch {
-    keycloak.login();
-    return Promise.reject(new Error('Session expired. Redirecting to login.'));
+  if (keycloak.authenticated) {
+    try {
+      await keycloak.updateToken(30);
+    } catch {
+      keycloak.login();
+      return Promise.reject(new Error('Session expired. Redirecting to login.'));
+    }
   }
 
   const headers = new Headers(options.headers);
