@@ -76,6 +76,25 @@
         "ROLE_USER",
         "ROLE_ADMIN"
       ]
+    },
+    {
+      "username": "test.admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Admin",
+      "email": "test.admin@cookmate.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin12345",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ROLE_USER",
+        "ROLE_ADMIN"
+      ]
     }
   ]
 }
