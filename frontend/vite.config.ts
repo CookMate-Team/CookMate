@@ -11,6 +11,14 @@ export default defineConfig({
 				target: process.env.GATEWAY_URL || 'http://localhost:8085',
 				changeOrigin: true,
 			},
+			'/realms': {
+				target: process.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
+				changeOrigin: true,
+			},
+			'/resources': {
+				target: process.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
+				changeOrigin: true,
+			},
 		},
 	},
 	preview: {
