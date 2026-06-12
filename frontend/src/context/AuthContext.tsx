@@ -24,6 +24,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   login: () => void;
   logout: () => void;
+  register: () => void;
   getToken: () => Promise<string | undefined>;
 }
 
@@ -94,6 +95,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     keycloak.logout({ redirectUri: window.location.origin });
   }, []);
 
+  const register = useCallback(() => {
+    keycloak.register();
+  }, []);
+
   const getToken = useCallback(async (): Promise<string | undefined> => {
     try {
       await keycloak.updateToken(30);
@@ -105,8 +110,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const value = useMemo(
-    () => ({ isAuthenticated, isLoading, user, login, logout, getToken }),
-    [isAuthenticated, isLoading, user, login, logout, getToken]
+    () => ({ isAuthenticated, isLoading, user, login, logout, register, getToken }),
+    [isAuthenticated, isLoading, user, login, logout, register, getToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

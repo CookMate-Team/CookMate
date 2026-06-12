@@ -7,7 +7,7 @@ interface HeaderProps {
 }
 
 export function Header({ onHomeClick }: HeaderProps) {
-  const { isAuthenticated, user, login, logout } = useAuth();
+  const { isAuthenticated, user, login, logout, register } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -116,14 +116,23 @@ export function Header({ onHomeClick }: HeaderProps) {
               )}
             </div>
           ) : (
-            // ── Niezalogowany — przycisk logowania ──
-            <button
-              id="login-btn"
-              onClick={login}
-              className="bg-white text-orange-500 font-bold px-5 py-2 rounded-xl shadow-md hover:shadow-lg hover:bg-orange-50 active:scale-[0.98] transition-all duration-200 text-sm"
-            >
-              Log In
-            </button>
+            // ── Niezalogowany — przyciski logowania i rejestracji ──
+            <div className="flex items-center gap-3">
+              <button
+                id="register-btn"
+                onClick={register}
+                className="text-white hover:text-amber-100 font-medium transition-colors text-sm"
+              >
+                Sign Up
+              </button>
+              <button
+                id="login-btn"
+                onClick={login}
+                className="bg-white text-orange-500 font-bold px-5 py-2 rounded-xl shadow-md hover:shadow-lg hover:bg-orange-50 active:scale-[0.98] transition-all duration-200 text-sm"
+              >
+                Log In
+              </button>
+            </div>
           )}
         </div>
       </div>

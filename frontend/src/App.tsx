@@ -27,7 +27,7 @@ function AuthLoader({ children }: { children: React.ReactNode }) {
 
 // ── Główna zawartość aplikacji ─────────────────────────────────────────────────
 function AppContent() {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, register } = useAuth();
   const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const source = useRecipeStore((state) => state.source);
@@ -124,11 +124,17 @@ function AppContent() {
                 Log In
               </button>
               <button
+                onClick={register}
+                className="w-full bg-stone-100 text-amber-600 font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg hover:bg-stone-200 transition-all duration-200"
+              >
+                Create Account
+              </button>
+              <button
                 onClick={() => {
                   localStorage.removeItem('pendingRecipeId');
                   setShowLoginModal(false);
                 }}
-                className="w-full bg-stone-100 text-stone-700 font-medium py-3 px-4 rounded-xl hover:bg-stone-200 transition-colors"
+                className="w-full bg-transparent border border-stone-200 text-stone-600 font-medium py-3 px-4 rounded-xl hover:bg-stone-50 transition-colors"
               >
                 Cancel
               </button>
