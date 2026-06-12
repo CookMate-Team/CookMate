@@ -45,31 +45,31 @@ export function Header({ onHomeClick }: HeaderProps) {
           </a>
           <a
             href="#"
-            onClick={(e) => { 
-              e.preventDefault(); 
+            onClick={(e) => {
+              e.preventDefault();
               if (!isAuthenticated) {
                 login();
               } else {
-                onHomeClick?.(); 
+                onHomeClick?.();
               }
             }}
             className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
-            title={!isAuthenticated ? "Zaloguj się, aby uzyskać dostęp" : undefined}
+            title={!isAuthenticated ? "Log in to access" : undefined}
           >
             Favorites
           </a>
           <a
             href="#"
-            onClick={(e) => { 
-              e.preventDefault(); 
+            onClick={(e) => {
+              e.preventDefault();
               if (!isAuthenticated) {
                 login();
               } else {
-                onHomeClick?.(); 
+                onHomeClick?.();
               }
             }}
             className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
-            title={!isAuthenticated ? "Zaloguj się, aby uzyskać dostęp" : undefined}
+            title={!isAuthenticated ? "Log in to access" : undefined}
           >
             Create Recipe
           </a>
@@ -98,7 +98,7 @@ export function Header({ onHomeClick }: HeaderProps) {
                   role="menu"
                 >
                   <div className="px-4 py-3 border-b border-stone-100">
-                    <p className="text-xs text-stone-400 uppercase tracking-wide mb-0.5">Zalogowany jako</p>
+                    <p className="text-xs text-stone-400 uppercase tracking-wide mb-0.5">Logged in as</p>
                     <p className="font-semibold text-stone-800 truncate">{user.username}</p>
                     {user.email && (
                       <p className="text-xs text-stone-400 truncate">{user.email}</p>
@@ -110,7 +110,7 @@ export function Header({ onHomeClick }: HeaderProps) {
                     className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-medium transition-colors flex items-center gap-2"
                     role="menuitem"
                   >
-                    <span>🚪</span> Wyloguj się
+                    <span>🚪</span> Log Out
                   </button>
                 </div>
               )}
@@ -120,9 +120,9 @@ export function Header({ onHomeClick }: HeaderProps) {
             <button
               id="login-btn"
               onClick={login}
-              className="bg-white/20 backdrop-blur-sm text-white font-medium px-4 py-1.5 rounded-lg hover:bg-white/30 transition-colors text-sm border border-white/30"
+              className="bg-white text-orange-500 font-bold px-5 py-2 rounded-xl shadow-md hover:shadow-lg hover:bg-orange-50 active:scale-[0.98] transition-all duration-200 text-sm"
             >
-              Zaloguj się
+              Log In
             </button>
           )}
         </div>
