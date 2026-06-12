@@ -7,32 +7,24 @@ export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	server: {
 		proxy: {
-			'/api/simulator': {
-				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
-				changeOrigin: true,
-			},
-			'/api/cooking-sessions': {
-				target: process.env.COOKING_SESSION_URL || 'http://localhost:8083',
-				changeOrigin: true,
-			},
 			'/api': {
-				target: process.env.API_URL || 'http://localhost:8081',
+				target: process.env.GATEWAY_URL || 'http://localhost:8085',
+				changeOrigin: true,
+			},
+			'/realms': {
+				target: process.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
+				changeOrigin: true,
+			},
+			'/resources': {
+				target: process.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
 				changeOrigin: true,
 			},
 		},
 	},
 	preview: {
 		proxy: {
-			'/api/simulator': {
-				target: process.env.SIMULATOR_URL || 'http://localhost:8082',
-				changeOrigin: true,
-			},
-			'/api/cooking-sessions': {
-				target: process.env.COOKING_SESSION_URL || 'http://localhost:8083',
-				changeOrigin: true,
-			},
 			'/api': {
-				target: process.env.API_URL || 'http://localhost:8081',
+				target: process.env.GATEWAY_URL || 'http://localhost:8085',
 				changeOrigin: true,
 			},
 		},

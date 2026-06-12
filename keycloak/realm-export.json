@@ -4,13 +4,16 @@
   "displayName": "CookMate",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "requiredCredentials": [
     "password"
+  ],
+  "defaultRoles": [
+    "ROLE_USER"
   ],
   "roles": {
     "realm": [
@@ -32,6 +35,29 @@
   },
   "clients": [
     {
+      "clientId": "cookmate-spa",
+      "name": "CookMate SPA",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:8085/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:8085"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
       "clientId": "cookmate-client",
       "name": "CookMate OIDC Client",
       "enabled": true,
@@ -46,13 +72,11 @@
       "secret": "cookmate-secret",
       "redirectUris": [
         "http://localhost:5173/*",
-        "http://localhost:8081/*",
-        "http://localhost:8083/*"
+        "http://localhost:8085/*"
       ],
       "webOrigins": [
         "http://localhost:5173",
-        "http://localhost:8081",
-        "http://localhost:8083"
+        "http://localhost:8085"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -71,6 +95,25 @@
         {
           "type": "password",
           "value": "test12345",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ROLE_USER",
+        "ROLE_ADMIN"
+      ]
+    },
+    {
+      "username": "test.admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Admin",
+      "email": "test.admin@cookmate.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin12345",
           "temporary": false
         }
       ],

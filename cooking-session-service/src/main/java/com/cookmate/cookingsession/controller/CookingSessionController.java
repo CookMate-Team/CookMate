@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -32,59 +33,69 @@ public class CookingSessionController {
 
     @PostMapping("/progress")
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<CookingSessionProgressDto> receiveProgress(
+    public Mono<ResponseEntity<CookingSessionProgressDto>> receiveProgress(
             @Valid @RequestBody StepCompletionEventDto event,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        String userId = jwt.getSubject();
-        CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return Mono.fromCallable(() -> {
+            String userId = jwt.getSubject();
+            CookingSessionProgressDto saved = cookingSessionService.handleProgressEvent(event, userId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        });
     }
 
     @GetMapping("/recipes/{recipeId}/history")
-    public ResponseEntity<List<CookingSessionProgressDto>> getHistory(
+    public Mono<ResponseEntity<List<CookingSessionProgressDto>>> getHistory(
             @PathVariable String recipeId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return ResponseEntity.ok(cookingSessionService.getHistoryByRecipe(recipeId, jwt.getSubject()));
+        return Mono.fromCallable(() -> 
+            ResponseEntity.ok(cookingSessionService.getHistoryByRecipe(recipeId, jwt.getSubject()))
+        );
     }
 
     @GetMapping("/recipes/{recipeId}/latest")
-    public ResponseEntity<CookingSessionProgressDto> getLatest(
+    public Mono<ResponseEntity<CookingSessionProgressDto>> getLatest(
             @PathVariable String recipeId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        CookingSessionProgressDto latest = cookingSessionService.getLatestByRecipe(recipeId, jwt.getSubject());
-        return latest == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(latest);
+        return Mono.fromCallable(() -> {
+            CookingSessionProgressDto latest = cookingSessionService.getLatestByRecipe(recipeId, jwt.getSubject());
+            return latest == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(latest);
+        });
     }
 
     @GetMapping("/recipes/{recipeId}/active")
-    public ResponseEntity<ActiveCookingSessionDto> getActiveSession(
+    public Mono<ResponseEntity<ActiveCookingSessionDto>> getActiveSession(
             @PathVariable String recipeId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return cookingSessionService.getActiveSessionDetails(recipeId, jwt.getSubject())
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return Mono.fromCallable(() -> 
+            cookingSessionService.getActiveSessionDetails(recipeId, jwt.getSubject())
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build())
+        );
     }
 
     @GetMapping("/active")
-    public ResponseEntity<ActiveCookingSessionDto> getActiveSessionGlobal(
+    public Mono<ResponseEntity<ActiveCookingSessionDto>> getActiveSessionGlobal(
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return cookingSessionService.getActiveSessionGlobal(jwt.getSubject())
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return Mono.fromCallable(() -> 
+            cookingSessionService.getActiveSessionGlobal(jwt.getSubject())
+                    .map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.noContent().build())
+        );
     }
 
     @PostMapping("/sessions/{sessionId}/complete")
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<Void> completeSession(
+    public Mono<ResponseEntity<Void>> completeSession(
             @PathVariable String sessionId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        cookingSessionService.completeSession(sessionId, jwt.getSubject());
-        return ResponseEntity.ok().build();
+        return Mono.fromRunnable(() -> cookingSessionService.completeSession(sessionId, jwt.getSubject()))
+                .thenReturn(ResponseEntity.ok().build());
     }
 
     @GetMapping(value = "/recipes/{recipeId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

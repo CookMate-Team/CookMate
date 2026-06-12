@@ -6,6 +6,8 @@ import type {
   CookingSessionProgressItem,
   ActiveCookingSession,
 } from '../types/simulator';
+import { authFetch } from './authFetch';
+import keycloak from '../auth/keycloak';
 
 const API_BASE_URL = '/api/simulator';
 const MAIN_API_URL = '/api';
@@ -17,7 +19,7 @@ const COOKING_SESSION_API_URL = '/api/cooking-sessions';
  * so that main-service has the steps in its database.
  */
 export const generateSteps = async (mealId: string): Promise<void> => {
-  const response = await fetch(`${MAIN_API_URL}/steps/generate`, {
+  const response = await authFetch(`${MAIN_API_URL}/steps/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mealId }),
@@ -32,7 +34,7 @@ export const generateSteps = async (mealId: string): Promise<void> => {
 export const startSimulation = async (
   request: StartSimulationRequest
 ): Promise<SimulationStatusResponse> => {
-  const response = await fetch(`${API_BASE_URL}/sessions/start`, {
+  const response = await authFetch(`${API_BASE_URL}/sessions/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -48,7 +50,7 @@ export const startSimulation = async (
 export const executeNextStep = async (
   sessionId: string
 ): Promise<StepExecutionResult> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${API_BASE_URL}/sessions/${sessionId}/steps/execute`,
     { method: 'POST' }
   );
@@ -63,7 +65,7 @@ export const executeNextStep = async (
 export const getSimulationStatus = async (
   sessionId: string
 ): Promise<SimulationStatusResponse> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${API_BASE_URL}/sessions/${sessionId}/status`
   );
   if (!response.ok) {
@@ -77,7 +79,7 @@ export const getSimulationStatus = async (
 export const getSimulationHistory = async (
   sessionId: string
 ): Promise<SimulationStepHistoryItem[]> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${API_BASE_URL}/sessions/${sessionId}/history`
   );
   if (!response.ok) {
@@ -92,7 +94,7 @@ export const rewindSimulation = async (
   sessionId: string,
   stepNumber: number
 ): Promise<SimulationStatusResponse> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${API_BASE_URL}/sessions/${sessionId}/rewind?stepNumber=${stepNumber}`,
     { method: 'POST' }
   );
@@ -107,10 +109,10 @@ export const rewindSimulation = async (
 export const getActiveCookingSession = async (
   recipeId: string
 ): Promise<ActiveCookingSession | null> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${COOKING_SESSION_API_URL}/recipes/${recipeId}/active`
   );
-  if (response.status === 404) {
+  if (response.status === 404 || response.status === 204) {
     return null;
   }
   if (!response.ok) {
@@ -124,10 +126,10 @@ export const getActiveCookingSession = async (
 export const getCookingSessionHistory = async (
   recipeId: string
 ): Promise<CookingSessionProgressItem[]> => {
-  const response = await fetch(
+  const response = await authFetch(
     `${COOKING_SESSION_API_URL}/recipes/${recipeId}/history`
   );
-  if (response.status === 404) {
+  if (response.status === 404 || response.status === 204) {
     return [];
   }
   if (!response.ok) {
@@ -139,8 +141,8 @@ export const getCookingSessionHistory = async (
 
 /** Get global active cooking session (or null if none). */
 export const getActiveCookingSessionGlobal = async (): Promise<ActiveCookingSession | null> => {
-  const response = await fetch(`${COOKING_SESSION_API_URL}/active`);
-  if (response.status === 404) {
+  const response = await authFetch(`${COOKING_SESSION_API_URL}/active`);
+  if (response.status === 404 || response.status === 204) {
     return null;
   }
   if (!response.ok) {
@@ -158,7 +160,7 @@ export const getActiveCookingSessionGlobal = async (): Promise<ActiveCookingSess
 export const completeSimulationSession = async (
   sessionId: string
 ): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
+  const response = await authFetch(`${API_BASE_URL}/sessions/${sessionId}/complete`, {
     method: 'POST',
   });
   if (!response.ok) {
@@ -171,7 +173,7 @@ export const completeSimulationSession = async (
 export const completeCookingSession = async (
   sessionId: string
 ): Promise<void> => {
-  const response = await fetch(`${COOKING_SESSION_API_URL}/sessions/${sessionId}/complete`, {
+  const response = await authFetch(`${COOKING_SESSION_API_URL}/sessions/${sessionId}/complete`, {
     method: 'POST',
   });
   if (!response.ok) {
@@ -179,3 +181,14 @@ export const completeCookingSession = async (
     throw new Error(errorBody || 'Failed to complete cooking session');
   }
 };
+
+/**
+ * Buduje URL do SSE stream z tokenem jako query param.
+ * EventSource nie obsługuje custom headers — token przekazywany przez ?token=.
+ * Gateway/serwisy muszą wspierać ten parametr LUB używamy proxy z ciasteczkiem sesji.
+ */
+export function buildSseUrl(recipeId: string): string {
+  const token = keycloak.token;
+  const base = `${COOKING_SESSION_API_URL}/recipes/${recipeId}/stream`;
+  return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
+}

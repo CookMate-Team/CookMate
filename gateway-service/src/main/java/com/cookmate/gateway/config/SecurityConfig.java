@@ -13,6 +13,7 @@ import org.springframework.security.web.server.authorization.HttpStatusServerAcc
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -20,6 +21,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+        ServerBearerTokenAuthenticationConverter bearerTokenConverter = new ServerBearerTokenAuthenticationConverter();
+        bearerTokenConverter.setAllowUriQueryParameter(true);
+
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
@@ -27,11 +31,13 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/health").permitAll()
                         .pathMatchers("/login", "/logout").permitAll()
                         .pathMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
+                        .pathMatchers("/api/v1/discovery/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyExchange().authenticated())
                 .oauth2Login(Customizer.withDefaults())
                 .oauth2Client(Customizer.withDefaults())
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenConverter(bearerTokenConverter)
                         .jwt(Customizer.withDefaults())
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
@@ -47,9 +53,7 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://localhost:8081");
-        config.addAllowedOrigin("http://localhost:8082");
-        config.addAllowedOrigin("http://localhost:8083");
+        config.addAllowedOrigin("http://localhost:8085");
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setMaxAge(3600L);

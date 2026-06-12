@@ -9,7 +9,7 @@ import java.util.Map;
 
 @FeignClient(
         name = "cooking-session-service",
-        url = "${cooking-session-service.url:http://cooking-session-service:8083}"
+        url = "${cooking-session-service.url:http://cooking-session-service:8084}"
 )
 public interface CookingSessionClient {
 

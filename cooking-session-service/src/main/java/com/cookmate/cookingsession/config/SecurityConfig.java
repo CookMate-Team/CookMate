@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.server.resource.authentication.Reacti
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.HttpStatusServerEntryPoint;
 import org.springframework.security.web.server.authorization.HttpStatusServerAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
 
 /**
  * Reactive security configuration for cooking-session-service acting as an OAuth2 Resource Server.
@@ -30,6 +31,9 @@ public class SecurityConfig {
         ReactiveJwtAuthenticationConverterAdapter reactiveConverter =
                 new ReactiveJwtAuthenticationConverterAdapter(jwtAuthenticationConverter);
 
+        ServerBearerTokenAuthenticationConverter bearerTokenConverter = new ServerBearerTokenAuthenticationConverter();
+        bearerTokenConverter.setAllowUriQueryParameter(true);
+
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(auth -> auth
@@ -37,6 +41,7 @@ public class SecurityConfig {
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenConverter(bearerTokenConverter)
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(reactiveConverter))
                 )
                 .exceptionHandling(ex -> ex
