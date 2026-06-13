@@ -22,6 +22,12 @@ export function SourceToggle({ className = '' }: { className?: string }) {
           My Recipes
         </button>
         <button 
+          onClick={() => setSource('FAVORITES')}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'FAVORITES' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+        >
+          Favorites
+        </button>
+        <button 
           onClick={() => setSource('DISCOVERY')}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'DISCOVERY' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >

@@ -1,4 +1,5 @@
 import { useMealDetails } from '../hooks/useMealDetails';
+import { useCheckFavorite, useAddFavorite, useRemoveFavorite } from '../hooks/useFavorites';
 
 interface ExpandedRecipeCardProps {
   id: string | null;
@@ -8,6 +9,9 @@ interface ExpandedRecipeCardProps {
 
 export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedRecipeCardProps) {
   const { data, isLoading, isError } = useMealDetails(id);
+  const { data: isFav } = useCheckFavorite(id);
+  const { mutate: addFav } = useAddFavorite();
+  const { mutate: removeFav } = useRemoveFavorite();
 
   if (!id) return null;
 
@@ -102,6 +106,24 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedReci
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
                 >
                   Start cooking
+                </button>
+              )}
+              {id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isFav) {
+                      removeFav(id);
+                    } else {
+                      addFav({ recipeId: id, request: { recipeTitle: meal.strMeal, imageUrl: meal.strMealThumb } });
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 px-6 py-2.5 font-bold rounded-full border shadow-sm transition-all duration-300 ${isFav ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isFav ? 'fill-current' : 'fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isFav ? 0 : 2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {isFav ? 'Remove from favorites' : 'Add to favorites'}
                 </button>
               )}
               {meal.strYoutube && (

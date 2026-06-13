@@ -10,6 +10,7 @@ import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
 import { completeSimulationSession, completeCookingSession } from '../services/simulatorApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
+import { useFavorites } from '../hooks/useFavorites';
 
 function ActiveCookingCard({ 
   recipeId, 
@@ -136,6 +137,7 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
   const cols = useGridCols();
   
   const { data: listData, isLoading: isListLoading, isError: isListError } = useDiscoveryRecipes(searchQuery);
+  const { data: favoritesData, isLoading: isFavoritesLoading, isError: isFavoritesError, fetchNextPage, hasNextPage, isFetchingNextPage } = useFavorites();
   
   const fetchId = pendingRecipeId || selectedRecipeId;
   const { isLoading: isDetailsLoading } = useMealDetails(fetchId);
@@ -224,6 +226,9 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
 
   const sortedMockRecipes = reorderToRowStart(MOCK_RECIPES, selectedRecipeId, 'id');
   const sortedDiscoveryMeals = reorderToRowStart(listData?.meals || [], selectedRecipeId, 'idMeal');
+  
+  const allFavorites = favoritesData ? favoritesData.pages.flatMap(page => page.content) : [];
+  const sortedFavorites = reorderToRowStart(allFavorites, selectedRecipeId, 'recipeId');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,7 +329,61 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
             )}
           </div>
         ))}
+
+        {source === 'FAVORITES' && isFavoritesLoading && (
+          <div className="col-span-full text-center text-stone-500 py-10">Loading favorites...</div>
+        )}
+
+        {source === 'FAVORITES' && isFavoritesError && (
+          <div className="col-span-full text-center text-red-500 py-10">Failed to load favorites.</div>
+        )}
+
+        {source === 'FAVORITES' && sortedFavorites.map((fav) => (
+          <div 
+            key={fav.recipeId} 
+            className={selectedRecipeId === fav.recipeId ? 'col-span-full' : ''}
+          >
+            {selectedRecipeId === fav.recipeId ? (
+              <div ref={expandedRef}>
+                <ExpandedRecipeCard 
+                  id={fav.recipeId} 
+                  onClose={() => handleSelect(null)}
+                  onStartCooking={onStartCooking}
+                />
+              </div>
+            ) : (
+              <RecipeCard
+                id={fav.recipeId}
+                name={fav.recipeTitle}
+                imageUrl={fav.imageUrl}
+                onClick={handleSelect}
+                isPending={pendingRecipeId === fav.recipeId}
+              />
+            )}
+          </div>
+        ))}
       </div>
+      
+      {/* Load More Pagination for Favorites */}
+      {source === 'FAVORITES' && hasNextPage && (
+        <div className="flex justify-center items-center mt-12 gap-2">
+          <button 
+            onClick={() => fetchNextPage()} 
+            disabled={isFetchingNextPage}
+            className="px-6 py-3 bg-white border border-stone-200 rounded-xl text-stone-700 font-bold hover:bg-stone-50 disabled:opacity-50 shadow-sm transition-all"
+          >
+            {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+          </button>
+        </div>
+      )}
+      {source === 'FAVORITES' && !hasNextPage && sortedFavorites.length > 0 && (
+        <div className="flex justify-center items-center mt-12">
+          <p className="text-stone-500 font-medium">You have reached the end of your favorites.</p>
+        </div>
+      )}
+      {source === 'FAVORITES' && sortedFavorites.length === 0 && !isFavoritesLoading && !isFavoritesError && (
+        <div className="col-span-full text-center text-stone-500 py-10">You have no favorite recipes yet. Start discovering!</div>
+      )}
       
       {/* Static Pagination for Prototype LOCAL */}
       {source === 'LOCAL' && (
