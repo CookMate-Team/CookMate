@@ -1,8 +1,9 @@
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { fetchFavorites, addFavorite, removeFavorite, checkFavorite } from '../services/favoritesApi';
 import type { FavoriteRecipeAddRequest, PaginatedFavorites } from '../services/favoritesApi';
-
+import { useAuth } from '../context/AuthContext';
 export const useFavorites = () => {
+  const { isAuthenticated } = useAuth();
   return useInfiniteQuery<PaginatedFavorites, Error>({
     queryKey: ['favorites'],
     queryFn: ({ pageParam = 0 }) => fetchFavorites(pageParam as number, 12),
@@ -11,6 +12,7 @@ export const useFavorites = () => {
       return lastPage.number + 1;
     },
     initialPageParam: 0,
+    enabled: isAuthenticated,
   });
 };
 
@@ -37,10 +39,11 @@ export const useRemoveFavorite = () => {
 };
 
 export const useCheckFavorite = (recipeId: string | null) => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ['favoriteCheck', recipeId],
     queryFn: () => recipeId ? checkFavorite(recipeId) : Promise.resolve(false),
-    enabled: !!recipeId,
+    enabled: !!recipeId && isAuthenticated,
     retry: false,
   });
 };

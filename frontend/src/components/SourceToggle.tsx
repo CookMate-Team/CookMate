@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { useRecipeStore } from '../store/useRecipeStore';
 import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
+import { useAuth } from '../context/AuthContext';
 
 export function SourceToggle({ className = '' }: { className?: string }) {
   const { source, setSource } = useRecipeStore();
   const { data: activeSession } = useGlobalActiveSession();
+  const { isAuthenticated, login } = useAuth();
 
   useEffect(() => {
     if (source === 'ACTIVE' && !activeSession) {
@@ -22,7 +24,13 @@ export function SourceToggle({ className = '' }: { className?: string }) {
           My Recipes
         </button>
         <button 
-          onClick={() => setSource('FAVORITES')}
+          onClick={() => {
+            if (!isAuthenticated) {
+              login();
+            } else {
+              setSource('FAVORITES');
+            }
+          }}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'FAVORITES' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
           Favorites
