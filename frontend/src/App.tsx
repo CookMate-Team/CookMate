@@ -97,8 +97,17 @@ function AppContent() {
 
       {/* ── Login Modal ── */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4"
+          onClick={() => {
+            localStorage.removeItem('pendingRecipeId');
+            setShowLoginModal(false);
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => {
                 localStorage.removeItem('pendingRecipeId');
