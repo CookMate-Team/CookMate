@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SourceToggle } from './SourceToggle';
 import { useAuth } from '../context/AuthContext';
+import { useRecipeStore } from '../store/useRecipeStore';
 
 interface HeaderProps {
   onHomeClick?: () => void;
@@ -50,6 +51,7 @@ export function Header({ onHomeClick }: HeaderProps) {
               if (!isAuthenticated) {
                 login();
               } else {
+                useRecipeStore.getState().setSource('FAVORITES');
                 onHomeClick?.();
               }
             }}

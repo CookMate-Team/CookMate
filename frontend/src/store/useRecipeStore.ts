@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type RecipeSource = 'LOCAL' | 'DISCOVERY' | 'ACTIVE';
+export type RecipeSource = 'LOCAL' | 'DISCOVERY' | 'ACTIVE' | 'FAVORITES';
 
 interface RecipeState {
   source: RecipeSource;
