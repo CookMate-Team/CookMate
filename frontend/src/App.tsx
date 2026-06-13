@@ -87,7 +87,10 @@ function AppContent() {
         </div>
 
         <div className='pt-8'>
-          <RecipeGallery onStartCooking={handleStartCooking} />
+          <RecipeGallery 
+            onStartCooking={handleStartCooking} 
+            onRequireLogin={() => setShowLoginModal(true)} 
+          />
         </div>
       </main>
       <Footer />
@@ -112,7 +115,7 @@ function AppContent() {
               <div className="text-5xl mb-4">🍳</div>
               <h2 className="text-2xl font-bold text-stone-800 mb-2">Login Required</h2>
               <p className="text-stone-600">
-                To start guided cooking and save your progress, you need to log in.
+                To use this feature and save your progress, you need to log in.
               </p>
             </div>
 

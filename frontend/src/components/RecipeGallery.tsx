@@ -127,7 +127,7 @@ const MOCK_RECIPES = [
   { id: '6', name: 'Grilled Salmon with Asparagus', time: 25, category: 'Seafood', imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
 ];
 
-export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: string) => void }) {
+export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooking?: (recipeId: string) => void, onRequireLogin?: () => void }) {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
   const { data: activeSession } = useGlobalActiveSession();
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -289,6 +289,7 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
                   id={recipe.id} 
                   onClose={() => handleSelect(null)}
                   onStartCooking={onStartCooking}
+                  onRequireLogin={onRequireLogin}
                 />
               </div>
             ) : (
@@ -299,6 +300,7 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
                 category={recipe.category}
                 imageUrl={recipe.imageUrl}
                 onClick={handleSelect}
+                onRequireLogin={onRequireLogin}
               />
             )}
           </div>
@@ -315,6 +317,7 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
                   id={meal.idMeal} 
                   onClose={() => handleSelect(null)}
                   onStartCooking={onStartCooking}
+                  onRequireLogin={onRequireLogin}
                 />
               </div>
             ) : (
@@ -325,6 +328,7 @@ export function RecipeGallery({ onStartCooking }: { onStartCooking?: (recipeId: 
                 imageUrl={meal.strMealThumb}
                 onClick={handleSelect}
                 isPending={pendingRecipeId === meal.idMeal}
+                onRequireLogin={onRequireLogin}
               />
             )}
           </div>

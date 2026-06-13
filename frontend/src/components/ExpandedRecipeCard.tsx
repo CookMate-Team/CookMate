@@ -1,13 +1,16 @@
 import { useMealDetails } from '../hooks/useMealDetails';
 import { useCheckFavorite, useAddFavorite, useRemoveFavorite } from '../hooks/useFavorites';
+import { useAuth } from '../context/AuthContext';
 
 interface ExpandedRecipeCardProps {
   id: string | null;
   onClose: () => void;
   onStartCooking?: (id: string) => void;
+  onRequireLogin?: () => void;
 }
 
-export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedRecipeCardProps) {
+export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin }: ExpandedRecipeCardProps) {
+  const { isAuthenticated } = useAuth();
   const { data, isLoading, isError } = useMealDetails(id);
   const { data: isFav } = useCheckFavorite(id);
   const { mutate: addFav } = useAddFavorite();
@@ -112,6 +115,10 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking }: ExpandedReci
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (!isAuthenticated) {
+                      onRequireLogin?.();
+                      return;
+                    }
                     if (isFav) {
                       removeFav(id);
                     } else {

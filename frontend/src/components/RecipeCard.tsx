@@ -1,4 +1,5 @@
 import { useCheckFavorite, useAddFavorite, useRemoveFavorite } from '../hooks/useFavorites';
+import { useAuth } from '../context/AuthContext';
 
 export interface RecipeCardProps {
   id: string;
@@ -6,11 +7,13 @@ export interface RecipeCardProps {
   time?: number;
   category?: string;
   imageUrl?: string;
-  onClick?: (id: string) => void;
+  onClick: (id: string) => void;
   isPending?: boolean;
+  onRequireLogin?: () => void;
 }
 
-export function RecipeCard({ id, name, time, category, imageUrl, onClick, isPending }: RecipeCardProps) {
+export function RecipeCard({ id, name, time, category, imageUrl, onClick, isPending, onRequireLogin }: RecipeCardProps) {
+  const { isAuthenticated } = useAuth();
   // Placeholder image if none provided
   const imgSource = imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60';
   
@@ -45,6 +48,10 @@ export function RecipeCard({ id, name, time, category, imageUrl, onClick, isPend
         <button
           onClick={(e) => {
             e.stopPropagation();
+            if (!isAuthenticated) {
+              onRequireLogin?.();
+              return;
+            }
             if (isFav) {
               removeFav(id);
             } else {
