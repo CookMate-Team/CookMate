@@ -12,11 +12,35 @@
   "requiredCredentials": [
     "password"
   ],
-  "defaultRoles": [
-    "ROLE_USER"
-  ],
+  "defaultRole": {
+    "name": "default-roles-cookmate",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "clientRole": false,
+    "containerId": "cookmate"
+  },
   "roles": {
     "realm": [
+      {
+        "name": "default-roles-cookmate",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "clientRole": false,
+        "containerId": "cookmate",
+        "composites": {
+          "realm": [
+            "offline_access",
+            "uma_authorization",
+            "ROLE_USER"
+          ],
+          "client": {
+            "account": [
+              "manage-account",
+              "view-profile"
+            ]
+          }
+        }
+      },
       {
         "name": "ROLE_USER",
         "description": "Default application user role",
