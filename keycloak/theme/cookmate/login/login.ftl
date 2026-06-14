@@ -6,6 +6,7 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
+            important: true,
             theme: {
               extend: {
                 colors: {
@@ -33,6 +34,7 @@
             .login-pf-page .card-pf { background: transparent; border-top: none; box-shadow: none; padding: 0; }
             .login-pf-page .login-pf-header { display: none; }
             #kc-header { display: none; }
+            a:hover { text-decoration: none !important; }
         </style>
         
         <div class="fixed inset-0 bg-stone-50 z-[-1]"></div>
