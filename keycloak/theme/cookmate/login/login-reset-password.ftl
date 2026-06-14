@@ -29,7 +29,7 @@
           }
         </script>
         <style>
-            body { background-color: #fafaf9; color: #292524; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
+            body, .login-pf-page { background-color: #fafaf9 !important; background-image: none !important; color: #292524; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
             .login-pf-page .card-pf { background: transparent; border-top: none; box-shadow: none; padding: 0; }
             .login-pf-page .login-pf-header { display: none; }
             #kc-header { display: none; }
