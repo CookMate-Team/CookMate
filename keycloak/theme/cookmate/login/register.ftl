@@ -92,7 +92,7 @@
 
                 <div class="mt-6 text-center border-t border-stone-100 pt-6 flex flex-col gap-3">
                     <p class="text-sm text-stone-600">
-                        <a href="${url.loginUrl}" class="font-bold text-orange-500 hover:text-orange-600 transition-colors">${msg("backToLogin")}</a>
+                        <a href="${url.loginUrl}" class="font-bold text-orange-500 hover:text-orange-600 transition-colors">Back to Login</a>
                     </p>
                     <p class="text-sm text-stone-600">
                         <a href="http://localhost:5173" class="font-bold text-stone-500 hover:text-stone-800 transition-colors">Return to CookMate</a>
