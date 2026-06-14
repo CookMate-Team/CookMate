@@ -2,6 +2,7 @@
   "id": "cookmate",
   "realm": "cookmate",
   "displayName": "CookMate",
+  "loginTheme": "cookmate",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
@@ -30,7 +31,6 @@
         "composites": {
           "realm": [
             "offline_access",
-            "uma_authorization",
             "ROLE_USER"
           ],
           "client": {
