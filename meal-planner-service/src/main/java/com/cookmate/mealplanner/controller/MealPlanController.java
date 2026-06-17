@@ -22,6 +22,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/planner")
@@ -77,6 +79,19 @@ public class MealPlanController {
                  content = @Content(schema = @Schema(implementation = ShoppingListResponse.class)))
     public ResponseEntity<ShoppingListResponse> getShoppingList(@RequestBody ShoppingListRequest request) {
         return ResponseEntity.ok(shoppingListService.buildShoppingList(request));
+    }
+
+    @PostMapping("/shopping-list/from-plan/{weeklyPlanId}")
+    @Operation(summary = "Generate shopping list from saved plan",
+               description = "Looks up a saved weekly plan by id and builds a shopping list from its meals.")
+    @ApiResponse(responseCode = "200", description = "Shopping list generated",
+                 content = @Content(schema = @Schema(implementation = ShoppingListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Weekly plan not found or not owned by user")
+    public ResponseEntity<ShoppingListResponse> generateShoppingListFromPlan(
+            @PathVariable UUID weeklyPlanId,
+            @AuthenticationPrincipal Jwt jwt) {
+        List<String> mealIds = weeklyPlanPersistenceService.getMealIds(weeklyPlanId, jwt.getSubject());
+        return ResponseEntity.ok(shoppingListService.buildShoppingList(new ShoppingListRequest(mealIds)));
     }
 
     @PostMapping("/shopping-list/save")

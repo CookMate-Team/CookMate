@@ -33,6 +33,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
+    @ExceptionHandler(WeeklyPlanNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleWeeklyPlanNotFoundException(
+            WeeklyPlanNotFoundException exception
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                "WEEKLY_PLAN_NOT_FOUND",
+                exception.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidationException(MethodArgumentNotValidException exception) {
         String message = exception.getBindingResult().getFieldErrors().stream()

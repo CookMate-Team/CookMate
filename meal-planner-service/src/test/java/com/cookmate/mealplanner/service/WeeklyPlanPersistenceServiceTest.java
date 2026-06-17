@@ -4,6 +4,7 @@ import com.cookmate.mealplanner.dto.DayPlan;
 import com.cookmate.mealplanner.dto.MealItem;
 import com.cookmate.mealplanner.dto.SavedWeeklyPlanResponse;
 import com.cookmate.mealplanner.dto.WeeklyPlanResponse;
+import com.cookmate.mealplanner.exception.WeeklyPlanNotFoundException;
 import com.cookmate.mealplanner.model.WeeklyPlan;
 import com.cookmate.mealplanner.model.WeeklyPlanMeal;
 import com.cookmate.mealplanner.repository.WeeklyPlanRepository;
@@ -15,10 +16,13 @@ import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -179,5 +183,65 @@ class WeeklyPlanPersistenceServiceTest {
 
         assertThat(history.get(0).days()).extracting("day")
                 .containsExactly("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday");
+    }
+
+    // --- getMealIds ---
+
+    @Test
+    @DisplayName("getMealIds — zwraca listę mealId z planu należącego do użytkownika")
+    void getMealIds_returnsMealIdsForOwnedPlan() {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanRepository.findByIdAndUserId(planId, "user-1"))
+                .thenReturn(Optional.of(savedPlan(planId, "user-1", 1)));
+
+        List<String> mealIds = service.getMealIds(planId, "user-1");
+
+        assertThat(mealIds).containsExactly("1");
+    }
+
+    @Test
+    @DisplayName("getMealIds — rzuca WeeklyPlanNotFoundException gdy plan nie istnieje")
+    void getMealIds_throwsWhenPlanNotFound() {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanRepository.findByIdAndUserId(eq(planId), any()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getMealIds(planId, "user-1"))
+                .isInstanceOf(WeeklyPlanNotFoundException.class)
+                .hasMessageContaining(planId.toString());
+    }
+
+    @Test
+    @DisplayName("getMealIds — rzuca WeeklyPlanNotFoundException gdy plan należy do innego użytkownika")
+    void getMealIds_throwsWhenPlanBelongsToDifferentUser() {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanRepository.findByIdAndUserId(planId, "other-user"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getMealIds(planId, "other-user"))
+                .isInstanceOf(WeeklyPlanNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("getMealIds — plan z wieloma posiłkami zwraca wszystkie mealId")
+    void getMealIds_multipleMeals_returnsAllIds() {
+        UUID planId = UUID.randomUUID();
+        WeeklyPlan plan = savedPlan(planId, "user-1", 2);
+
+        WeeklyPlanMeal second = new WeeklyPlanMeal();
+        second.setWeeklyPlan(plan);
+        second.setDayName("Tuesday");
+        second.setMealId("2");
+        second.setMealName("Soup");
+        second.setThumbnailUrl("https://thumb2.jpg");
+        plan.setMeals(new java.util.ArrayList<>(plan.getMeals()));
+        plan.getMeals().add(second);
+
+        when(weeklyPlanRepository.findByIdAndUserId(planId, "user-1"))
+                .thenReturn(Optional.of(plan));
+
+        List<String> mealIds = service.getMealIds(planId, "user-1");
+
+        assertThat(mealIds).containsExactly("1", "2");
     }
 }

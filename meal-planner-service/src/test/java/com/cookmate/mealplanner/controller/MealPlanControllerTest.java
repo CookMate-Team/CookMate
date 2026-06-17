@@ -3,11 +3,14 @@ package com.cookmate.mealplanner.controller;
 import com.cookmate.mealplanner.client.MainServiceClient;
 import com.cookmate.mealplanner.dto.CategoryResponse;
 import com.cookmate.mealplanner.dto.DayPlan;
+import com.cookmate.mealplanner.dto.MealDetailListResponse;
+import com.cookmate.mealplanner.dto.MealDetailResponse;
 import com.cookmate.mealplanner.dto.MealItem;
 import com.cookmate.mealplanner.dto.MealSearchResponse;
 import com.cookmate.mealplanner.dto.SavedShoppingListResponse;
 import com.cookmate.mealplanner.dto.SavedWeeklyPlanResponse;
 import com.cookmate.mealplanner.dto.ShoppingListItem;
+import com.cookmate.mealplanner.exception.WeeklyPlanNotFoundException;
 import com.cookmate.mealplanner.service.ShoppingListPersistenceService;
 import com.cookmate.mealplanner.service.WeeklyPlanPersistenceService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -329,6 +332,78 @@ class MealPlanControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // --- POST /api/planner/shopping-list/from-plan/{weeklyPlanId} ---
+
+    @Test
+    @DisplayName("POST /shopping-list/from-plan/{id} — zwraca 200 z listą zakupów wygenerowaną z planu")
+    void generateShoppingListFromPlan_validPlan_returns200WithItems() throws Exception {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanPersistenceService.getMealIds(eq(planId), anyString()))
+                .thenReturn(List.of("1"));
+
+        MealDetailResponse mealDetail = new MealDetailResponse();
+        mealDetail.setIdMeal("1");
+        mealDetail.setStrMeal("Pasta");
+        mealDetail.setStrIngredient1("Salt");
+        mealDetail.setStrMeasure1("1 tsp");
+        when(mainServiceClient.lookupById("1"))
+                .thenReturn(new MealDetailListResponse(List.of(mealDetail)));
+
+        mockMvc.perform(post("/api/planner/shopping-list/from-plan/" + planId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].name").value("Salt"))
+                .andExpect(jsonPath("$.items[0].measures[0]").value("1 tsp"));
+    }
+
+    @Test
+    @DisplayName("POST /shopping-list/from-plan/{id} — przekazuje userId z JWT do serwisu")
+    void generateShoppingListFromPlan_passesUserIdFromJwt() throws Exception {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanPersistenceService.getMealIds(eq(planId), eq("test-user-id")))
+                .thenReturn(List.of());
+
+        mockMvc.perform(post("/api/planner/shopping-list/from-plan/" + planId)
+                        .with(jwt().jwt(j -> j.subject("test-user-id"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /shopping-list/from-plan/{id} — plan nie istnieje zwraca 404")
+    void generateShoppingListFromPlan_planNotFound_returns404() throws Exception {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanPersistenceService.getMealIds(eq(planId), anyString()))
+                .thenThrow(new WeeklyPlanNotFoundException("Weekly plan not found: " + planId));
+
+        mockMvc.perform(post("/api/planner/shopping-list/from-plan/" + planId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("WEEKLY_PLAN_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Weekly plan not found: " + planId));
+    }
+
+    @Test
+    @DisplayName("POST /shopping-list/from-plan/{id} — brak JWT zwraca 401")
+    void generateShoppingListFromPlan_noJwt_returns401() throws Exception {
+        mockMvc.perform(post("/api/planner/shopping-list/from-plan/" + UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /shopping-list/from-plan/{id} — plan bez posiłków zwraca pustą listę zakupów")
+    void generateShoppingListFromPlan_emptyPlan_returnsEmptyShoppingList() throws Exception {
+        UUID planId = UUID.randomUUID();
+        when(weeklyPlanPersistenceService.getMealIds(eq(planId), anyString()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(post("/api/planner/shopping-list/from-plan/" + planId)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(0)));
     }
 
     // --- GET /api/planner/shopping-list/history ---

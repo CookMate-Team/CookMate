@@ -4,6 +4,7 @@ import com.cookmate.mealplanner.dto.DayPlan;
 import com.cookmate.mealplanner.dto.MealItem;
 import com.cookmate.mealplanner.dto.SavedWeeklyPlanResponse;
 import com.cookmate.mealplanner.dto.WeeklyPlanResponse;
+import com.cookmate.mealplanner.exception.WeeklyPlanNotFoundException;
 import com.cookmate.mealplanner.model.WeeklyPlan;
 import com.cookmate.mealplanner.model.WeeklyPlanMeal;
 import com.cookmate.mealplanner.repository.WeeklyPlanRepository;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -65,6 +67,17 @@ public class WeeklyPlanPersistenceService {
         List<WeeklyPlan> plans = weeklyPlanRepository.findByUserIdOrderByCreatedAtDesc(userId);
         logger.info("Found {} weekly plans for userId={}", plans.size(), userId);
         return plans.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getMealIds(UUID weeklyPlanId, String userId) {
+        logger.info("Fetching meal ids from weeklyPlanId={} for userId={}", weeklyPlanId, userId);
+        WeeklyPlan plan = weeklyPlanRepository.findByIdAndUserId(weeklyPlanId, userId)
+                .orElseThrow(() -> new WeeklyPlanNotFoundException(
+                        "Weekly plan not found: " + weeklyPlanId));
+        return plan.getMeals().stream()
+                .map(WeeklyPlanMeal::getMealId)
+                .toList();
     }
 
     private SavedWeeklyPlanResponse toResponse(WeeklyPlan plan) {
