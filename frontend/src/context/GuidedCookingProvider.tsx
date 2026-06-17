@@ -28,7 +28,7 @@ interface GuidedCookingContextValue {
   globalActiveSessionForOtherRecipe: ActiveCookingSession | null;
   isStartingSession: boolean;
   startSessionError: string | null;
-  startStreaming: (recipeId: string) => void;
+  startStreaming: (recipeId: string, targetPortions?: number) => void;
   stopStreaming: () => void;
   resetSimulationProgress: () => void;
   updateActiveSession: (session: ActiveCookingSession | null) => void;
@@ -94,7 +94,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
   }, []);
 
   const startStreaming = useCallback(
-    async (recipeId: string) => {
+    async (recipeId: string, targetPortions?: number) => {
       if (activeRecipeIdRef.current === recipeId) {
         return;
       }
@@ -132,7 +132,7 @@ export function GuidedCookingProvider({ children }: PropsWithChildren) {
             }
             queryClient.invalidateQueries({ queryKey: ['recipe-steps', recipeId] });
 
-            const res = await startSimulation({ recipeId });
+            const res = await startSimulation({ recipeId, targetPortions });
             if (activeRecipeIdRef.current !== recipeId) {
               return;
             }

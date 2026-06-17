@@ -3,10 +3,14 @@ package com.cookmate.main.controller;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.dto.CategoryResponse;
 import com.cookmate.main.dto.CommonListResponse;
+import com.cookmate.main.dto.Meal;
 import com.cookmate.main.service.MealDbClient;
+import com.cookmate.main.service.StepService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Kontroler odpowiedzialny za Discovery API (Integracja z TheMealDB).
@@ -17,9 +21,25 @@ import reactor.core.publisher.Mono;
 public class DiscoveryController {
 
     private final MealDbClient mealDbClient;
+    private final StepService stepService;
 
-    public DiscoveryController(MealDbClient mealDbClient) {
+    public DiscoveryController(MealDbClient mealDbClient, StepService stepService) {
         this.mealDbClient = mealDbClient;
+        this.stepService = stepService;
+    }
+
+    private MealSearchResponse enrichWithTimes(MealSearchResponse response) {
+        if (response == null || response.meals() == null || response.meals().isEmpty()) {
+            return response;
+        }
+        List<String> ids = response.meals().stream().map(Meal::getIdMeal).toList();
+        Map<String, Integer> times = stepService.getPreparationTimes(ids);
+        
+        response.meals().forEach(meal -> {
+            meal.setPreparationTimeMinutes(times.get(meal.getIdMeal()));
+        });
+        
+        return response;
     }
 
     /**
@@ -27,7 +47,7 @@ public class DiscoveryController {
      */
     @GetMapping("/search")
     public Mono<MealSearchResponse> search(@RequestParam @NotBlank String name) {
-        return mealDbClient.searchByName(name);
+        return mealDbClient.searchByName(name).map(this::enrichWithTimes);
     }
 
     /**
@@ -35,7 +55,7 @@ public class DiscoveryController {
      */
     @GetMapping("/lookup/{id}")
     public Mono<MealSearchResponse> lookup(@PathVariable String id) {
-        return mealDbClient.lookupById(id);
+        return mealDbClient.lookupById(id).map(this::enrichWithTimes);
     }
 
     /**
@@ -51,7 +71,7 @@ public class DiscoveryController {
      */
     @GetMapping("/filter/ingredient")
     public Mono<MealSearchResponse> filterByIngredient(@RequestParam String i) {
-        return mealDbClient.filterByIngredient(i);
+        return mealDbClient.filterByIngredient(i).map(this::enrichWithTimes);
     }
 
     /**
@@ -59,7 +79,7 @@ public class DiscoveryController {
      */
     @GetMapping("/filter/category")
     public Mono<MealSearchResponse> filterByCategory(@RequestParam String c) {
-        return mealDbClient.filterByCategory(c);
+        return mealDbClient.filterByCategory(c).map(this::enrichWithTimes);
     }
 
     /**

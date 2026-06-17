@@ -3,6 +3,8 @@ package com.cookmate.main.repository;
 
 import com.cookmate.main.model.Step;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +19,7 @@ public interface StepRepository extends JpaRepository<Step, Long> {
     // Pobiera konkretny krok - upewniając się, że należy do odpowiedniego przepisu
     // SELECT * FROM steps WHERE id = ? AND recipe_id = ?.
     Optional<Step> findByIdAndRecipeId(Long id, String recipeId);
+
+    @Query("SELECT s.recipeId, SUM(s.durationMinutes) FROM Step s WHERE s.recipeId IN :recipeIds GROUP BY s.recipeId")
+    List<Object[]> sumDurationByRecipeIds(@Param("recipeIds") List<String> recipeIds);
 }
