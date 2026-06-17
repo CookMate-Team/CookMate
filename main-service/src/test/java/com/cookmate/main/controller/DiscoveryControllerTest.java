@@ -5,6 +5,7 @@ import com.cookmate.main.dto.CommonListResponse;
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.service.MealDbClient;
+import com.cookmate.main.service.StepService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -36,6 +37,9 @@ class DiscoveryControllerTest {
 
     @MockitoBean
     private MealDbClient mealDbClient;
+
+    @MockitoBean
+    private StepService stepService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
@@ -99,11 +103,9 @@ class DiscoveryControllerTest {
     }
 
     private Meal createTestMeal(String id, String name) {
-        return new Meal(id, name, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null);
+        Meal meal = new Meal();
+        meal.setIdMeal(id);
+        meal.setStrMeal(name);
+        return meal;
     }
 }
