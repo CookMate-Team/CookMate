@@ -61,7 +61,7 @@ public class RecipeSteps {
                         (long) recipes.indexOf(r) + 1,
                         r.getName(), r.getDescription(),
                         r.getIngredients(), r.getInstructions(),
-                        r.getPreparationTimeMinutes(), null))
+                        r.getPreparationTimeMinutes(), null, 4))
                 .toList();
 
         when(recipeService.findPaginated(0, 10))

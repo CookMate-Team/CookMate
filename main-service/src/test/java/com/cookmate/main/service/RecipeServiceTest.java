@@ -106,60 +106,16 @@ class RecipeServiceTest {
     }
 
     private Meal buildMealForSync() {
-        // Rygorystyczne odwzorowanie pól rekordu Meal (53 parametry)
-        return new Meal(
-                "52772", "Teriyaki Chicken Casserole",
-                null,
-                "Chicken",
-                "Japanese",
-                "Cook instructions",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                "Chicken",
-                "200g",
-                "Salt",
-                "1 tsp",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+        Meal meal = new Meal();
+        meal.setIdMeal("52772");
+        meal.setStrMeal("Teriyaki Chicken Casserole");
+        meal.setStrCategory("Chicken");
+        meal.setStrArea("Japanese");
+        meal.setStrInstructions("Cook instructions");
+        meal.setStrIngredient1("Chicken");
+        meal.setStrMeasure1("200g");
+        meal.setStrIngredient2("Salt");
+        meal.setStrMeasure2("1 tsp");
+        return meal;
     }
 }
