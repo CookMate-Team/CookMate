@@ -16,15 +16,38 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MealPlanService {
 
+    private enum Slot { BREAKFAST, MAIN, STARTER, SIDE, DESSERT }
+
     private static final List<String> DAYS = List.of(
             "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
     );
+
+    private static final Set<String> FIXED_CATEGORIES = Set.of("Breakfast", "Dessert", "Starter", "Side");
+
+    private static final Map<Slot, String> SLOT_TO_CATEGORY = Map.of(
+            Slot.BREAKFAST, "Breakfast",
+            Slot.DESSERT,   "Dessert",
+            Slot.STARTER,   "Starter",
+            Slot.SIDE,      "Side"
+    );
+
+    private static final Map<Integer, List<Slot>> SLOTS_BY_MEALS_PER_DAY = Map.of(
+            1, List.of(Slot.MAIN),
+            2, List.of(Slot.BREAKFAST, Slot.MAIN),
+            3, List.of(Slot.BREAKFAST, Slot.MAIN, Slot.STARTER),
+            4, List.of(Slot.BREAKFAST, Slot.MAIN, Slot.SIDE, Slot.DESSERT),
+            5, List.of(Slot.BREAKFAST, Slot.MAIN, Slot.STARTER, Slot.SIDE, Slot.DESSERT)
+    );
+
     private static final Logger logger = LoggerFactory.getLogger(MealPlanService.class);
 
     private final MainServiceClient mainServiceClient;
@@ -52,20 +75,37 @@ public class MealPlanService {
 
         logger.debug("Fetched {} categories from main-service", categories.size());
 
-        List<CategoryResponse.Category> shuffled = new ArrayList<>(categories);
-        Collections.shuffle(shuffled, random);
+        List<String> mainCategories = categories.stream()
+                .map(CategoryResponse.Category::name)
+                .filter(name -> !FIXED_CATEGORIES.contains(name))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        if (mainCategories.isEmpty()) {
+            logger.error("No main course categories available from main-service");
+            throw new MealPlanGenerationException("No main course categories available from main-service");
+        }
+
+        List<Slot> slots = SLOTS_BY_MEALS_PER_DAY.get(mealsPerDay);
 
         List<DayPlan> dayPlans = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
-            String category = shuffled.get(i % shuffled.size()).name();
-            dayPlans.add(new DayPlan(DAYS.get(i), pickMeals(category, mealsPerDay)));
+        for (String day : DAYS) {
+            Collections.shuffle(mainCategories, random);
+            List<MealItem> meals = new ArrayList<>();
+            for (Slot slot : slots) {
+                String category = slot == Slot.MAIN ? mainCategories.get(0) : SLOT_TO_CATEGORY.get(slot);
+                MealItem meal = pickOneMeal(category);
+                if (meal != null) {
+                    meals.add(meal);
+                }
+            }
+            dayPlans.add(new DayPlan(day, meals));
         }
 
         logger.info("Weekly plan generated successfully");
         return new WeeklyPlanResponse(dayPlans);
     }
 
-    private List<MealItem> pickMeals(String category, int count) {
+    private MealItem pickOneMeal(String category) {
         MealSearchResponse response;
         try {
             response = mainServiceClient.getMealsByCategory(category);
@@ -77,15 +117,11 @@ public class MealPlanService {
 
         if (response == null || response.meals() == null || response.meals().isEmpty()) {
             logger.warn("No meals found for category={}", category);
-            return List.of();
+            return null;
         }
 
         List<MealSearchResponse.FilteredMeal> all = new ArrayList<>(response.meals());
-        Collections.shuffle(all, random);
-
-        return all.stream()
-                .limit(count)
-                .map(m -> new MealItem(m.idMeal(), m.strMeal(), m.strMealThumb()))
-                .toList();
+        MealSearchResponse.FilteredMeal picked = all.get(random.nextInt(all.size()));
+        return new MealItem(picked.idMeal(), picked.strMeal(), picked.strMealThumb());
     }
 }

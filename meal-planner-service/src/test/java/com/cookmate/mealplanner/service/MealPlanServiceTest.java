@@ -19,6 +19,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,13 +43,15 @@ class MealPlanServiceTest {
     private CategoryResponse mockCategories() {
         return new CategoryResponse(List.of(
                 new CategoryResponse.Category("1", "Beef"),
-                new CategoryResponse.Category("2", "Chicken"),
-                new CategoryResponse.Category("3", "Dessert"),
-                new CategoryResponse.Category("4", "Lamb"),
-                new CategoryResponse.Category("5", "Miscellaneous"),
+                new CategoryResponse.Category("2", "Breakfast"),
+                new CategoryResponse.Category("3", "Chicken"),
+                new CategoryResponse.Category("4", "Dessert"),
+                new CategoryResponse.Category("5", "Lamb"),
                 new CategoryResponse.Category("6", "Pasta"),
-                new CategoryResponse.Category("7", "Pork"),
-                new CategoryResponse.Category("8", "Seafood")
+                new CategoryResponse.Category("7", "Seafood"),
+                new CategoryResponse.Category("8", "Side"),
+                new CategoryResponse.Category("9", "Starter"),
+                new CategoryResponse.Category("10", "Pork")
         ));
     }
 
@@ -66,7 +69,7 @@ class MealPlanServiceTest {
         return new MealSearchResponse(List.of());
     }
 
-    // --- generateWeeklyPlan ---
+    // --- generateWeeklyPlan — shape ---
 
     @Test
     @DisplayName("generateWeeklyPlan — zwraca dokładnie 7 dni")
@@ -93,7 +96,7 @@ class MealPlanServiceTest {
     }
 
     @Test
-    @DisplayName("generateWeeklyPlan — każdy dzień ma dokładnie n posiłków")
+    @DisplayName("generateWeeklyPlan — każdy dzień ma dokładnie n posiłków gdy wszystkie kategorie zwracają dane")
     void generateWeeklyPlan_eachDayHasExactlyNMeals() {
         int mealsPerDay = 3;
         when(mainServiceClient.getCategories()).thenReturn(mockCategories());
@@ -107,8 +110,8 @@ class MealPlanServiceTest {
     }
 
     @Test
-    @DisplayName("generateWeeklyPlan — gdy kategoria nie ma posiłków, dzień dostaje pustą listę")
-    void generateWeeklyPlan_emptyCategory_dayGetsEmptyMealList() {
+    @DisplayName("generateWeeklyPlan — gdy kategoria nie ma posiłków, slot jest pomijany")
+    void generateWeeklyPlan_emptyCategory_slotIsSkipped() {
         when(mainServiceClient.getCategories()).thenReturn(mockCategories());
         when(mainServiceClient.getMealsByCategory(anyString())).thenReturn(emptyMeals());
 
@@ -131,14 +134,15 @@ class MealPlanServiceTest {
     }
 
     @Test
-    @DisplayName("generateWeeklyPlan — pobiera posiłki dla każdego z 7 dni")
-    void generateWeeklyPlan_fetchesMealsForEachDay() {
+    @DisplayName("generateWeeklyPlan — wywołuje getMealsByCategory tyle razy ile wynosi liczba slotów × 7 dni")
+    void generateWeeklyPlan_callsMealsByCategoryForEachSlotAndDay() {
         when(mainServiceClient.getCategories()).thenReturn(mockCategories());
         when(mainServiceClient.getMealsByCategory(anyString())).thenReturn(mockMeals(5));
 
+        // mealsPerDay=2 → 2 slots (BREAKFAST + MAIN) × 7 days = 14 calls
         mealPlanService.generateWeeklyPlan(2);
 
-        verify(mainServiceClient, times(7)).getMealsByCategory(anyString());
+        verify(mainServiceClient, times(14)).getMealsByCategory(anyString());
     }
 
     @Test
@@ -159,6 +163,56 @@ class MealPlanServiceTest {
         assertThatThrownBy(() -> mealPlanService.generateWeeklyPlan(1))
                 .isInstanceOf(MealPlanGenerationException.class)
                 .hasMessageContaining("No categories available");
+    }
+
+    // --- slot mapping ---
+
+    @Test
+    @DisplayName("mealsPerDay=1 — MAIN slot nie używa kategorii Breakfast, Dessert, Starter ani Side")
+    void generateWeeklyPlan_mealsPerDayOne_mainSlotNeverUsesFixedCategories() {
+        when(mainServiceClient.getCategories()).thenReturn(mockCategories());
+        when(mainServiceClient.getMealsByCategory(anyString())).thenReturn(mockMeals(5));
+
+        mealPlanService.generateWeeklyPlan(1);
+
+        verify(mainServiceClient, never()).getMealsByCategory("Breakfast");
+        verify(mainServiceClient, never()).getMealsByCategory("Dessert");
+        verify(mainServiceClient, never()).getMealsByCategory("Starter");
+        verify(mainServiceClient, never()).getMealsByCategory("Side");
+        // exactly 7 calls total (one MAIN per day)
+        verify(mainServiceClient, times(7)).getMealsByCategory(anyString());
+    }
+
+    @Test
+    @DisplayName("mealsPerDay=2 — BREAKFAST slot wywołuje 'Breakfast' 7 razy, MAIN nie używa stałych kategorii")
+    void generateWeeklyPlan_mealsPerDayTwo_breakfastSlotUsesBreakfastCategory() {
+        when(mainServiceClient.getCategories()).thenReturn(mockCategories());
+        when(mainServiceClient.getMealsByCategory(anyString())).thenReturn(mockMeals(5));
+
+        mealPlanService.generateWeeklyPlan(2);
+
+        verify(mainServiceClient, times(7)).getMealsByCategory("Breakfast");
+        verify(mainServiceClient, never()).getMealsByCategory("Dessert");
+        verify(mainServiceClient, never()).getMealsByCategory("Starter");
+        verify(mainServiceClient, never()).getMealsByCategory("Side");
+        // 2 slots × 7 days = 14 total
+        verify(mainServiceClient, times(14)).getMealsByCategory(anyString());
+    }
+
+    @Test
+    @DisplayName("mealsPerDay=5 — wszystkie 5 slotów mapują się na właściwe kategorie")
+    void generateWeeklyPlan_mealsPerDayFive_allSlotsUseCorrectCategories() {
+        when(mainServiceClient.getCategories()).thenReturn(mockCategories());
+        when(mainServiceClient.getMealsByCategory(anyString())).thenReturn(mockMeals(5));
+
+        mealPlanService.generateWeeklyPlan(5);
+
+        verify(mainServiceClient, times(7)).getMealsByCategory("Breakfast");
+        verify(mainServiceClient, times(7)).getMealsByCategory("Starter");
+        verify(mainServiceClient, times(7)).getMealsByCategory("Side");
+        verify(mainServiceClient, times(7)).getMealsByCategory("Dessert");
+        // 5 slots × 7 days = 35 total (4 fixed + 7 MAIN)
+        verify(mainServiceClient, times(35)).getMealsByCategory(anyString());
     }
 
     // --- validation ---
