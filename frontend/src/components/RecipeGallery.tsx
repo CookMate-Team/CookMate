@@ -127,7 +127,7 @@ const MOCK_RECIPES = [
   { id: '6', name: 'Grilled Salmon with Asparagus', time: 25, category: 'Seafood', imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
 ];
 
-export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooking?: (recipeId: string) => void, onRequireLogin?: () => void }) {
+export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooking?: (recipeId: string, targetPortions?: number) => void, onRequireLogin?: () => void }) {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
   const { data: activeSession } = useGlobalActiveSession();
   const [searchInput, setSearchInput] = useState(searchQuery);
@@ -324,6 +324,7 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
               <RecipeCard
                 id={meal.idMeal}
                 name={meal.strMeal}
+                time={meal.preparationTimeMinutes}
                 category={meal.strCategory}
                 imageUrl={meal.strMealThumb}
                 onClick={handleSelect}

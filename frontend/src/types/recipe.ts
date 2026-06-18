@@ -6,6 +6,7 @@ export interface Meal {
   strMealThumb: string;
   strInstructions: string;
   strYoutube?: string;
+  preparationTimeMinutes?: number;
   [key: string]: any; // for ingredients and other fields
 }
 
@@ -21,6 +22,7 @@ export interface RecipeDTO {
   instructions: string;
   preparationTimeMinutes: number;
   createdAt: string;
+  defaultPortions?: number;
 }
 
 export interface RecipeListResponse {

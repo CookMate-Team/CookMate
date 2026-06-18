@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { SourceToggle } from './SourceToggle';
 import { useAuth } from '../context/AuthContext';
-import { useRecipeStore } from '../store/useRecipeStore';
 
 interface HeaderProps {
   onHomeClick?: () => void;
@@ -37,61 +36,6 @@ export function Header({ onHomeClick, onMealPlannerClick }: HeaderProps) {
         >
           <span className="text-white text-3xl font-extrabold tracking-tight">CookMate</span>
         </div>
-        <nav className="hidden md:flex gap-6">
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); onHomeClick?.(); }}
-            className="text-white hover:text-amber-100 font-medium transition-colors"
-          >
-            Home
-          </a>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              if (!isAuthenticated) {
-                login();
-              } else {
-                useRecipeStore.getState().setSource('FAVORITES');
-                onHomeClick?.();
-              }
-            }}
-            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
-            title={!isAuthenticated ? "Log in to access" : undefined}
-          >
-            Favorites
-          </a>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              if (!isAuthenticated) {
-                login();
-              } else {
-                onMealPlannerClick?.();
-              }
-            }}
-            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
-            title={!isAuthenticated ? "Log in to access" : undefined}
-          >
-            Meal Planner
-          </a>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              if (!isAuthenticated) {
-                login();
-              } else {
-                onHomeClick?.();
-              }
-            }}
-            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
-            title={!isAuthenticated ? "Log in to access" : undefined}
-          >
-            Create Recipe
-          </a>
-        </nav>
 
         <div className="flex items-center gap-4">
           <SourceToggle />

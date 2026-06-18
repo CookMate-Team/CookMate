@@ -16,6 +16,8 @@ public record SimulationStatusResponseDto(
         @Schema(example = "1")
         int totalRecipes,
         String message,
-        List<SimulationStepHistoryItemDto> history
+        List<SimulationStepHistoryItemDto> history,
+        @Schema(example = "4")
+        Integer targetPortions
 ) {
 }

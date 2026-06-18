@@ -4,6 +4,7 @@
 
 export interface StartSimulationRequest {
   recipeId: string;
+  targetPortions?: number;
 }
 
 export interface StepExecutionResult {
@@ -34,6 +35,7 @@ export interface ActiveCookingSession {
   status: string;
   currentStep: number;
   lastExecutedAt: string | null;
+  targetPortions?: number;
 }
 
 export interface SimulationStatusResponse {
@@ -44,4 +46,5 @@ export interface SimulationStatusResponse {
   totalRecipes: number;
   message: string;
   history: SimulationStepHistoryItem[];
+  targetPortions?: number;
 }

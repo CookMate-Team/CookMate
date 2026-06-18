@@ -9,7 +9,7 @@ interface UseSimulationProgressReturn {
   globalActiveSessionForOtherRecipe: ActiveCookingSession | null;
   isStartingSession: boolean;
   startSessionError: string | null;
-  startStreaming: (recipeId: string) => void;
+  startStreaming: (recipeId: string, targetPortions?: number) => void;
   stopStreaming: () => void;
   resetSimulationProgress: () => void;
   updateActiveSession: (session: ActiveCookingSession | null) => void;

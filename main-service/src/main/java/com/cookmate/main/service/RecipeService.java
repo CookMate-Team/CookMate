@@ -90,6 +90,9 @@ public class RecipeService {
                 request.instructions(),
                 request.preparationTimeMinutes()
         );
+        if (request.defaultPortions() != null) {
+            recipe.setDefaultPortions(request.defaultPortions());
+        }
         return recipeRepository.save(recipe);
     }
 
@@ -100,6 +103,7 @@ public class RecipeService {
             existing.setIngredients(updated.getIngredients());
             existing.setInstructions(updated.getInstructions());
             existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
+            existing.setDefaultPortions(updated.getDefaultPortions());
             return recipeRepository.save(existing);
         });
     }
@@ -111,6 +115,7 @@ public class RecipeService {
         existing.setIngredients(updated.getIngredients());
         existing.setInstructions(updated.getInstructions());
         existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
+        existing.setDefaultPortions(updated.getDefaultPortions());
         return recipeRepository.save(existing);
     }
 
@@ -149,11 +154,12 @@ public class RecipeService {
 
     public Recipe syncMealFromTheMealDB(Meal meal) {
         Recipe recipe = new Recipe();
-        recipe.setName(meal.strMeal());
-        recipe.setDescription("Kategoria: " + meal.strCategory() + ", Kuchnia: " + meal.strArea());
+        recipe.setName(meal.getStrMeal());
+        recipe.setDescription("Kategoria: " + meal.getStrCategory() + ", Kuchnia: " + meal.getStrArea());
         recipe.setIngredients(buildIngredientsString(meal));
-        recipe.setInstructions(meal.strInstructions());
+        recipe.setInstructions(meal.getStrInstructions());
         recipe.setPreparationTimeMinutes(30);
+        recipe.setDefaultPortions(4);
 
         return recipeRepository.save(recipe);
     }
@@ -168,15 +174,16 @@ public class RecipeService {
                 recipe.getIngredients(),
                 recipe.getInstructions(),
                 recipe.getPreparationTimeMinutes(),
-                recipe.getCreatedAt()
+                recipe.getCreatedAt(),
+                recipe.getDefaultPortions()
         );
     }
 
     private String buildIngredientsString(Meal meal) {
         StringBuilder sb = new StringBuilder();
-        addIngredient(sb, meal.strIngredient1(), meal.strMeasure1());
-        addIngredient(sb, meal.strIngredient2(), meal.strMeasure2());
-        addIngredient(sb, meal.strIngredient3(), meal.strMeasure3());
+        addIngredient(sb, meal.getStrIngredient1(), meal.getStrMeasure1());
+        addIngredient(sb, meal.getStrIngredient2(), meal.getStrMeasure2());
+        addIngredient(sb, meal.getStrIngredient3(), meal.getStrMeasure3());
         return sb.toString();
     }
 

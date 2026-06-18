@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 public record StartSimulationRequestDto(
         @Schema(description = "Recipe identifier from main-service", example = "52772")
         @NotBlank(message = "recipeId is required")
-        String recipeId
+        String recipeId,
+
+        @Schema(description = "Target number of portions for simulation", example = "4")
+        Integer targetPortions
 ) {
 }

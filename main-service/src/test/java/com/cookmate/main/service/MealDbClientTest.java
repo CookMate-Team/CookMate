@@ -75,12 +75,14 @@ class MealDbClientTest {
 
         assertNotNull(response);
         Meal meal = response.meals().getFirst();
-        assertEquals("52772", meal.idMeal());
+        assertEquals("52772", meal.getIdMeal());
+        assertEquals("Teriyaki Chicken Casserole", meal.getStrMeal());
+        assertEquals("Chicken", meal.getStrCategory());
 
         // Rygorystyczne sprawdzenie granic mapowania (1 i 20)
-        assertEquals("Ingredient1", meal.strIngredient1());
-        assertEquals("Ingredient20", meal.strIngredient20());
-        assertEquals("Measure20", meal.strMeasure20());
+        assertEquals("Ingredient1", meal.getStrIngredient1());
+        assertEquals("Ingredient20", meal.getStrIngredient20());
+        assertEquals("Measure20", meal.getStrMeasure20());
     }
 
     @Test

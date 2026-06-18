@@ -65,6 +65,9 @@ public class SimulationService {
         session.setRecipeId(request.recipeId());
         session.setTotalRecipes(1);
         session.setMessage(null);
+        if (request.targetPortions() != null) {
+            session.setTargetPortions(request.targetPortions());
+        }
         simulationSessionRepository.save(session);
 
         List<SimulationStep> steps = normalizedSteps.stream()
@@ -306,7 +309,8 @@ public class SimulationService {
                 session.getTotalSteps(),
                 session.getTotalRecipes(),
                 session.getMessage(),
-                mapHistory(steps)
+                mapHistory(steps),
+                session.getTargetPortions()
         );
     }
 

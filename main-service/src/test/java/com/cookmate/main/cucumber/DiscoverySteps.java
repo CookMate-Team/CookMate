@@ -5,6 +5,7 @@ import com.cookmate.main.dto.CategoryResponse;
 import com.cookmate.main.dto.CommonListResponse;
 import com.cookmate.main.dto.MealSearchResponse;
 import com.cookmate.main.service.MealDbClient;
+import com.cookmate.main.service.StepService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cucumber.java.Before;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 public class DiscoverySteps {
 
     private MealDbClient mealDbClient;
+    private StepService stepService;
     private MockMvc mockMvc;
     private MvcResult lastResult;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -39,6 +41,7 @@ public class DiscoverySteps {
     @Before
     public void setUp() {
         mealDbClient = Mockito.mock(MealDbClient.class);
+        stepService = Mockito.mock(StepService.class);
 
         // Domyślne zachowania dla endpointów pomocniczych, aby uniknąć NPE/AssertionError
         when(mealDbClient.listFullCategories())
@@ -48,7 +51,7 @@ public class DiscoverySteps {
         when(mealDbClient.filterByIngredient(anyString()))
                 .thenReturn(Mono.just(new MealSearchResponse(List.of())));
 
-        DiscoveryController controller = new DiscoveryController(mealDbClient);
+        DiscoveryController controller = new DiscoveryController(mealDbClient, stepService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
