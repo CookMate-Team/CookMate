@@ -9,14 +9,38 @@ import {
 } from '../hooks/useMealPlanner';
 import type { WeeklyPlanResponse, ShoppingListResponse } from '../types/mealPlanner';
 
+const API_ERROR_MESSAGES: Record<string, string> = {
+  MAIN_SERVICE_UNAVAILABLE: 'The recipe service is currently unavailable. Please try again in a moment.',
+  MEAL_PLAN_GENERATION_FAILED: 'Could not generate the meal plan. Please try again.',
+  WEEKLY_PLAN_NOT_FOUND: 'This plan could not be found. It may have already been deleted.',
+  VALIDATION_ERROR: 'Invalid request — please check your settings and try again.',
+};
+
 function parseApiError(raw: string): string {
+  if (!raw) return 'Something went wrong. Please try again.';
+
+  // Network-level errors thrown by the browser / fetch API
+  if (
+    raw === 'Failed to fetch' ||
+    raw.toLowerCase().includes('networkerror') ||
+    raw.toLowerCase().includes('load failed')
+  ) {
+    return 'Could not reach the server. Please check your internet connection.';
+  }
+
   try {
     const parsed = JSON.parse(raw);
-    if (parsed.message) return parsed.message;
+    if (parsed.code && API_ERROR_MESSAGES[parsed.code]) {
+      return API_ERROR_MESSAGES[parsed.code];
+    }
+    if (typeof parsed.message === 'string' && parsed.message) {
+      return parsed.message;
+    }
   } catch {
-    // not JSON – use as-is
+    // not JSON
   }
-  return raw;
+
+  return 'Something went wrong. Please try again.';
 }
 
 function downloadAsTxt(list: ShoppingListResponse, planLabel: string) {
@@ -57,15 +81,12 @@ function Spinner() {
 
 function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
-    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600 text-sm flex items-start gap-2">
-      <span className="text-lg leading-none flex-shrink-0">⚠️</span>
-      <div className="flex-1">
-        <p className="font-semibold">An error occurred</p>
-        <p className="mt-0.5">{message}</p>
-      </div>
+    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm flex items-center gap-3">
+      <span className="text-base leading-none flex-shrink-0">⚠️</span>
+      <p className="flex-1">{message}</p>
       <button
         onClick={onDismiss}
-        className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0 p-1"
+        className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0 p-1 rounded"
         aria-label="Close"
       >
         ✕
