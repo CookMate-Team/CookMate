@@ -69,6 +69,16 @@ public class WeeklyPlanPersistenceService {
         return plans.stream().map(this::toResponse).toList();
     }
 
+    @Transactional
+    public void delete(UUID weeklyPlanId, String userId) {
+        logger.info("Deleting weeklyPlanId={} for userId={}", weeklyPlanId, userId);
+        WeeklyPlan plan = weeklyPlanRepository.findByIdAndUserId(weeklyPlanId, userId)
+                .orElseThrow(() -> new WeeklyPlanNotFoundException(
+                        "Weekly plan not found: " + weeklyPlanId));
+        weeklyPlanRepository.delete(plan);
+        logger.info("Deleted weeklyPlanId={} for userId={}", weeklyPlanId, userId);
+    }
+
     @Transactional(readOnly = true)
     public List<String> getMealIds(UUID weeklyPlanId, String userId) {
         logger.info("Fetching meal ids from weeklyPlanId={} for userId={}", weeklyPlanId, userId);
