@@ -107,7 +107,7 @@ function AppContent() {
   if (showMealPlanner) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header onHomeClick={handleCloseMealPlanner} onMealPlannerClick={handleOpenMealPlanner} />
+        <Header onHomeClick={handleCloseMealPlanner} onMealPlannerClick={handleOpenMealPlanner} isMealPlannerActive={true} />
         <main className="flex-grow">
           <MealPlannerPanel
             onRequireLogin={() => setShowLoginModal(true)}
