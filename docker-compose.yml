@@ -311,7 +311,13 @@ services:
     environment:
       CONFIG_SERVER_URL: http://config-service:8888
       EUREKA_SERVER_URL: http://discovery-service:8761/eureka/
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
     depends_on:
+      postgres:
+        condition: service_healthy
       discovery-service:
         condition: service_healthy
       main-service:

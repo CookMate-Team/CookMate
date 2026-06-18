@@ -4,9 +4,11 @@ import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onHomeClick?: () => void;
+  onMealPlannerClick?: () => void;
+  isMealPlannerActive?: boolean;
 }
 
-export function Header({ onHomeClick }: HeaderProps) {
+export function Header({ onHomeClick, onMealPlannerClick, isMealPlannerActive }: HeaderProps) {
   const { isAuthenticated, user, login, logout, register } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,10 @@ export function Header({ onHomeClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <SourceToggle />
+          <SourceToggle 
+            onMealPlannerClick={onMealPlannerClick} 
+            isMealPlannerActive={isMealPlannerActive} 
+          />
 
           {isAuthenticated && user ? (
             // ── Zalogowany — avatar z dropdownem ──

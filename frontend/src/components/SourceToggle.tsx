@@ -3,7 +3,15 @@ import { useRecipeStore } from '../store/useRecipeStore';
 import { useGlobalActiveSession } from '../hooks/useGlobalActiveSession';
 import { useAuth } from '../context/AuthContext';
 
-export function SourceToggle({ className = '' }: { className?: string }) {
+export function SourceToggle({ 
+  className = '',
+  onMealPlannerClick,
+  isMealPlannerActive
+}: { 
+  className?: string;
+  onMealPlannerClick?: () => void;
+  isMealPlannerActive?: boolean;
+}) {
   const { source, setSource } = useRecipeStore();
   const { data: activeSession } = useGlobalActiveSession();
   const { isAuthenticated, login } = useAuth();
@@ -17,9 +25,23 @@ export function SourceToggle({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center ${className}`}>
       <div className="bg-white/20 p-1 rounded-full shadow-sm inline-flex backdrop-blur-sm border border-white/30">
+        {onMealPlannerClick && (
+          <button 
+            onClick={onMealPlannerClick}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+          >
+            Meal Planner
+          </button>
+        )}
         <button 
-          onClick={() => setSource('LOCAL')}
-          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'LOCAL' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+          onClick={() => {
+            if (onMealPlannerClick) {
+              // If meal planner is active and user clicks a source, we might need to close it, 
+              // but App.tsx handles closing meal planner on source change via useEffect
+            }
+            setSource('LOCAL');
+          }}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'LOCAL' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
           My Recipes
         </button>
@@ -31,20 +53,20 @@ export function SourceToggle({ className = '' }: { className?: string }) {
               setSource('FAVORITES');
             }
           }}
-          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'FAVORITES' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'FAVORITES' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
           Favorites
         </button>
         <button 
           onClick={() => setSource('DISCOVERY')}
-          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'DISCOVERY' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'DISCOVERY' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
           Discover
         </button>
         {activeSession && (
           <button 
             onClick={() => setSource('ACTIVE')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${source === 'ACTIVE' ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${source === 'ACTIVE' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
           >
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             Cooking Now

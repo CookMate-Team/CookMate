@@ -1,10 +1,14 @@
 package com.cookmate.mealplanner.controller;
 
+import com.cookmate.mealplanner.dto.SavedShoppingListResponse;
+import com.cookmate.mealplanner.dto.SavedWeeklyPlanResponse;
 import com.cookmate.mealplanner.dto.ShoppingListRequest;
 import com.cookmate.mealplanner.dto.ShoppingListResponse;
 import com.cookmate.mealplanner.dto.WeeklyPlanResponse;
 import com.cookmate.mealplanner.service.MealPlanService;
+import com.cookmate.mealplanner.service.ShoppingListPersistenceService;
 import com.cookmate.mealplanner.service.ShoppingListService;
+import com.cookmate.mealplanner.service.WeeklyPlanPersistenceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,23 +18,32 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/planner")
 @RequiredArgsConstructor
 @Validated
-@Tag(name = "Meal Planner", description = "Weekly meal plan generation endpoints")
+@Tag(name = "Meal Planner", description = "Weekly meal plan generation and persistence endpoints")
 public class MealPlanController {
 
     private final MealPlanService mealPlanService;
     private final ShoppingListService shoppingListService;
+    private final WeeklyPlanPersistenceService weeklyPlanPersistenceService;
+    private final ShoppingListPersistenceService shoppingListPersistenceService;
 
     @GetMapping("/weekly-plan")
     @Operation(summary = "Generate weekly meal plan",
@@ -41,6 +54,37 @@ public class MealPlanController {
         return ResponseEntity.ok(mealPlanService.generateWeeklyPlan(mealsPerDay));
     }
 
+    @PostMapping("/weekly-plan/save")
+    @Operation(summary = "Save a weekly meal plan",
+               description = "Persists a previously generated weekly plan for the authenticated user.")
+    @ApiResponse(responseCode = "200", description = "Plan saved",
+                 content = @Content(schema = @Schema(implementation = SavedWeeklyPlanResponse.class)))
+    public ResponseEntity<SavedWeeklyPlanResponse> saveWeeklyPlan(
+            @RequestBody WeeklyPlanResponse request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(weeklyPlanPersistenceService.save(jwt.getSubject(), request));
+    }
+
+    @GetMapping("/weekly-plan/history")
+    @Operation(summary = "Get weekly plan history",
+               description = "Returns all saved weekly plans for the authenticated user, newest first.")
+    @ApiResponse(responseCode = "200", description = "History returned")
+    public ResponseEntity<List<SavedWeeklyPlanResponse>> getWeeklyPlanHistory(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(weeklyPlanPersistenceService.getHistory(jwt.getSubject()));
+    }
+
+    @DeleteMapping("/weekly-plan/{id}")
+    @Operation(summary = "Delete a saved weekly plan",
+               description = "Deletes a saved weekly plan owned by the authenticated user.")
+    @ApiResponse(responseCode = "204", description = "Plan deleted")
+    @ApiResponse(responseCode = "404", description = "Plan not found or not owned by user")
+    public ResponseEntity<Void> deleteWeeklyPlan(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+        weeklyPlanPersistenceService.delete(id, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/shopping-list")
     @Operation(summary = "Build shopping list",
                description = "Returns a deduplicated shopping list for the given meal IDs.")
@@ -48,5 +92,37 @@ public class MealPlanController {
                  content = @Content(schema = @Schema(implementation = ShoppingListResponse.class)))
     public ResponseEntity<ShoppingListResponse> getShoppingList(@RequestBody ShoppingListRequest request) {
         return ResponseEntity.ok(shoppingListService.buildShoppingList(request));
+    }
+
+    @PostMapping("/shopping-list/from-plan/{weeklyPlanId}")
+    @Operation(summary = "Generate shopping list from saved plan",
+               description = "Looks up a saved weekly plan by id and builds a shopping list from its meals.")
+    @ApiResponse(responseCode = "200", description = "Shopping list generated",
+                 content = @Content(schema = @Schema(implementation = ShoppingListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Weekly plan not found or not owned by user")
+    public ResponseEntity<ShoppingListResponse> generateShoppingListFromPlan(
+            @PathVariable UUID weeklyPlanId,
+            @AuthenticationPrincipal Jwt jwt) {
+        List<String> mealIds = weeklyPlanPersistenceService.getMealIds(weeklyPlanId, jwt.getSubject());
+        return ResponseEntity.ok(shoppingListService.buildShoppingList(new ShoppingListRequest(mealIds)));
+    }
+
+    @PostMapping("/shopping-list/save")
+    @Operation(summary = "Save a shopping list",
+               description = "Persists a previously generated shopping list for the authenticated user.")
+    @ApiResponse(responseCode = "200", description = "Shopping list saved",
+                 content = @Content(schema = @Schema(implementation = SavedShoppingListResponse.class)))
+    public ResponseEntity<SavedShoppingListResponse> saveShoppingList(
+            @RequestBody ShoppingListResponse request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(shoppingListPersistenceService.save(jwt.getSubject(), request));
+    }
+
+    @GetMapping("/shopping-list/history")
+    @Operation(summary = "Get shopping list history",
+               description = "Returns all saved shopping lists for the authenticated user, newest first.")
+    @ApiResponse(responseCode = "200", description = "History returned")
+    public ResponseEntity<List<SavedShoppingListResponse>> getShoppingListHistory(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(shoppingListPersistenceService.getHistory(jwt.getSubject()));
     }
 }
