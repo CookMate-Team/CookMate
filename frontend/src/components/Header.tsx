@@ -5,9 +5,10 @@ import { useRecipeStore } from '../store/useRecipeStore';
 
 interface HeaderProps {
   onHomeClick?: () => void;
+  onMealPlannerClick?: () => void;
 }
 
-export function Header({ onHomeClick }: HeaderProps) {
+export function Header({ onHomeClick, onMealPlannerClick }: HeaderProps) {
   const { isAuthenticated, user, login, logout, register } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,21 @@ export function Header({ onHomeClick }: HeaderProps) {
             title={!isAuthenticated ? "Log in to access" : undefined}
           >
             Favorites
+          </a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              if (!isAuthenticated) {
+                login();
+              } else {
+                onMealPlannerClick?.();
+              }
+            }}
+            className={isAuthenticated ? "text-white hover:text-amber-100 font-medium transition-colors" : "text-white/50 cursor-not-allowed font-medium transition-colors"}
+            title={!isAuthenticated ? "Log in to access" : undefined}
+          >
+            Meal Planner
           </a>
           <a
             href="#"
