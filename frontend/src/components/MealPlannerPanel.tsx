@@ -43,6 +43,7 @@ function downloadAsTxt(list: ShoppingListResponse, planLabel: string) {
 
 interface MealPlannerPanelProps {
   onRequireLogin: () => void;
+  onStartCooking: (recipeId: string) => void;
 }
 
 function Spinner() {
@@ -73,7 +74,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
   );
 }
 
-export function MealPlannerPanel({ onRequireLogin }: MealPlannerPanelProps) {
+export function MealPlannerPanel({ onRequireLogin, onStartCooking }: MealPlannerPanelProps) {
   const { isAuthenticated } = useAuth();
   const [mealsPerDay, setMealsPerDay] = useState(3);
   const [generatedPlan, setGeneratedPlan] = useState<WeeklyPlanResponse | null>(null);
@@ -315,14 +316,21 @@ export function MealPlannerPanel({ onRequireLogin }: MealPlannerPanelProps) {
                               <h3 className="font-bold text-stone-700 text-xs uppercase tracking-wider">{dayPlan.day}</h3>
                               <div className="space-y-1.5">
                                 {dayPlan.meals.map((meal) => (
-                                  <div key={meal.id} className="flex items-center gap-2">
+                                  <div key={meal.id} className="flex items-center gap-2 group">
                                     <img
                                       src={meal.thumbnailUrl}
                                       alt={meal.name}
                                       className="w-9 h-9 rounded-lg object-cover flex-shrink-0 shadow-sm"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
-                                    <span className="text-xs text-stone-700 font-medium leading-tight">{meal.name}</span>
+                                    <span className="text-xs text-stone-700 font-medium leading-tight flex-1 min-w-0">{meal.name}</span>
+                                    <button
+                                      onClick={() => onStartCooking(meal.id)}
+                                      title="Start cooking"
+                                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-xs font-semibold text-amber-600 hover:text-white hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 border border-amber-300 hover:border-transparent px-2 py-0.5 rounded-lg transition-all duration-150"
+                                    >
+                                      ▶ Cook
+                                    </button>
                                   </div>
                                 ))}
                               </div>

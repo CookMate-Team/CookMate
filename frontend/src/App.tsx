@@ -96,7 +96,10 @@ function AppContent() {
       <div className="min-h-screen flex flex-col">
         <Header onHomeClick={handleCloseMealPlanner} onMealPlannerClick={handleOpenMealPlanner} />
         <main className="flex-grow">
-          <MealPlannerPanel onRequireLogin={() => setShowLoginModal(true)} />
+          <MealPlannerPanel
+            onRequireLogin={() => setShowLoginModal(true)}
+            onStartCooking={handleStartCooking}
+          />
         </main>
         <Footer />
 
