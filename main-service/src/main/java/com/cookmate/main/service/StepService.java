@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cookmate.main.model.ActionType;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,6 +56,31 @@ public class StepService {
     }
 
     /**
+     * Zwraca mapę z czasami wykonania dla poszczególnych przepisów (sumując duration_minutes).
+     *
+     * @param recipeIds lista ID przepisów
+     * @return mapa id -> czas przygotowania
+     */
+    public Map<String, Integer> getPreparationTimes(List<String> recipeIds) {
+        if (recipeIds == null || recipeIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Object[]> results = stepRepository.sumDurationByRecipeIds(recipeIds);
+        Map<String, Integer> times = new HashMap<>();
+
+        for (Object[] result : results) {
+            String recipeId = (String) result[0];
+            Number sum = (Number) result[1];
+            if (sum != null) {
+                times.put(recipeId, sum.intValue());
+            }
+        }
+
+        return times;
+    }
+
+    /**
      * Generuje kroki do przepisu z TheMealDB.
      * Jeśli kroki już istnieją dla danego mealId, zwraca istniejące.
      * W przeciwnym razie pobiera przepis z TheMealDB, wysyła do LLM i zapisuje kroki.
@@ -86,8 +113,8 @@ public class StepService {
         }
 
         var meal = mealResponse.meals().get(0);
-        String recipeInstructions = meal.strInstructions();
-        String recipeName = meal.strMeal();
+        String recipeInstructions = meal.getStrInstructions();
+        String recipeName = meal.getStrMeal();
 
         List<String> ingredients = parseIngredients(meal);
         String formattedIngredients = ingredients.stream()
@@ -135,26 +162,26 @@ public class StepService {
 
     private List<String> parseIngredients(Meal meal) {
         List<String> ingredientsList = new java.util.ArrayList<>();
-        addIngredientIfValid(ingredientsList, meal.strIngredient1(), meal.strMeasure1());
-        addIngredientIfValid(ingredientsList, meal.strIngredient2(), meal.strMeasure2());
-        addIngredientIfValid(ingredientsList, meal.strIngredient3(), meal.strMeasure3());
-        addIngredientIfValid(ingredientsList, meal.strIngredient4(), meal.strMeasure4());
-        addIngredientIfValid(ingredientsList, meal.strIngredient5(), meal.strMeasure5());
-        addIngredientIfValid(ingredientsList, meal.strIngredient6(), meal.strMeasure6());
-        addIngredientIfValid(ingredientsList, meal.strIngredient7(), meal.strMeasure7());
-        addIngredientIfValid(ingredientsList, meal.strIngredient8(), meal.strMeasure8());
-        addIngredientIfValid(ingredientsList, meal.strIngredient9(), meal.strMeasure9());
-        addIngredientIfValid(ingredientsList, meal.strIngredient10(), meal.strMeasure10());
-        addIngredientIfValid(ingredientsList, meal.strIngredient11(), meal.strMeasure11());
-        addIngredientIfValid(ingredientsList, meal.strIngredient12(), meal.strMeasure12());
-        addIngredientIfValid(ingredientsList, meal.strIngredient13(), meal.strMeasure13());
-        addIngredientIfValid(ingredientsList, meal.strIngredient14(), meal.strMeasure14());
-        addIngredientIfValid(ingredientsList, meal.strIngredient15(), meal.strMeasure15());
-        addIngredientIfValid(ingredientsList, meal.strIngredient16(), meal.strMeasure16());
-        addIngredientIfValid(ingredientsList, meal.strIngredient17(), meal.strMeasure17());
-        addIngredientIfValid(ingredientsList, meal.strIngredient18(), meal.strMeasure18());
-        addIngredientIfValid(ingredientsList, meal.strIngredient19(), meal.strMeasure19());
-        addIngredientIfValid(ingredientsList, meal.strIngredient20(), meal.strMeasure20());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient1(), meal.getStrMeasure1());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient2(), meal.getStrMeasure2());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient3(), meal.getStrMeasure3());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient4(), meal.getStrMeasure4());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient5(), meal.getStrMeasure5());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient6(), meal.getStrMeasure6());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient7(), meal.getStrMeasure7());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient8(), meal.getStrMeasure8());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient9(), meal.getStrMeasure9());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient10(), meal.getStrMeasure10());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient11(), meal.getStrMeasure11());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient12(), meal.getStrMeasure12());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient13(), meal.getStrMeasure13());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient14(), meal.getStrMeasure14());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient15(), meal.getStrMeasure15());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient16(), meal.getStrMeasure16());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient17(), meal.getStrMeasure17());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient18(), meal.getStrMeasure18());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient19(), meal.getStrMeasure19());
+        addIngredientIfValid(ingredientsList, meal.getStrIngredient20(), meal.getStrMeasure20());
         return ingredientsList;
     }
 

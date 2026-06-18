@@ -46,5 +46,11 @@ public record RecipeDTO(
     /**
      * Timestamp when the recipe was created.
      */
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+
+    /**
+     * Default number of portions.
+     */
+    @Min(value = 1, message = "Portions must be at least 1")
+    Integer defaultPortions
 ) {}

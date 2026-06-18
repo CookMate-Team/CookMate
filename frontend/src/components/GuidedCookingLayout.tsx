@@ -3,6 +3,7 @@ import { useMealDetails } from '../hooks/useMealDetails';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
 import { useRecipeSteps } from '../hooks/useRecipeSteps';
 import { SimulatorPanel } from './SimulatorPanel';
+import { scaleMeasurement } from '../utils/scaling';
 
 function ActiveRecipeName({ recipeId }: { recipeId: string }) {
   const { data, isLoading } = useMealDetails(recipeId);
@@ -13,6 +14,7 @@ function ActiveRecipeName({ recipeId }: { recipeId: string }) {
 interface GuidedCookingLayoutProps {
   recipeId: string;
   onClose: () => void;
+  targetPortions?: number;
 }
 
 type ActiveView = 'recipe' | 'simulator';
@@ -26,11 +28,12 @@ type ActiveView = 'recipe' | 'simulator';
  *
  * The simulator panel is currently a green placeholder square.
  */
-export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutProps) {
+export function GuidedCookingLayout({ recipeId, onClose, targetPortions }: GuidedCookingLayoutProps) {
   const [activeView, setActiveView] = useState<ActiveView>('recipe');
   const { data, isLoading, isError } = useMealDetails(recipeId);
   const { data: dbSteps } = useRecipeSteps(recipeId);
   const {
+    activeSession,
     currentStep,
     startStreaming,
     stopStreaming,
@@ -41,6 +44,9 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
   } = useSimulationProgress();
   const meal = data?.meals?.[0];
   const stepRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  const effectiveTargetPortions = targetPortions ?? activeSession?.targetPortions;
+  const defaultPortions = 4;
 
   const instructionSteps = useMemo(() => {
     if (dbSteps && dbSteps.length > 0) {
@@ -65,9 +71,9 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
   }, [currentStep]);
 
   useEffect(() => {
-    startStreaming(recipeId);
+    startStreaming(recipeId, targetPortions);
     return () => stopStreaming();
-  }, [recipeId, startStreaming, stopStreaming]);
+  }, [recipeId, startStreaming, stopStreaming, targetPortions]);
 
   if (isStartingSession) {
     return (
@@ -92,7 +98,7 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
         <p className="mt-2 text-sm text-stone-600 max-w-md">{startSessionError}</p>
         <div className="mt-6 flex gap-4">
           <button
-            onClick={() => startStreaming(recipeId)}
+            onClick={() => startStreaming(recipeId, targetPortions)}
             className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition-colors"
           >
             Retry
@@ -247,14 +253,23 @@ export function GuidedCookingLayout({ recipeId, onClose }: GuidedCookingLayoutPr
                   </div>
                 </div>
 
-                {/* Ingredients */}
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-amber-600 mb-3 sm:mb-4 border-b border-stone-100 pb-2">🧑‍🍳 Ingredients</h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-100 pb-2 mb-3 sm:mb-4 gap-4">
+                    <h2 className="text-lg sm:text-xl font-bold text-amber-600">🧑‍🍳 Ingredients</h2>
+                    {effectiveTargetPortions && (
+                      <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-full border border-stone-200">
+                        <span className="text-sm text-stone-500 font-medium">Portions:</span>
+                        <span className="font-bold text-stone-700">{effectiveTargetPortions}</span>
+                      </div>
+                    )}
+                  </div>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {Array.from({ length: 20 }).map((_, i) => {
                       const ingredient = meal[`strIngredient${i + 1}`];
-                      const measure = meal[`strMeasure${i + 1}`];
+                      const baseMeasure = meal[`strMeasure${i + 1}`];
                       if (ingredient && ingredient.trim() !== '') {
+                        const ratio = effectiveTargetPortions ? effectiveTargetPortions / defaultPortions : 1;
+                        const measure = scaleMeasurement(baseMeasure || '', ratio, ingredient);
                         return (
                           <li key={i} className="flex items-center gap-2 text-stone-700 text-sm sm:text-base">
                             <span className="w-2 h-2 bg-amber-400 rounded-full flex-shrink-0" />

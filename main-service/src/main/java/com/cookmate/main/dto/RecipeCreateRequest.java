@@ -34,5 +34,11 @@ public record RecipeCreateRequest(
      * Preparation time in minutes (optional, non-negative if provided).
      */
     @Min(value = 0, message = "Preparation time must be non-negative")
-    Integer preparationTimeMinutes
+    Integer preparationTimeMinutes,
+
+    /**
+     * Default number of portions (optional, defaults to 4 in service).
+     */
+    @Min(value = 1, message = "Portions must be at least 1")
+    Integer defaultPortions
 ) {}

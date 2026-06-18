@@ -126,41 +126,25 @@ class StepServiceTest {
                 .thenReturn(List.of());
 
         // 2. Mock Meal with various combinations of ingredients & measures
-        Meal mockMeal = new Meal(
-                mealId,
-                "Test Chicken Recipe",
-                null,
-                "Chicken",
-                "Italian",
-                "Instructions text...",
-                "thumb.jpg",
-                "tags",
-                "youtube.com",
-                "source",
-                "imgSource",
-                "confirmed",
-                "2026-06-04",
-                "Chicken", "500g",         // 1. normal
-                "Garlic", "",              // 2. empty measure
-                "Salt", null,              // 3. null measure
-                "  ", "1 tsp",             // 4. empty ingredient name
-                null, "1 cup",             // 5. null ingredient name
-                null, null,                // 6
-                null, null,                // 7
-                null, null,                // 8
-                null, null,                // 9
-                null, null,                // 10
-                null, null,                // 11
-                null, null,                // 12
-                null, null,                // 13
-                null, null,                // 14
-                null, null,                // 15
-                null, null,                // 16
-                null, null,                // 17
-                null, null,                // 18
-                null, null,                // 19
-                null, null                 // 20
-        );
+        Meal mockMeal = Meal.builder()
+                .idMeal(mealId)
+                .strMeal("Test Chicken Recipe")
+                .strCategory("Chicken")
+                .strArea("Italian")
+                .strInstructions("Instructions text...")
+                .strMealThumb("thumb.jpg")
+                .strTags("tags")
+                .strYoutube("youtube.com")
+                .strSource("source")
+                .strImageSource("imgSource")
+                .strCreativeCommonsConfirmed("confirmed")
+                .dateModified("2026-06-04")
+                .strIngredient1("Chicken").strMeasure1("500g")
+                .strIngredient2("Garlic").strMeasure2("")
+                .strIngredient3("Salt").strMeasure3(null)
+                .strIngredient4("  ").strMeasure4("1 tsp")
+                .strIngredient5(null).strMeasure5("1 cup")
+                .build();
 
         MealSearchResponse mockMealResponse = new MealSearchResponse(List.of(mockMeal));
         when(mealDbClient.lookupById(mealId)).thenReturn(reactor.core.publisher.Mono.just(mockMealResponse));
@@ -230,13 +214,21 @@ class StepServiceTest {
 
         when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId)).thenReturn(List.of());
 
-        Meal mockMeal = new Meal(
-                mealId, "Test Recipe", null, "Test", "Test Area", "Instructions...",
-                "thumb", "tags", "yt", "src", "img", "CC", "date",
-                "Ingredient", "10g", null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null
-        );
+        Meal mockMeal = Meal.builder()
+                .idMeal(mealId)
+                .strMeal("Test Recipe")
+                .strCategory("Test")
+                .strArea("Test Area")
+                .strInstructions("Instructions...")
+                .strMealThumb("thumb")
+                .strTags("tags")
+                .strYoutube("yt")
+                .strSource("src")
+                .strImageSource("img")
+                .strCreativeCommonsConfirmed("CC")
+                .dateModified("date")
+                .strIngredient1("Ingredient").strMeasure1("10g")
+                .build();
         when(mealDbClient.lookupById(mealId)).thenReturn(reactor.core.publisher.Mono.just(new MealSearchResponse(List.of(mockMeal))));
 
         // Gapped and out-of-order step numbers with unsafe parameters

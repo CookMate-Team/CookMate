@@ -1,11 +1,13 @@
 import { useMealDetails } from '../hooks/useMealDetails';
 import { useCheckFavorite, useAddFavorite, useRemoveFavorite } from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { scaleMeasurement } from '../utils/scaling';
 
 interface ExpandedRecipeCardProps {
   id: string | null;
   onClose: () => void;
-  onStartCooking?: (id: string) => void;
+  onStartCooking?: (id: string, targetPortions?: number) => void;
   onRequireLogin?: () => void;
 }
 
@@ -15,6 +17,9 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin
   const { data: isFav } = useCheckFavorite(id);
   const { mutate: addFav } = useAddFavorite();
   const { mutate: removeFav } = useRemoveFavorite();
+  
+  const defaultPortions = 4;
+  const [targetPortions, setTargetPortions] = useState(defaultPortions);
 
   if (!id) return null;
 
@@ -76,12 +81,27 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin
             <h2 className="text-3xl font-extrabold text-stone-800 mb-6 leading-tight pr-8">{meal.strMeal}</h2>
 
             <div className="mb-8">
-              <h3 className="text-xl font-bold text-amber-600 mb-4 border-b border-stone-100 pb-2">Ingredients</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-100 pb-2 mb-4 gap-4">
+                <h3 className="text-xl font-bold text-amber-600">Ingredients</h3>
+                <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-full border border-stone-200">
+                  <span className="text-sm text-stone-500 font-medium">Portions:</span>
+                  <button 
+                    onClick={() => setTargetPortions(Math.max(1, targetPortions - 1))}
+                    className="w-6 h-6 rounded-full bg-white border border-stone-300 flex items-center justify-center text-stone-600 hover:bg-stone-100 hover:text-amber-600 transition"
+                  >-</button>
+                  <span className="w-4 text-center font-bold text-stone-700">{targetPortions}</span>
+                  <button 
+                    onClick={() => setTargetPortions(Math.min(10, targetPortions + 1))}
+                    className="w-6 h-6 rounded-full bg-white border border-stone-300 flex items-center justify-center text-stone-600 hover:bg-stone-100 hover:text-amber-600 transition"
+                  >+</button>
+                </div>
+              </div>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {Array.from({ length: 20 }).map((_, i) => {
                   const ingredient = meal[`strIngredient${i + 1}`];
-                  const measure = meal[`strMeasure${i + 1}`];
+                  const baseMeasure = meal[`strMeasure${i + 1}`];
                   if (ingredient && ingredient.trim() !== '') {
+                    const measure = scaleMeasurement(baseMeasure || '', targetPortions / defaultPortions, ingredient);
                     return (
                       <li key={i} className="flex items-center gap-2 text-stone-700">
                         <span className="w-2 h-2 bg-amber-400 rounded-full"></span>
@@ -105,7 +125,7 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin
               {onStartCooking && id && (
                 <button
                   id="start-cooking-btn"
-                  onClick={(e) => { e.stopPropagation(); onStartCooking(id); }}
+                  onClick={(e) => { e.stopPropagation(); onStartCooking(id, targetPortions); }}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
                 >
                   Start cooking

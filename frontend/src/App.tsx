@@ -29,32 +29,44 @@ function AuthLoader({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { isAuthenticated, login, register } = useAuth();
   const [cookingRecipeId, setCookingRecipeId] = useState<string | null>(null);
+  const [cookingTargetPortions, setCookingTargetPortions] = useState<number | undefined>(undefined);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const source = useRecipeStore((state) => state.source);
 
-  const handleStartCooking = (recipeId: string) => {
+  const handleStartCooking = (recipeId: string, targetPortions?: number) => {
     if (!isAuthenticated) {
       localStorage.setItem('pendingRecipeId', recipeId);
+      if (targetPortions !== undefined) {
+        localStorage.setItem('pendingTargetPortions', targetPortions.toString());
+      }
       setShowLoginModal(true);
       return;
     }
+    setCookingTargetPortions(targetPortions);
     setCookingRecipeId(recipeId);
   };
 
   const handleCloseCooking = () => {
     setCookingRecipeId(null);
+    setCookingTargetPortions(undefined);
   };
 
   // Close guided cooking view if user switches source (tab) in the navbar
   useEffect(() => {
     setCookingRecipeId(null);
+    setCookingTargetPortions(undefined);
   }, [source]);
 
   // Restore pending cooking session after successful login
   useEffect(() => {
     if (isAuthenticated) {
       const pendingId = localStorage.getItem('pendingRecipeId');
+      const pendingPortions = localStorage.getItem('pendingTargetPortions');
       if (pendingId) {
+        if (pendingPortions) {
+          setCookingTargetPortions(parseInt(pendingPortions, 10));
+          localStorage.removeItem('pendingTargetPortions');
+        }
         setCookingRecipeId(pendingId);
         localStorage.removeItem('pendingRecipeId');
       }
@@ -69,6 +81,7 @@ function AppContent() {
         <GuidedCookingLayout
           recipeId={cookingRecipeId}
           onClose={handleCloseCooking}
+          targetPortions={cookingTargetPortions}
         />
       </div>
     );
@@ -101,6 +114,7 @@ function AppContent() {
           className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4"
           onClick={() => {
             localStorage.removeItem('pendingRecipeId');
+            localStorage.removeItem('pendingTargetPortions');
             setShowLoginModal(false);
           }}
         >
@@ -111,6 +125,7 @@ function AppContent() {
             <button
               onClick={() => {
                 localStorage.removeItem('pendingRecipeId');
+                localStorage.removeItem('pendingTargetPortions');
                 setShowLoginModal(false);
               }}
               className="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition"
@@ -144,6 +159,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   localStorage.removeItem('pendingRecipeId');
+                  localStorage.removeItem('pendingTargetPortions');
                   setShowLoginModal(false);
                 }}
                 className="w-full bg-transparent border border-stone-200 text-stone-600 font-medium py-3 px-4 rounded-xl hover:bg-stone-50 transition-colors"

@@ -55,6 +55,13 @@ public class Recipe {
     private Integer preparationTimeMinutes;
 
     /**
+     * Default number of portions for the recipe.
+     */
+    @Min(value = 1, message = "Portions must be at least 1")
+    @Column(name = "default_portions")
+    private Integer defaultPortions = 4;
+
+    /**
      * Timestamp when the recipe was created (auto-set on persist).
      */
     @Column(name = "created_at")
@@ -88,6 +95,7 @@ public class Recipe {
         this.ingredients = ingredients;
         this.instructions = instructions;
         this.preparationTimeMinutes = preparationTimeMinutes;
+        this.defaultPortions = 4;
     }
 
     /**
@@ -175,6 +183,20 @@ public class Recipe {
     public void setPreparationTimeMinutes(Integer preparationTimeMinutes) {
         this.preparationTimeMinutes = preparationTimeMinutes;
     }
+
+    /**
+     * Get the default portions.
+     *
+     * @return default portions
+     */
+    public Integer getDefaultPortions() { return defaultPortions; }
+
+    /**
+     * Set the default portions.
+     *
+     * @param defaultPortions default portions
+     */
+    public void setDefaultPortions(Integer defaultPortions) { this.defaultPortions = defaultPortions; }
 
     /**
      * Get the creation timestamp.
