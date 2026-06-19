@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cookmate.main.model.ActionType;
+import com.cookmate.main.dto.CustomStepGenerationRequest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -158,6 +159,47 @@ public class StepService {
             .toList();
 
         return new StepGenerationResponse(mealId, recipeName, stepDTOs);
+    }
+
+    /**
+     * Generuje kroki dla własnego przepisu użytkownika.
+     * Nie zapisuje kroków w bazie danych. Zwraca je jako podgląd.
+     *
+     * @param request żądanie zawierające instrukcje i składniki
+     * @return response z listą wygenerowanych kroków
+     */
+    public StepGenerationResponse generateCustomStepsPreview(CustomStepGenerationRequest request) {
+        String recipeInstructions = request.instructions();
+        String formattedIngredients = request.ingredients();
+
+        logger.info("Wysyłanie własnego przepisu do Groq LLM...");
+        var llmResponse = groqClient.generateSteps(recipeInstructions, formattedIngredients).block();
+        if (llmResponse == null || llmResponse.steps().isEmpty()) {
+            throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
+        }
+
+        List<LLMStepDTO> sortedLlmSteps = llmResponse.steps().stream()
+                .sorted(java.util.Comparator.comparing(LLMStepDTO::stepNumber))
+                .toList();
+
+        List<StepDTO> stepDTOs = new java.util.ArrayList<>();
+        for (int i = 0; i < sortedLlmSteps.size(); i++) {
+            var llmStep = sortedLlmSteps.get(i);
+            int sequentialStepNumber = i + 1;
+            Map<String, Object> guardedParams = applyGuardrails(llmStep.action(), llmStep.parameters(), sequentialStepNumber);
+
+            stepDTOs.add(StepDTO.builder()
+                .stepNumber(sequentialStepNumber)
+                .description(llmStep.description())
+                .action(llmStep.action())
+                .mainIngredient(llmStep.mainIngredient())
+                .durationMinutes(llmStep.duration())
+                .parameters(guardedParams)
+                .recipeId("preview")
+                .build());
+        }
+
+        return new StepGenerationResponse("preview", "Własny przepis", stepDTOs);
     }
 
     private List<String> parseIngredients(Meal meal) {
