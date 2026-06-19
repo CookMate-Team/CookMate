@@ -62,6 +62,18 @@ public class Recipe {
     private Integer defaultPortions = 4;
 
     /**
+     * User ID who created the recipe. Null for system/public recipes.
+     */
+    @Column(name = "user_id", length = 36)
+    private String userId;
+
+    /**
+     * Flag indicating if the recipe is custom created by a user.
+     */
+    @Column(name = "is_custom", nullable = false)
+    private boolean isCustom = false;
+
+    /**
      * Timestamp when the recipe was created (auto-set on persist).
      */
     @Column(name = "created_at")
@@ -96,6 +108,28 @@ public class Recipe {
         this.instructions = instructions;
         this.preparationTimeMinutes = preparationTimeMinutes;
         this.defaultPortions = 4;
+        this.isCustom = false;
+    }
+
+    /**
+     * Construct a custom Recipe.
+     *
+     * @param name Recipe name
+     * @param description Recipe description
+     * @param ingredients List of ingredients
+     * @param instructions Cooking instructions
+     * @param preparationTimeMinutes Preparation time in minutes
+     * @param userId User ID of the creator
+     */
+    public Recipe(String name, String description, String ingredients, String instructions, Integer preparationTimeMinutes, String userId) {
+        this.name = name;
+        this.description = description;
+        this.ingredients = ingredients;
+        this.instructions = instructions;
+        this.preparationTimeMinutes = preparationTimeMinutes;
+        this.defaultPortions = 4;
+        this.userId = userId;
+        this.isCustom = true;
     }
 
     /**
@@ -211,4 +245,32 @@ public class Recipe {
      * @param createdAt creation timestamp
      */
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    /**
+     * Get the user ID.
+     *
+     * @return user ID
+     */
+    public String getUserId() { return userId; }
+
+    /**
+     * Set the user ID.
+     *
+     * @param userId user ID
+     */
+    public void setUserId(String userId) { this.userId = userId; }
+
+    /**
+     * Check if the recipe is custom.
+     *
+     * @return true if custom
+     */
+    public boolean isCustom() { return isCustom; }
+
+    /**
+     * Set if the recipe is custom.
+     *
+     * @param custom true if custom
+     */
+    public void setCustom(boolean custom) { isCustom = custom; }
 }

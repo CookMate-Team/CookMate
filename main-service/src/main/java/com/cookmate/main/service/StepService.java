@@ -270,4 +270,27 @@ public class StepService {
             return defaultValue;
         }
     }
+
+    @Transactional
+    public void saveCustomSteps(String recipeId, List<StepDTO> stepDTOs) {
+        stepRepository.deleteByRecipeId(recipeId);
+        if (stepDTOs == null || stepDTOs.isEmpty()) return;
+
+        List<Step> stepsToSave = stepDTOs.stream().map(dto -> Step.builder()
+                .stepNumber(dto.stepNumber())
+                .description(dto.description())
+                .action(dto.action())
+                .mainIngredient(dto.mainIngredient())
+                .durationMinutes(dto.durationMinutes())
+                .parameters(dto.parameters())
+                .recipeId(recipeId)
+                .build()).collect(Collectors.toList());
+
+        stepRepository.saveAll(stepsToSave);
+    }
+
+    @Transactional
+    public void deleteStepsByRecipeId(String recipeId) {
+        stepRepository.deleteByRecipeId(recipeId);
+    }
 }

@@ -2,6 +2,7 @@ package com.cookmate.main.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import java.util.List;
 
 /**
  * Request DTO for updating an existing recipe.
@@ -34,5 +35,10 @@ public record RecipeUpdateRequest(
      * Preparation time in minutes (optional, non-negative if provided).
      */
     @Min(value = 0, message = "Preparation time must be non-negative")
-    Integer preparationTimeMinutes
+    Integer preparationTimeMinutes,
+
+    /**
+     * List of cooking steps (optional).
+     */
+    List<StepDTO> steps
 ) {}

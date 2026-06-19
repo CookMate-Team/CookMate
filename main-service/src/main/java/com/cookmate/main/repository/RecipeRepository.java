@@ -14,4 +14,6 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     List<Recipe> findByNameContainingIgnoreCase(String name);
 
     Page<Recipe> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    List<Recipe> findByUserId(String userId);
 }

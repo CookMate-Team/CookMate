@@ -22,4 +22,6 @@ public interface StepRepository extends JpaRepository<Step, Long> {
 
     @Query("SELECT s.recipeId, SUM(s.durationMinutes) FROM Step s WHERE s.recipeId IN :recipeIds GROUP BY s.recipeId")
     List<Object[]> sumDurationByRecipeIds(@Param("recipeIds") List<String> recipeIds);
+
+    void deleteByRecipeId(String recipeId);
 }

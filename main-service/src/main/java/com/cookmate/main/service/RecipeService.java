@@ -65,6 +65,27 @@ public class RecipeService {
         );
     }
 
+    public RecipeListResponse findMyRecipesPaginated(String userId, int page, int size) {
+        // Find by userId manually since Pageable isn't yet added for it in repo
+        List<Recipe> allMyRecipes = recipeRepository.findByUserId(userId);
+        int total = allMyRecipes.size();
+        int start = Math.min(page * size, total);
+        int end = Math.min((page + 1) * size, total);
+        List<Recipe> paged = allMyRecipes.subList(start, end);
+        
+        List<RecipeDTO> dtos = paged.stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return new RecipeListResponse(
+                dtos,
+                total,
+                page,
+                size,
+                (int) Math.ceil((double) total / size)
+        );
+    }
+
     public RecipeListResponse findPaginated(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"));
         Page<Recipe> recipePage = recipeRepository.findAll(pageable);
@@ -96,6 +117,21 @@ public class RecipeService {
         return recipeRepository.save(recipe);
     }
 
+    public Recipe saveCustom(RecipeCreateRequest request, String userId) {
+        Recipe recipe = new Recipe(
+                request.name(),
+                request.description(),
+                request.ingredients(),
+                request.instructions(),
+                request.preparationTimeMinutes(),
+                userId
+        );
+        if (request.defaultPortions() != null) {
+            recipe.setDefaultPortions(request.defaultPortions());
+        }
+        return recipeRepository.save(recipe);
+    }
+
     public Optional<Recipe> update(Long id, Recipe updated) {
         return recipeRepository.findById(id).map(existing -> {
             existing.setName(updated.getName());
@@ -119,6 +155,20 @@ public class RecipeService {
         return recipeRepository.save(existing);
     }
 
+    public Recipe updateCustomOrThrow(Long id, Recipe updated, String userId) {
+        Recipe existing = findByIdOrThrow(id);
+        if (!userId.equals(existing.getUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Nie jesteś właścicielem tego przepisu");
+        }
+        existing.setName(updated.getName());
+        existing.setDescription(updated.getDescription());
+        existing.setIngredients(updated.getIngredients());
+        existing.setInstructions(updated.getInstructions());
+        existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
+        existing.setDefaultPortions(updated.getDefaultPortions());
+        return recipeRepository.save(existing);
+    }
+
     public boolean deleteById(Long id) {
         if (recipeRepository.existsById(id)) {
             recipeRepository.deleteById(id);
@@ -129,6 +179,14 @@ public class RecipeService {
 
     public void deleteByIdOrThrow(Long id) {
         Recipe recipe = findByIdOrThrow(id);
+        recipeRepository.delete(recipe);
+    }
+
+    public void deleteCustomByIdOrThrow(Long id, String userId) {
+        Recipe recipe = findByIdOrThrow(id);
+        if (!userId.equals(recipe.getUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Nie jesteś właścicielem tego przepisu");
+        }
         recipeRepository.delete(recipe);
     }
 
@@ -175,7 +233,10 @@ public class RecipeService {
                 recipe.getInstructions(),
                 recipe.getPreparationTimeMinutes(),
                 recipe.getCreatedAt(),
-                recipe.getDefaultPortions()
+                recipe.getDefaultPortions(),
+                recipe.getUserId(),
+                recipe.isCustom(),
+                null // Steps are loaded separately when needed, or could be fetched via StepService if required
         );
     }
 

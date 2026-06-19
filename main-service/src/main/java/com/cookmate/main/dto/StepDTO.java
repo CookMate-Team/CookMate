@@ -24,6 +24,8 @@ public record StepDTO(
         @NotNull(message = "Typ akcji jest wymagany")
         ActionType action,
 
+        String mainIngredient,
+
         Map<String, Object> parameters,
 
         @PositiveOrZero(message = "Czas trwania nie może być wartością ujemną")
