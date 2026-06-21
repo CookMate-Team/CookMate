@@ -6,11 +6,13 @@ import { useAuth } from '../context/AuthContext';
 export function SourceToggle({ 
   className = '',
   onMealPlannerClick,
-  isMealPlannerActive
+  isMealPlannerActive,
+  onCloseMealPlanner
 }: { 
   className?: string;
   onMealPlannerClick?: () => void;
   isMealPlannerActive?: boolean;
+  onCloseMealPlanner?: () => void;
 }) {
   const { source, setSource } = useRecipeStore();
   const { data: activeSession } = useGlobalActiveSession();
@@ -35,11 +37,10 @@ export function SourceToggle({
         )}
         <button 
           onClick={() => {
-            if (onMealPlannerClick) {
-              // If meal planner is active and user clicks a source, we might need to close it, 
-              // but App.tsx handles closing meal planner on source change via useEffect
-            }
             setSource('LOCAL');
+            if (isMealPlannerActive) {
+              onCloseMealPlanner?.();
+            }
           }}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'LOCAL' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
@@ -51,6 +52,9 @@ export function SourceToggle({
               login();
             } else {
               setSource('FAVORITES');
+              if (isMealPlannerActive) {
+                onCloseMealPlanner?.();
+              }
             }
           }}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'FAVORITES' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
@@ -58,14 +62,24 @@ export function SourceToggle({
           Favorites
         </button>
         <button 
-          onClick={() => setSource('DISCOVERY')}
+          onClick={() => {
+            setSource('DISCOVERY');
+            if (isMealPlannerActive) {
+              onCloseMealPlanner?.();
+            }
+          }}
           className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 ${source === 'DISCOVERY' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
         >
           Discover
         </button>
         {activeSession && (
           <button 
-            onClick={() => setSource('ACTIVE')}
+            onClick={() => {
+              setSource('ACTIVE');
+              if (isMealPlannerActive) {
+                onCloseMealPlanner?.();
+              }
+            }}
             className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${source === 'ACTIVE' && !isMealPlannerActive ? 'bg-white text-orange-600 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
           >
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />

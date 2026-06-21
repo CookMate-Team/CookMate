@@ -62,7 +62,7 @@ public class RecipeSteps {
                         r.getName(), r.getDescription(),
                         r.getIngredients(), r.getInstructions(),
                         r.getPreparationTimeMinutes(), null, 4,
-                        null, false, java.util.List.of()))
+                        null, false, null, java.util.List.of()))
                 .toList();
 
         when(recipeService.findPaginated(0, 10))

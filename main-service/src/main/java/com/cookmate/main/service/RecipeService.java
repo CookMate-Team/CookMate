@@ -114,6 +114,7 @@ public class RecipeService {
         if (request.defaultPortions() != null) {
             recipe.setDefaultPortions(request.defaultPortions());
         }
+        recipe.setImageUrl(request.imageUrl());
         return recipeRepository.save(recipe);
     }
 
@@ -129,6 +130,7 @@ public class RecipeService {
         if (request.defaultPortions() != null) {
             recipe.setDefaultPortions(request.defaultPortions());
         }
+        recipe.setImageUrl(request.imageUrl());
         return recipeRepository.save(recipe);
     }
 
@@ -140,6 +142,7 @@ public class RecipeService {
             existing.setInstructions(updated.getInstructions());
             existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
             existing.setDefaultPortions(updated.getDefaultPortions());
+            existing.setImageUrl(updated.getImageUrl());
             return recipeRepository.save(existing);
         });
     }
@@ -152,6 +155,7 @@ public class RecipeService {
         existing.setInstructions(updated.getInstructions());
         existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
         existing.setDefaultPortions(updated.getDefaultPortions());
+        existing.setImageUrl(updated.getImageUrl());
         return recipeRepository.save(existing);
     }
 
@@ -166,6 +170,7 @@ public class RecipeService {
         existing.setInstructions(updated.getInstructions());
         existing.setPreparationTimeMinutes(updated.getPreparationTimeMinutes());
         existing.setDefaultPortions(updated.getDefaultPortions());
+        existing.setImageUrl(updated.getImageUrl());
         return recipeRepository.save(existing);
     }
 
@@ -236,6 +241,7 @@ public class RecipeService {
                 recipe.getDefaultPortions(),
                 recipe.getUserId(),
                 recipe.isCustom(),
+                recipe.getImageUrl(),
                 null // Steps are loaded separately when needed, or could be fetched via StepService if required
         );
     }

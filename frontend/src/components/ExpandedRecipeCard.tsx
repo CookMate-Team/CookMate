@@ -3,23 +3,27 @@ import { useCheckFavorite, useAddFavorite, useRemoveFavorite } from '../hooks/us
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { scaleMeasurement } from '../utils/scaling';
+import { useDeleteCustomRecipe } from '../hooks/useCustomRecipes';
 
 interface ExpandedRecipeCardProps {
   id: string | null;
   onClose: () => void;
   onStartCooking?: (id: string, targetPortions?: number) => void;
   onRequireLogin?: () => void;
+  onEditRecipe?: () => void;
 }
 
-export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin }: ExpandedRecipeCardProps) {
+export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin, onEditRecipe }: ExpandedRecipeCardProps) {
   const { isAuthenticated } = useAuth();
   const { data, isLoading, isError } = useMealDetails(id);
   const { data: isFav } = useCheckFavorite(id);
   const { mutate: addFav } = useAddFavorite();
   const { mutate: removeFav } = useRemoveFavorite();
+  const { mutate: deleteRecipe, isPending: isDeleting } = useDeleteCustomRecipe();
   
   const defaultPortions = 4;
   const [targetPortions, setTargetPortions] = useState(defaultPortions);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!id) return null;
 
@@ -131,7 +135,36 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin
                   Start cooking
                 </button>
               )}
-              {id && (
+              {meal?.strCategory === 'Custom' && onEditRecipe && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditRecipe();
+                  }}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-stone-700 border border-stone-200 hover:bg-stone-50 hover:border-amber-500 hover:text-amber-600 font-bold rounded-full shadow-sm transition-all duration-300"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Recipe
+                </button>
+              )}
+              {meal?.strCategory === 'Custom' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteConfirm(true);
+                  }}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 font-bold rounded-full border border-red-200/60 shadow-sm active:scale-[0.98] transition-all duration-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  {isDeleting ? 'Usuwanie...' : 'Usuń przepis'}
+                </button>
+              )}
+              {id && meal?.strCategory !== 'Custom' && meal?.strCategory !== 'Local' && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -169,6 +202,51 @@ export function ExpandedRecipeCard({ id, onClose, onStartCooking, onRequireLogin
             </div>
           </div>
         </>
+      )}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn"
+          onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
+        >
+          <div 
+            className="bg-white p-6 rounded-3xl shadow-2xl max-w-sm w-full text-center border border-stone-200/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-extrabold text-stone-800 mb-2">Usuń przepis</h3>
+            <p className="text-sm text-stone-500 mb-6 leading-relaxed">
+              Czy na pewno chcesz usunąć ten przepis? Ta operacja jest nieodwracalna. Wszystkie powiązane kroki wygenerowane przez AI również zostaną usunięte.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl transition duration-150 text-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteRecipe(id, {
+                    onSuccess: () => {
+                      setShowDeleteConfirm(false);
+                      onClose();
+                    }
+                  });
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition duration-150 text-sm flex items-center gap-1.5"
+              >
+                {isDeleting ? 'Usuwanie...' : 'Usuń przepis'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

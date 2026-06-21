@@ -66,6 +66,11 @@ public record RecipeDTO(
     boolean isCustom,
 
     /**
+     * URL to the recipe's image.
+     */
+    String imageUrl,
+
+    /**
      * List of cooking steps associated with the recipe.
      */
     List<StepDTO> steps

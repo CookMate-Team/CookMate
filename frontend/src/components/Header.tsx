@@ -42,6 +42,7 @@ export function Header({ onHomeClick, onMealPlannerClick, isMealPlannerActive }:
           <SourceToggle 
             onMealPlannerClick={onMealPlannerClick} 
             isMealPlannerActive={isMealPlannerActive} 
+            onCloseMealPlanner={onHomeClick}
           />
 
           {isAuthenticated && user ? (

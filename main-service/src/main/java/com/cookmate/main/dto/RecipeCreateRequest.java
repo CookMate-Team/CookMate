@@ -44,6 +44,11 @@ public record RecipeCreateRequest(
     Integer defaultPortions,
 
     /**
+     * URL to the recipe's image.
+     */
+    String imageUrl,
+
+    /**
      * List of cooking steps (optional).
      */
     List<StepDTO> steps

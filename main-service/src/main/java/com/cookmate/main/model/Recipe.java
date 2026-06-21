@@ -80,6 +80,12 @@ public class Recipe {
     private LocalDateTime createdAt;
 
     /**
+     * URL to the recipe's image.
+     */
+    @Column(name = "image_url", length = 1024)
+    private String imageUrl;
+
+    /**
      * Auto-set creation timestamp before persisting.
      */
     @PrePersist
@@ -273,4 +279,18 @@ public class Recipe {
      * @param custom true if custom
      */
     public void setCustom(boolean custom) { isCustom = custom; }
+
+    /**
+     * Get the recipe image URL.
+     *
+     * @return image URL
+     */
+    public String getImageUrl() { return imageUrl; }
+
+    /**
+     * Set the recipe image URL.
+     *
+     * @param imageUrl image URL
+     */
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }
