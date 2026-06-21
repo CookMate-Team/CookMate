@@ -2,6 +2,7 @@ package com.cookmate.main.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 
 /**
  * Request DTO for creating a new recipe.
@@ -40,5 +41,15 @@ public record RecipeCreateRequest(
      * Default number of portions (optional, defaults to 4 in service).
      */
     @Min(value = 1, message = "Portions must be at least 1")
-    Integer defaultPortions
+    Integer defaultPortions,
+
+    /**
+     * URL to the recipe's image.
+     */
+    String imageUrl,
+
+    /**
+     * List of cooking steps (optional).
+     */
+    List<StepDTO> steps
 ) {}

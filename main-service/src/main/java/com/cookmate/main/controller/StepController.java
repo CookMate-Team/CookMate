@@ -3,6 +3,7 @@ package com.cookmate.main.controller;
 import com.cookmate.main.dto.StepDTO;
 import com.cookmate.main.dto.StepGenerationRequest;
 import com.cookmate.main.dto.StepGenerationResponse;
+import com.cookmate.main.dto.CustomStepGenerationRequest;
 import com.cookmate.main.service.StepService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -39,6 +40,21 @@ public class StepController {
             @Valid @RequestBody StepGenerationRequest request,
             HttpSession session) {
         StepGenerationResponse response = stepService.generateSteps(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Generuje podgląd kroków dla własnego przepisu użytkownika.
+     * Używane w kreatorze przepisów we frontendzie.
+     *
+     * @param request instrukcje i składniki
+     * @return wygenerowane kroki bez zapisu do bazy
+     */
+    @PostMapping("/generate-custom")
+    @PreAuthorize("hasRole('ROLE_USER')")
+    public ResponseEntity<StepGenerationResponse> generateCustomSteps(
+            @Valid @RequestBody CustomStepGenerationRequest request) {
+        StepGenerationResponse response = stepService.generateCustomStepsPreview(request);
         return ResponseEntity.ok(response);
     }
 }

@@ -1,6 +1,7 @@
 package com.cookmate.main.service;
 
 import com.cookmate.main.dto.LLMStepDTO;
+import com.cookmate.main.dto.LLMResponseDTO;
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.StepDTO;
 import com.cookmate.main.dto.StepGenerationRequest;
@@ -10,14 +11,18 @@ import com.cookmate.main.exception.MealNotFoundException;
 import com.cookmate.main.exception.StepNotFoundException;
 import com.cookmate.main.mapper.StepMapper;
 import com.cookmate.main.model.Step;
+import com.cookmate.main.model.Recipe;
 import com.cookmate.main.repository.StepRepository;
+import com.cookmate.main.repository.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 import com.cookmate.main.model.ActionType;
+import com.cookmate.main.dto.CustomStepGenerationRequest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +36,7 @@ public class StepService {
     private static final Logger logger = LoggerFactory.getLogger(StepService.class);
 
     private final StepRepository stepRepository;
+    private final RecipeRepository recipeRepository;
     private final StepMapper stepMapper;
     private final MealDbClient mealDbClient;
     private final GroqClient groqClient;
@@ -104,7 +110,32 @@ public class StepService {
             return new StepGenerationResponse(mealId, null, stepDTOs);
         }
 
-        // 2. Kroki nie istnieją - pobrać przepis z TheMealDB
+        // 2. Sprawdzić czy to przepis własny (custom) użytkownika
+        Long customRecipeId = null;
+        try {
+            customRecipeId = Long.parseLong(mealId);
+        } catch (NumberFormatException e) {
+            // nie jest to liczba, więc to na pewno przepis z TheMealDB
+        }
+
+        if (customRecipeId != null) {
+            Optional<Recipe> customRecipeOpt = recipeRepository.findById(customRecipeId);
+            if (customRecipeOpt.isPresent()) {
+                Recipe recipe = customRecipeOpt.get();
+                logger.info("Generowanie kroków dla własnego przepisu: id={}, name={}", recipe.getId(), recipe.getName());
+
+                var llmResponse = groqClient.generateSteps(recipe.getInstructions(), recipe.getIngredients()).block();
+                if (llmResponse == null || llmResponse.steps().isEmpty()) {
+                    throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
+                }
+
+                List<StepDTO> stepDTOs = processAndSaveLLMSteps(llmResponse, mealId);
+
+                return new StepGenerationResponse(mealId, recipe.getName(), stepDTOs);
+            }
+        }
+
+        // 3. Kroki nie istnieją - pobrać przepis z TheMealDB
         logger.info("Pobieranie przepisu z TheMealDB dla mealId: {}", mealId);
 
         var mealResponse = mealDbClient.lookupById(mealId).block();
@@ -127,37 +158,50 @@ public class StepService {
             throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
         }
 
-        // 3. Uporządkowanie kroków i nałożenie reguł bezpieczeństwa (Guardrails)
+        List<StepDTO> stepDTOs = processAndSaveLLMSteps(llmResponse, mealId);
+
+        return new StepGenerationResponse(mealId, recipeName, stepDTOs);
+    }
+
+    /**
+     * Generuje kroki dla własnego przepisu użytkownika.
+     * Nie zapisuje kroków w bazie danych. Zwraca je jako podgląd.
+     *
+     * @param request żądanie zawierające instrukcje i składniki
+     * @return response z listą wygenerowanych kroków
+     */
+    public StepGenerationResponse generateCustomStepsPreview(CustomStepGenerationRequest request) {
+        String recipeInstructions = request.instructions();
+        String formattedIngredients = request.ingredients();
+
+        logger.info("Wysyłanie własnego przepisu do Groq LLM...");
+        var llmResponse = groqClient.generateSteps(recipeInstructions, formattedIngredients).block();
+        if (llmResponse == null || llmResponse.steps().isEmpty()) {
+            throw new ExternalServiceException("Groq", new IllegalStateException("Generated steps are empty"));
+        }
+
         List<LLMStepDTO> sortedLlmSteps = llmResponse.steps().stream()
                 .sorted(java.util.Comparator.comparing(LLMStepDTO::stepNumber))
                 .toList();
 
-        logger.info("Zapisywanie {} kroków do bazy dla mealId: {}", sortedLlmSteps.size(), mealId);
-        List<Step> stepsToSave = new java.util.ArrayList<>();
+        List<StepDTO> stepDTOs = new java.util.ArrayList<>();
         for (int i = 0; i < sortedLlmSteps.size(); i++) {
             var llmStep = sortedLlmSteps.get(i);
             int sequentialStepNumber = i + 1;
             Map<String, Object> guardedParams = applyGuardrails(llmStep.action(), llmStep.parameters(), sequentialStepNumber);
 
-            stepsToSave.add(Step.builder()
+            stepDTOs.add(StepDTO.builder()
                 .stepNumber(sequentialStepNumber)
                 .description(llmStep.description())
                 .action(llmStep.action())
                 .mainIngredient(llmStep.mainIngredient())
                 .durationMinutes(llmStep.duration())
                 .parameters(guardedParams)
-                .recipeId(mealId)
+                .recipeId("preview")
                 .build());
         }
 
-        List<Step> savedSteps = stepRepository.saveAll(stepsToSave);
-
-        // 4. Zmapować na DTOs i zwrócić
-        List<StepDTO> stepDTOs = savedSteps.stream()
-            .map(stepMapper::toDTO)
-            .toList();
-
-        return new StepGenerationResponse(mealId, recipeName, stepDTOs);
+        return new StepGenerationResponse("preview", "Własny przepis", stepDTOs);
     }
 
     private List<String> parseIngredients(Meal meal) {
@@ -269,5 +313,89 @@ public class StepService {
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    @Transactional
+    public void saveCustomSteps(String recipeId, List<StepDTO> stepDTOs) {
+        stepRepository.deleteByRecipeId(recipeId);
+        if (stepDTOs == null || stepDTOs.isEmpty()) return;
+
+        List<Step> stepsToSave = stepDTOs.stream().map(dto -> Step.builder()
+                .stepNumber(dto.stepNumber())
+                .description(dto.description())
+                .action(dto.action())
+                .mainIngredient(dto.mainIngredient())
+                .durationMinutes(dto.durationMinutes())
+                .parameters(dto.parameters())
+                .recipeId(recipeId)
+                .build()).collect(Collectors.toList());
+
+        stepRepository.saveAll(stepsToSave);
+    }
+
+    @Transactional
+    public void deleteStepsByRecipeId(String recipeId) {
+        stepRepository.deleteByRecipeId(recipeId);
+    }
+
+    /**
+     * Asynchronicznie generuje i zapisuje kroki dla własnego przepisu użytkownika w tle.
+     *
+     * @param recipe przepis, dla którego generowane są kroki
+     */
+    public void generateAndSaveStepsForCustomRecipeAsync(Recipe recipe) {
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                logger.info("Rozpoczęcie asynchronicznego generowania kroków dla własnego przepisu: id={}, name={}", recipe.getId(), recipe.getName());
+                String recipeIdStr = recipe.getId().toString();
+
+                // 1. Sprawdzić czy kroki już istnieją
+                List<Step> existingSteps = stepRepository.findByRecipeIdOrderByStepNumberAsc(recipeIdStr);
+                if (!existingSteps.isEmpty()) {
+                    logger.info("Kroki dla przepisu własnego id={} już istnieją. Pomijam generowanie.", recipe.getId());
+                    return;
+                }
+
+                // 2. Wywołanie Groq LLM
+                var llmResponse = groqClient.generateSteps(recipe.getInstructions(), recipe.getIngredients()).block();
+                if (llmResponse == null || llmResponse.steps().isEmpty()) {
+                    logger.error("Błąd: Groq LLM zwrócił pustą listę kroków dla własnego przepisu id={}", recipe.getId());
+                    return;
+                }
+
+                processAndSaveLLMSteps(llmResponse, recipeIdStr);
+            } catch (Exception e) {
+                logger.error("Błąd podczas asynchronicznego generowania kroków dla własnego przepisu id={}", recipe.getId(), e);
+            }
+        });
+    }
+
+    private List<StepDTO> processAndSaveLLMSteps(LLMResponseDTO llmResponse, String recipeId) {
+        List<LLMStepDTO> sortedLlmSteps = llmResponse.steps().stream()
+                .sorted(java.util.Comparator.comparing(LLMStepDTO::stepNumber))
+                .toList();
+
+        logger.info("Zapisywanie {} kroków do bazy dla recipeId: {}", sortedLlmSteps.size(), recipeId);
+        List<Step> stepsToSave = new java.util.ArrayList<>();
+        for (int i = 0; i < sortedLlmSteps.size(); i++) {
+            var llmStep = sortedLlmSteps.get(i);
+            int sequentialStepNumber = i + 1;
+            Map<String, Object> guardedParams = applyGuardrails(llmStep.action(), llmStep.parameters(), sequentialStepNumber);
+
+            stepsToSave.add(Step.builder()
+                .stepNumber(sequentialStepNumber)
+                .description(llmStep.description())
+                .action(llmStep.action())
+                .mainIngredient(llmStep.mainIngredient())
+                .durationMinutes(llmStep.duration())
+                .parameters(guardedParams)
+                .recipeId(recipeId)
+                .build());
+        }
+
+        List<Step> savedSteps = stepRepository.saveAll(stepsToSave);
+        return savedSteps.stream()
+                .map(stepMapper::toDTO)
+                .toList();
     }
 }

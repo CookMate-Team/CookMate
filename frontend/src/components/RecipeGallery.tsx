@@ -11,6 +11,9 @@ import { completeSimulationSession, completeCookingSession } from '../services/s
 import { useQueryClient } from '@tanstack/react-query';
 import { useSimulationProgress } from '../hooks/useSimulationProgress';
 import { useFavorites } from '../hooks/useFavorites';
+import { useCustomRecipes } from '../hooks/useCustomRecipes';
+import { useAuth } from '../context/AuthContext';
+import { CustomRecipeModal } from './CustomRecipeModal';
 
 function ActiveCookingCard({ 
   recipeId, 
@@ -117,15 +120,7 @@ function ActiveCookingCard({
   );
 }
 
-// Temporary mock data for prototype LOCAL
-const MOCK_RECIPES = [
-  { id: '1', name: 'Spicy Garlic Butter Noodles', time: 15, category: 'Pasta', imageUrl: 'https://images.unsplash.com/photo-1552611052-33e04de081de?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-  { id: '2', name: 'Classic Beef Stew', time: 120, category: 'Beef', imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-  { id: '3', name: 'Avocado Toast with Poached Egg', time: 10, category: 'Breakfast', imageUrl: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-  { id: '4', name: 'Margherita Pizza', time: 45, category: 'Vegetarian', imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-  { id: '5', name: 'Mango Sticky Rice', time: 30, category: 'Dessert', imageUrl: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-  { id: '6', name: 'Grilled Salmon with Asparagus', time: 25, category: 'Seafood', imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60' },
-];
+
 
 export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooking?: (recipeId: string, targetPortions?: number) => void, onRequireLogin?: () => void }) {
   const { source, searchQuery, setSearchQuery } = useRecipeStore();
@@ -136,8 +131,20 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
   const expandedRef = useRef<HTMLDivElement>(null);
   const cols = useGridCols();
   
+  const { isAuthenticated } = useAuth();
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [editingRecipeId, setEditingRecipeId] = useState<string | undefined>(undefined);
+  
   const { data: listData, isLoading: isListLoading, isError: isListError } = useDiscoveryRecipes(searchQuery);
   const { data: favoritesData, isLoading: isFavoritesLoading, isError: isFavoritesError, fetchNextPage, hasNextPage, isFetchingNextPage } = useFavorites();
+  const { 
+    data: customRecipesData, 
+    isLoading: isCustomLoading, 
+    isError: isCustomError, 
+    fetchNextPage: fetchNextCustomPage, 
+    hasNextPage: hasNextCustomPage, 
+    isFetchingNextPage: isFetchingNextCustomPage 
+  } = useCustomRecipes();
   
   const fetchId = pendingRecipeId || selectedRecipeId;
   const { isLoading: isDetailsLoading } = useMealDetails(fetchId);
@@ -212,7 +219,7 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
   const reorderToRowStart = <T extends Record<string, any>>(array: T[], selectedId: string | null, idKey: keyof T): T[] => {
     if (!selectedId) return array;
     
-    const index = array.findIndex(item => item[idKey] === selectedId);
+    const index = array.findIndex(item => String(item[idKey]) === selectedId);
     if (index === -1) return array;
 
     const rowStartIndex = Math.floor(index / cols) * cols;
@@ -224,7 +231,8 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
     return newArray;
   };
 
-  const sortedMockRecipes = reorderToRowStart(MOCK_RECIPES, selectedRecipeId, 'id');
+  const allCustomRecipes = customRecipesData ? customRecipesData.pages.flatMap(page => page.recipes) : [];
+  const sortedCustomRecipes = reorderToRowStart(allCustomRecipes, selectedRecipeId, 'id');
   const sortedDiscoveryMeals = reorderToRowStart(listData?.meals || [], selectedRecipeId, 'idMeal');
   
   const allFavorites = favoritesData ? favoritesData.pages.flatMap(page => page.content) : [];
@@ -278,33 +286,84 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
           </div>
         )}
 
-        {source === 'LOCAL' && sortedMockRecipes.map((recipe) => (
-          <div 
-            key={recipe.id} 
-            className={selectedRecipeId === recipe.id ? 'col-span-full' : ''}
-          >
-            {selectedRecipeId === recipe.id ? (
-              <div ref={expandedRef}>
-                <ExpandedRecipeCard 
-                  id={recipe.id} 
-                  onClose={() => handleSelect(null)}
-                  onStartCooking={onStartCooking}
-                  onRequireLogin={onRequireLogin}
-                />
-              </div>
-            ) : (
-              <RecipeCard
-                id={recipe.id}
-                name={recipe.name}
-                time={recipe.time}
-                category={recipe.category}
-                imageUrl={recipe.imageUrl}
-                onClick={handleSelect}
-                onRequireLogin={onRequireLogin}
-              />
-            )}
+        {source === 'LOCAL' && !isAuthenticated && (
+          <div className="col-span-full text-center py-12 bg-white/50 border border-stone-200/50 rounded-3xl p-8 shadow-sm backdrop-blur-md">
+            <h3 className="text-lg font-bold text-stone-800 mb-2">Login Required</h3>
+            <p className="text-stone-500 mb-6 max-w-md mx-auto">Please log in to view, create, and manage your own custom recipes.</p>
+            <button
+              onClick={onRequireLogin}
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-md transition-all duration-200 text-sm"
+            >
+              Sign In / Register
+            </button>
           </div>
-        ))}
+        )}
+
+        {source === 'LOCAL' && isAuthenticated && isCustomLoading && (
+          <div className="col-span-full text-center text-stone-500 py-10">Loading custom recipes...</div>
+        )}
+
+        {source === 'LOCAL' && isAuthenticated && isCustomError && (
+          <div className="col-span-full text-center text-red-500 py-10">Failed to load custom recipes.</div>
+        )}
+
+        {source === 'LOCAL' && isAuthenticated && !isCustomLoading && !isCustomError && (
+          <>
+            {/* Add Recipe Card */}
+            {!selectedRecipeId && (
+              <div 
+                onClick={() => {
+                  setEditingRecipeId(undefined);
+                  setIsCustomModalOpen(true);
+                }}
+                className="group border-2 border-dashed border-stone-300 hover:border-amber-500 bg-stone-50/50 hover:bg-amber-50/10 rounded-2xl p-6 flex flex-col items-center justify-center min-h-[240px] text-center cursor-pointer transition-all duration-300 shadow-sm hover:shadow-md h-full transform hover:-translate-y-1"
+              >
+                <div className="w-12 h-12 rounded-full bg-stone-100 group-hover:bg-amber-100 flex items-center justify-center text-stone-500 group-hover:text-amber-600 mb-4 transition-colors duration-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold text-stone-700 group-hover:text-amber-800 transition-colors duration-300">Add New Recipe</h3>
+                <p className="text-xs text-stone-500 mt-1 max-w-[200px]">Create your own recipe and generate steps with AI</p>
+              </div>
+            )}
+
+            {sortedCustomRecipes.map((recipe) => {
+              const recipeIdStr = recipe.id.toString();
+              return (
+                <div 
+                  key={recipeIdStr} 
+                  className={selectedRecipeId === recipeIdStr ? 'col-span-full' : ''}
+                >
+                  {selectedRecipeId === recipeIdStr ? (
+                    <div ref={expandedRef}>
+                      <ExpandedRecipeCard 
+                        id={recipeIdStr} 
+                        onClose={() => handleSelect(null)}
+                        onStartCooking={onStartCooking}
+                        onRequireLogin={onRequireLogin}
+                        onEditRecipe={() => {
+                          setEditingRecipeId(recipeIdStr);
+                          setIsCustomModalOpen(true);
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <RecipeCard
+                      id={recipeIdStr}
+                      name={recipe.name}
+                      time={recipe.preparationTimeMinutes}
+                      category="Custom"
+                      imageUrl={recipe.imageUrl}
+                      onClick={handleSelect}
+                      onRequireLogin={onRequireLogin}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {source === 'DISCOVERY' && sortedDiscoveryMeals.map((meal) => (
           <div 
@@ -390,21 +449,36 @@ export function RecipeGallery({ onStartCooking, onRequireLogin }: { onStartCooki
         <div className="col-span-full text-center text-stone-500 py-10">You have no favorite recipes yet. Start discovering!</div>
       )}
       
-      {/* Static Pagination for Prototype LOCAL */}
-      {source === 'LOCAL' && (
+      {/* Load More Pagination for Custom Recipes */}
+      {source === 'LOCAL' && isAuthenticated && hasNextCustomPage && (
         <div className="flex justify-center items-center mt-12 gap-2">
-          <button className="px-4 py-2 border border-stone-200 rounded-lg text-stone-500 hover:bg-stone-50 disabled:opacity-50" disabled>
-            Previous
-          </button>
-          <button className="w-10 h-10 rounded-lg bg-amber-500 text-white font-medium shadow-sm">1</button>
-          <button className="w-10 h-10 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-50 font-medium">2</button>
-          <button className="w-10 h-10 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-50 font-medium">3</button>
-          <span className="text-stone-400 mx-1">...</span>
-          <button className="px-4 py-2 border border-stone-200 rounded-lg text-stone-700 hover:bg-stone-50">
-            Next
+          <button 
+            onClick={() => fetchNextCustomPage()} 
+            disabled={isFetchingNextCustomPage}
+            className="px-6 py-3 bg-white border border-stone-200 rounded-xl text-stone-700 font-bold hover:bg-stone-50 disabled:opacity-50 shadow-sm transition-all"
+          >
+            {isFetchingNextCustomPage ? 'Loading more...' : 'Load More'}
           </button>
         </div>
       )}
+      {source === 'LOCAL' && isAuthenticated && !hasNextCustomPage && sortedCustomRecipes.length > 0 && (
+        <div className="flex justify-center items-center mt-12">
+          <p className="text-stone-500 font-medium">You have reached the end of your recipes.</p>
+        </div>
+      )}
+      {source === 'LOCAL' && isAuthenticated && sortedCustomRecipes.length === 0 && !isCustomLoading && !isCustomError && (
+        <div className="col-span-full text-center text-stone-500 py-10">You haven't created any recipes yet. Click "Add New Recipe" above to get started!</div>
+      )}
+
+      {/* Custom Recipe Modal for Create/Edit */}
+      <CustomRecipeModal 
+        isOpen={isCustomModalOpen} 
+        onClose={() => {
+          setIsCustomModalOpen(false);
+          setEditingRecipeId(undefined);
+        }}
+        recipeId={editingRecipeId}
+      />
     </div>
   );
 }

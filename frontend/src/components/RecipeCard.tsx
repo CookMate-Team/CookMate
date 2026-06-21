@@ -45,32 +45,34 @@ export function RecipeCard({ id, name, time, category, imageUrl, onClick, isPend
             {category}
           </div>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!isAuthenticated) {
-              onRequireLogin?.();
-              return;
-            }
-            if (isFav) {
-              removeFav(id);
-            } else {
-              addFav({ recipeId: id, request: { recipeTitle: name, imageUrl: imgSource } });
-            }
-          }}
-          className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white hover:scale-110 transition-all z-20 group"
-          title={isFav ? "Remove from favorites" : "Add to favorites"}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className={`h-5 w-5 ${isFav ? 'text-red-500 fill-current' : 'text-stone-400 fill-transparent'} group-hover:text-red-500 transition-colors`}
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={isFav ? 0 : 2}
+        {category !== 'Custom' && category !== 'Local' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isAuthenticated) {
+                onRequireLogin?.();
+                return;
+              }
+              if (isFav) {
+                removeFav(id);
+              } else {
+                addFav({ recipeId: id, request: { recipeTitle: name, imageUrl: imgSource } });
+              }
+            }}
+            className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white hover:scale-110 transition-all z-20 group"
+            title={isFav ? "Remove from favorites" : "Add to favorites"}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-5 w-5 ${isFav ? 'text-red-500 fill-current' : 'text-stone-400 fill-transparent'} group-hover:text-red-500 transition-colors`}
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={isFav ? 0 : 2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="p-5 flex flex-col flex-grow">
         <h3 className="text-xl font-bold text-stone-800 line-clamp-2 leading-tight mb-2 group-hover:text-amber-600 transition-colors">

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * DTO representing a complete recipe with all details.
@@ -52,5 +53,25 @@ public record RecipeDTO(
      * Default number of portions.
      */
     @Min(value = 1, message = "Portions must be at least 1")
-    Integer defaultPortions
+    Integer defaultPortions,
+
+    /**
+     * User ID who created the recipe.
+     */
+    String userId,
+
+    /**
+     * Flag indicating if the recipe is custom created by a user.
+     */
+    boolean isCustom,
+
+    /**
+     * URL to the recipe's image.
+     */
+    String imageUrl,
+
+    /**
+     * List of cooking steps associated with the recipe.
+     */
+    List<StepDTO> steps
 ) {}
