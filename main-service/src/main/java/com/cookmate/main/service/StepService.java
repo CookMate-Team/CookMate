@@ -1,6 +1,7 @@
 package com.cookmate.main.service;
 
 import com.cookmate.main.dto.LLMStepDTO;
+import com.cookmate.main.dto.LLMResponseDTO;
 import com.cookmate.main.dto.Meal;
 import com.cookmate.main.dto.StepDTO;
 import com.cookmate.main.dto.StepGenerationRequest;

@@ -136,6 +136,8 @@ public class RecipeController {
         Recipe saved = recipeService.saveCustom(request, userId);
         if (request.steps() != null && !request.steps().isEmpty()) {
             stepService.saveCustomSteps(saved.getId().toString(), request.steps());
+        } else {
+            stepService.generateAndSaveStepsForCustomRecipeAsync(saved);
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -164,8 +166,12 @@ public class RecipeController {
             userId
         );
         Recipe saved = recipeService.updateCustomOrThrow(id, updated, userId);
-        if (request.steps() != null) {
+        if (request.steps() != null && !request.steps().isEmpty()) {
             stepService.saveCustomSteps(saved.getId().toString(), request.steps());
+        } else {
+            // Skasuj stare kroki i wygeneruj nowe asynchronicznie w tle
+            stepService.deleteStepsByRecipeId(saved.getId().toString());
+            stepService.generateAndSaveStepsForCustomRecipeAsync(saved);
         }
         return ResponseEntity.ok(saved);
     }
