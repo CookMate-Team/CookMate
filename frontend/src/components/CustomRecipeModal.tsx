@@ -92,19 +92,19 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
     setErrorMsg('');
 
     if (!name.trim()) {
-      setErrorMsg('Nazwa przepisu jest wymagana');
+      setErrorMsg('Recipe name is required');
       return;
     }
 
     if (!instructions.trim()) {
-      setErrorMsg('Instrukcje przygotowania są wymagane');
+      setErrorMsg('Preparation instructions are required');
       return;
     }
 
     // Filter out empty ingredients
     const validIngredients = ingredients.filter(ing => ing.name.trim() !== '');
     if (validIngredients.length === 0) {
-      setErrorMsg('Dodaj przynajmniej jeden składnik');
+      setErrorMsg('Add at least one ingredient');
       return;
     }
 
@@ -131,7 +131,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
         onClose();
       },
       onError: (err: any) => {
-        setErrorMsg(err.message || 'Wystąpił błąd podczas zapisywania przepisu');
+        setErrorMsg(err.message || 'An error occurred while saving the recipe');
       }
     };
 
@@ -155,10 +155,10 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
         <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10">
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-stone-800 tracking-tight">
-              {recipeId ? 'Edytuj swój przepis' : 'Dodaj własny przepis'}
+              {recipeId ? 'Edit your recipe' : 'Add custom recipe'}
             </h2>
             <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-              Stwórz unikalną potrawę i pozwól AI wygenerować kroki do gotowania.
+              Create a unique dish and let AI generate cooking steps.
             </p>
           </div>
           <button 
@@ -178,7 +178,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="text-sm font-semibold text-stone-500 animate-pulse">Ładowanie szczegółów przepisu...</p>
+            <p className="text-sm font-semibold text-stone-500 animate-pulse">Loading recipe details...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 flex-grow flex flex-col gap-6">
@@ -194,10 +194,10 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
             {/* Basic Info */}
             <div className="grid grid-cols-1 gap-5">
               <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Nazwa przepisu *</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Recipe Name *</label>
                 <input
                   type="text"
-                  placeholder="np. Pikantny makaron czosnkowy"
+                  placeholder="e.g. Spicy Garlic Pasta"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 placeholder-stone-400 font-medium"
@@ -206,9 +206,9 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Krótki opis / Wstęp</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Short Description / Intro</label>
                 <textarea
-                  placeholder="Krótka historia potrawy lub wskazówki smakowe..."
+                  placeholder="A brief history of the dish or tasting notes..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 placeholder-stone-400 font-medium h-20 resize-none"
@@ -216,10 +216,10 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Link do zdjęcia (URL)</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Image Link (URL)</label>
                 <input
                   type="url"
-                  placeholder="np. https://images.unsplash.com/photo-..."
+                  placeholder="e.g. https://images.unsplash.com/photo-..."
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 placeholder-stone-400 font-medium"
@@ -228,7 +228,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Czas przyg. (minut)</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Prep Time (minutes)</label>
                   <input
                     type="number"
                     min="1"
@@ -240,7 +240,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Domyślne porcje</label>
+                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Default Portions</label>
                   <input
                     type="number"
                     min="1"
@@ -257,7 +257,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
             {/* Ingredients Section */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider">Potrzebne składniki</label>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider">Required Ingredients</label>
                 <button
                   type="button"
                   onClick={handleAddIngredient}
@@ -266,7 +266,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
-                  Dodaj składnik
+                  Add Ingredient
                 </button>
               </div>
 
@@ -275,14 +275,14 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                   <div key={idx} className="flex gap-2.5 items-center">
                     <input
                       type="text"
-                      placeholder="Nazwa (np. Mąka pszenna)"
+                      placeholder="Name (e.g. Wheat flour)"
                       value={ing.name}
                       onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
                       className="flex-grow px-4 py-2.5 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 text-sm font-medium"
                     />
                     <input
                       type="text"
-                      placeholder="Ilość/Miara (np. 200g, 2 łyżki)"
+                      placeholder="Amount/Measure (e.g. 200g, 2 tbsp)"
                       value={ing.measure}
                       onChange={(e) => handleIngredientChange(idx, 'measure', e.target.value)}
                       className="w-1/3 min-w-[100px] px-4 py-2.5 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 text-sm font-medium"
@@ -303,9 +303,9 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
 
             {/* Instructions Section */}
             <div>
-              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Instrukcje przygotowania *</label>
+              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Preparation Instructions *</label>
               <textarea
-                placeholder="Napisz jak krok po kroku przygotować to danie..."
+                placeholder="Write step by step how to prepare this dish..."
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 className="w-full px-4 py-3 bg-stone-50/50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl transition text-stone-800 placeholder-stone-400 font-medium h-32 resize-y mb-3"
@@ -320,7 +320,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                   </svg>
                 </div>
                 <div className="text-xs text-stone-600 leading-relaxed">
-                  <span className="font-bold text-stone-700">Moc Sztucznej Inteligencji:</span> Po zapisaniu tego przepisu, nasz zaawansowany LLM (w tle) przetłumaczy Twój opis na szczegółowe, interaktywne kroki. Będą one natychmiast gotowe do użytku w trybie <strong className="text-amber-600">Guided Cooking</strong> i symulatorze!
+                  <span className="font-bold text-stone-700">Power of Artificial Intelligence:</span> After saving this recipe, our advanced LLM (in the background) will translate your description into detailed, interactive steps. They will be immediately ready to use in the <strong className="text-amber-600">Guided Cooking</strong> and simulator mode!
                 </div>
               </div>
             </div>
@@ -333,7 +333,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                 className="px-6 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl transition duration-200 text-sm"
                 disabled={isSaving}
               >
-                Anuluj
+                Cancel
               </button>
               <button
                 type="submit"
@@ -346,7 +346,7 @@ export function CustomRecipeModal({ isOpen, onClose, recipeId }: CustomRecipeMod
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 )}
-                {isSaving ? 'Zapisywanie...' : recipeId ? 'Zapisz zmiany' : 'Dodaj przepis'}
+                {isSaving ? 'Saving...' : recipeId ? 'Save changes' : 'Add recipe'}
               </button>
             </div>
           </form>
