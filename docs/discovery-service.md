@@ -8,5 +8,5 @@
 2. Serwisy co kilkadziesiąt sekund wysyłają "Heartbeat", informując, że nadal działają i są w stanie przyjmować ruch.
 3. Gdy np. `simulator-service` chce pobrać dane z `main-service`, zamiast wywoływać `localhost:8081`, prosi klienta Eureka o adres serwisu pod nazwą `MAIN-SERVICE`.
 
-## Główne Biblioteki i Zastosowanie (Jak to działa)
+## Główne Biblioteki i Zastosowanie 
 - **`spring-cloud-starter-netflix-eureka-server`**: Dostarcza gotowe rozwiązanie rejestru z interfejsem graficznym. Pozwala na skalowalność (możemy odpalić np. trzy instancje `main-service`, a Eureka automatycznie wciągnie je wszystkie do puli dla load balancera).

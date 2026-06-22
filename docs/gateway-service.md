@@ -9,7 +9,7 @@
 3. Na podstawie reguł (np. `/api/recipes/**` idzie do `main-service`), Gateway komunikuje się z `discovery-service` (Eureka), aby dowiedzieć się, pod jakim IP i portem fizycznie znajduje się poszukiwany serwis.
 4. Żądanie zostaje sproksowane do docelowego mikroserwisu.
 
-## Główne Biblioteki i Zastosowanie (Jak to działa)
+## Główne Biblioteki i Zastosowanie 
 - **`spring-cloud-starter-gateway`**: Rdzeń serwisu. Oparty w pełni na stosie reaktywnym (WebFlux i Project Reactor), umożliwia bardzo wydajne przekierowywanie i filtrowanie zapytań bez blokowania wątków (non-blocking I/O). Idealne do asynchronicznego load-balancingu.
 - **`spring-boot-starter-oauth2-client`**: Wykorzystywany do obsługi protokołu OAuth2. Gateway jest "Klientem" (Authorization Code Flow) — negocjuje wymianę tokenów i bezpiecznie przekazuje (Token Relay) uzyskany JWT do mikrousług w tle.
 - **`spring-cloud-starter-netflix-eureka-client`**: Pozwala na dynamiczne lokalizowanie innych serwisów (np. `lb://MAIN-SERVICE`) zamiast twardego kodowania portów `8081`.

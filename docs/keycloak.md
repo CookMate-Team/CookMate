@@ -9,6 +9,6 @@ Keycloak odpowiada w architekturze CookMate za scentralizowane zarządzanie toż
 3. Po poprawnym zalogowaniu (lub rejestracji), Keycloak generuje cyfrowo podpisany token JWT i przekazuje go do bramy.
 4. Mikroserwisy zabezpieczone Spring Security (np. `main-service`) przyjmują ten token z nagłówka `Authorization: Bearer` i na podstawie jego kryptograficznego podpisu samodzielnie weryfikują (Resource Server) czy użytkownik ma uprawnienia (np. `ROLE_USER`) do wykonania danej operacji.
 
-## Główne Technologie i Zastosowanie (Jak to działa)
+## Główne Technologie i Zastosowanie 
 - **Keycloak (Obraz Dockerowy: `quay.io/keycloak/keycloak`)**: Gotowy serwer tożsamości stworzony przez Red Hat. Skonfigurowany przez importowanie Realm (`realm-export.json`), co pozwala od razu na korzystanie ze wstępnie ustawionych ról, użytkowników (np. konta testowego) i polityk bezpieczeństwa na starcie środowiska Docker Compose bez konieczności robienia tego ręcznie.
 - Posiada własną odizolowaną bazę na konfigurację autoryzacji (zapisywaną w PostgreSQL w osobnym schemacie/bazie).

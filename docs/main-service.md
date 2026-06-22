@@ -27,7 +27,7 @@ Odpowiada za standardowe operacje CRUD na lokalnych przepisach użytkowników, z
 
 Wszystkie błędy domenowe (np. `RECIPE_NOT_FOUND`) podlegają ujednoliconej globalnej obsłudze wyjątków (`GlobalExceptionHandler`), co gwarantuje stały format błędów `ApiErrorResponse`.
 
-## Główne Biblioteki i Zastosowanie (Jak to działa)
+## Główne Biblioteki i Zastosowanie 
 - **`spring-boot-starter-web` (Spring WebMVC)**: Używany do budowy tradycyjnych endpointów REST (np. `RecipeController`). Pozwala na obsługę zapytań HTTP w trybie blokującym (thread-per-request).
 - **`spring-boot-starter-webflux` (WebClient)**: Mimo że projekt jest głównie oparty o Spring MVC, dodano paczkę WebFlux, aby móc używać `WebClient` w `MealDbClient`. Dzięki niemu zapytania do zewnętrznego API TheMealDB są wykonywane asynchronicznie (non-blocking HTTP client).
 - **`spring-boot-starter-data-jpa`**: Używany do mapowania obiektów na relacyjną bazę danych (PostgreSQL). Pozwala na łatwe deklarowanie interfejsów (np. `RecipeRepository`), które automatycznie tłumaczą wywołania na zapytania SQL, obsługując operacje CRUD i paginację.

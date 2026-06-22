@@ -13,7 +13,7 @@
 - Architektura: Reaktywny Spring WebFlux.
 - Baza Danych: Schemat `cooking_session` wewnątrz współdzielonej bazy PostgreSQL, zapewniający separację domen.
 
-## Główne Biblioteki i Zastosowanie (Jak to działa)
+## Główne Biblioteki i Zastosowanie 
 - **`spring-boot-starter-webflux`**: Cały serwis działa na stosie reaktywnym (Project Reactor i Netty). Został tak skonstruowany celowo, by natywnie obsługiwać tzw. Server-Sent Events (SSE). Reaktywność pozwala utrzymać tysiące długich, trwających połączeń HTTP do przeglądarek w celu wysyłania aktualizacji na żywo, nie wyczerpując przy tym dostępnych wątków serwera (używając Event Loop).
 - **`spring-boot-starter-data-jpa`**: Odpowiada za utrwalanie stanu sesji w PostgreSQL. Mimo używania WebFlux, serwis ten z powodzeniem korzysta z klasycznego JPA (JDBC) w tle dla prostych operacji zapisu/odczytu i logowania zdarzeń sesji.
 - **`springdoc-openapi-starter-webflux-ui`**: Specjalna, reaktywna wersja Swaggera, służąca do interaktywnej dokumentacji wystawionych endpointów opartych o Mono/Flux i WebFlux.
