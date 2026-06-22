@@ -22,3 +22,10 @@ groq:
 
 main-service:
   greeting: "Welcome to CookMate Main Service"
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true

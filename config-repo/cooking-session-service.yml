@@ -21,3 +21,10 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
