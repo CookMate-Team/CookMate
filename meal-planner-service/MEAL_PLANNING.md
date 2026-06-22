@@ -1,4 +1,4 @@
-# Meal Planning Flow
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/meal-planner-service.md](../../docs/meal-planner-service.md)
 
 ## Generowanie planu tygodniowego
 

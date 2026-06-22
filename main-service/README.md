@@ -1,4 +1,4 @@
-# CookMate
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/main-service.md](../../docs/main-service.md)
 
 Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulinarnymi.
 

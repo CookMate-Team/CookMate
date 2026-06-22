@@ -4,34 +4,45 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 
 ## Architektura
 
+```mermaid
+graph TD
+    UI[Frontend :5173] --> Gateway[Gateway Service :8085]
+    
+    Gateway --> Main[Main Service :8081]
+    Gateway --> Cooking[Cooking Session Service :8084]
+    Gateway --> Sim[Simulator Service :8082]
+    Gateway --> Meal[Meal Planner Service :8086]
+    
+    Main --> DB[(PostgreSQL :5432)]
+    Cooking --> DB
+    Sim --> DB
+    Meal --> DB
+    
+    Keycloak[Keycloak IAM :8080] --> DB
+    Gateway --> Keycloak
+    
+    Config[Config Service :8888] -.->|Serves Config| Main
+    Config -.-> Cooking
+    Config -.-> Sim
+    Config -.-> Meal
+    Config -.-> Gateway
+    
+    Discovery[Eureka Discovery :8761] -.->|Registers| Main
+    Discovery -.-> Cooking
+    Discovery -.-> Sim
+    Discovery -.-> Meal
+    Discovery -.-> Gateway
 ```
-                    ┌─────────────────┐
-                    │  config-service │  :8888
-                    │ @EnableConfigServer│
-                    └────────┬────────┘
-                             │ reads
-                    ┌────────▼────────┐
-                    │   config-repo/  │  (pliki YAML)
-                    └─────────────────┘
-                             │ serves config to
-            ┌────────────────┼────────────────┐
-            ▼                ▼                ▼
-   ┌─────────────────┐ ┌───────────┐ ┌──────────────────┐
-   │discovery-service│ │main-service│ │simulator-service │
-   │@EnableEurekaServer│:8081      │ │     :8082        │
-   │     :8761       │ │@EnableDisc│ │@EnableDiscovery  │
-   └────────┬────────┘ └─────┬─────┘ └────────┬─────────┘
-            │  registers     │  registers      │
-            └────────────────┴─────────────────┘
-                             │
-               ┌─────────────┴──────────────┐
-               ▼                            ▼
-       ┌──────────────────┐        ┌─────────────────┐
-       │   PostgreSQL     │        │   Keycloak      │  :8080
-       │  cookmate / auth │        │  (IAM & SSO)    │
-       │     :5432        │        │ (keycloak db)   │
-       └──────────────────┘        └─────────────────┘
-```
+
+## 📖 Dokumentacja Architektury (Szczegółowa)
+
+Szczegółowe przeznaczenie, kluczowe funkcjonalności oraz detale integracyjne znajdziesz w odrębnych plikach w folderze `docs/`:
+
+- [Main Service](docs/main-service.md)
+- [Cooking Session Service](docs/cooking-session-service.md)
+- [Simulator Service](docs/simulator-service.md)
+- [Meal Planner Service](docs/meal-planner-service.md)
+- [Infrastruktura (Gateway, Config, Discovery)](docs/infrastructure-services.md)
 
 ## Serwisy i porty
 
@@ -39,10 +50,11 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 |---------------------------|------|-------------------------------------------------------|
 | `config-service`          | 8888 | Spring Cloud Config Server                            |
 | `discovery-service`       | 8761 | Eureka Discovery Server                               |
-| `gateway-service`         | 8085 | Spring Cloud Gateway + OAuth2 Client      |
+| `gateway-service`         | 8085 | Spring Cloud Gateway + OAuth2 Client                  |
 | `main-service`            | 8081 | REST API zarządzania przepisami + PostgreSQL          |
-| `cooking-session-service` | 8083 | Reaktywne zarządzanie sesją gotowania (SSE)           |
+| `cooking-session-service` | 8084 | Reaktywne zarządzanie sesją gotowania (SSE)           |
 | `simulator-service`       | 8082 | Symulator planowania posiłków (Feign)                 |
+| `meal-planner-service`    | 8086 | Planowanie tygodniowych posiłków i list zakupów       |
 | `keycloak`                | 8080 | Keycloak Identity & Access Management                 |
 | `postgres`                | 5432 | Baza danych PostgreSQL                                |
 
@@ -53,23 +65,26 @@ Mikrousługowa architektura aplikacji CookMate do zarządzania przepisami kulina
 - **Spring Data JPA** + **PostgreSQL**
 - **Docker** (multi-stage build) + **Docker Compose**
 
-## Ostatnie Zmiany
+### Dokumentacja API (Swagger)
 
-### ✨ Komunikacja Real-Time Symulacji (v1.1)
+Wszystkie kluczowe mikroserwisy posiadają teraz wygenerowaną i zunifikowaną dokumentację Swagger/OpenAPI dostępną przez przyjazny interfejs UI:
+
+- [Main Service Swagger UI](http://localhost:8081/swagger-ui.html)
+- [Simulator Service Swagger UI](http://localhost:8082/swagger-ui.html)
+- [Cooking Session Service Swagger UI](http://localhost:8084/swagger-ui.html)
+- [Meal Planner Service Swagger UI](http://localhost:8086/swagger-ui.html)
+
+Dostęp do samych definicji znajduje się pod ścieżkami `/v3/api-docs`. Zabezpieczenia Spring Security zostały odpowiednio skonfigurowane tak, aby swobodnie czytać dokumentację bez konieczności logowania (wykonywanie samych akcji wewnątrz interfejsu wymaga autoryzacji tokenem JWT z Keycloak).
+
+### Komunikacja Symulacji
 
 Zaimplementowano mechanizm notyfikacji kroków symulacji:
 
 - **Simulator-Service** wysyła notyfikację do **Main-Service** po każdym wykonanym kroku
 - **Main-Service** zapisuje postęp w tabeli `simulation_progress` (PostgreSQL)
 - **Frontend** może poolować endpointy `/api/simulation-progress/sessions/{sessionId}` w celu śledzenia postępu
-- Asynchroniczna wysyłka (nie blokuje głównego wątku симуlatora)
+- Asynchroniczna wysyłka (nie blokuje głównego wątku symulatora)
 - Deduplikacja eventów - brak duplikatów w bazie danych
-
-**Nowe komponenty:**
-- `StepCompletionEventDto` - format eventów
-- `SimulationProgress` - model do przechowywania historii
-- `SimulationProgressService` - logika obsługi eventów
-- `SimulationProgressController` - 4 nowe endpointy API
 
 ## Uruchomienie
 

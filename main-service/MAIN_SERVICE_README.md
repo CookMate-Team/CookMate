@@ -1,4 +1,4 @@
-# Main Service - Zarządzanie Przepisami
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/main-service.md](../../docs/main-service.md)
 
 **Integracja z Zewnętrznym API**
 - Wyszukiwanie szczegółów posiłku po ID
