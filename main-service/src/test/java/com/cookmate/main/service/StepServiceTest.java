@@ -11,6 +11,7 @@ import com.cookmate.main.exception.StepNotFoundException;
 import com.cookmate.main.mapper.StepMapper;
 import com.cookmate.main.model.ActionType;
 import com.cookmate.main.model.Step;
+import com.cookmate.main.repository.RecipeRepository;
 import com.cookmate.main.repository.StepRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,9 @@ class StepServiceTest {
 
     @Mock
     private StepMapper stepMapper;
+
+    @Mock
+    private RecipeRepository recipeRepository;
 
     @Mock
     private MealDbClient mealDbClient;
@@ -124,6 +128,7 @@ class StepServiceTest {
         // 1. Mock repository to return no existing steps
         when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId))
                 .thenReturn(List.of());
+        when(recipeRepository.findById(12345L)).thenReturn(Optional.empty());
 
         // 2. Mock Meal with various combinations of ingredients & measures
         Meal mockMeal = Meal.builder()
@@ -213,6 +218,7 @@ class StepServiceTest {
         StepGenerationRequest request = new StepGenerationRequest(mealId);
 
         when(stepRepository.findByRecipeIdOrderByStepNumberAsc(mealId)).thenReturn(List.of());
+        when(recipeRepository.findById(999L)).thenReturn(Optional.empty());
 
         Meal mockMeal = Meal.builder()
                 .idMeal(mealId)

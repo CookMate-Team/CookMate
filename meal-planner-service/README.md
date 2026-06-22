@@ -1,4 +1,4 @@
-# Meal Planner Service
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/meal-planner-service.md](../../docs/meal-planner-service.md)
 
 Serwis do generowania tygodniowych planów posiłków i list zakupów na podstawie danych z TheMealDB.
 

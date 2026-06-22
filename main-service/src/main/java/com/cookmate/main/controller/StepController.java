@@ -9,10 +9,13 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/steps")
+@Tag(name = "Step Generation", description = "AI-based recipe step generation endpoints")
 public class StepController {
 
     private final StepService stepService;
@@ -21,6 +24,7 @@ public class StepController {
         this.stepService = stepService;
     }
 
+    @Operation(summary = "Get step details", description = "Get details of a specific generated step by its ID")
     @GetMapping("/{stepId}")
     public ResponseEntity<StepDTO> getStep(@PathVariable Long stepId) {
         return ResponseEntity.ok(stepService.getStep(stepId));
@@ -34,6 +38,7 @@ public class StepController {
      * @param session sesja HTTP z metadanymi przepisu
      * @return response z listą kroków
      */
+    @Operation(summary = "Generate steps for TheMealDB recipe", description = "Generate interactive cooking steps using AI for a recipe from TheMealDB")
     @PostMapping("/generate")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<StepGenerationResponse> generateSteps(
@@ -50,6 +55,7 @@ public class StepController {
      * @param request instrukcje i składniki
      * @return wygenerowane kroki bez zapisu do bazy
      */
+    @Operation(summary = "Generate custom recipe steps preview", description = "Generate steps preview for a custom recipe without saving to DB")
     @PostMapping("/generate-custom")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<StepGenerationResponse> generateCustomSteps(

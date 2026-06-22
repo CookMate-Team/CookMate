@@ -16,9 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 /**
@@ -27,6 +28,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/recipes")
+@Tag(name = "Recipe Management", description = "Endpoints for finding, fetching, adding, and updating custom and TheMealDB recipes")
 @Validated
 public class RecipeController {
 
@@ -53,6 +55,7 @@ public class RecipeController {
      * @param name optional recipe name filter
      * @return paginated list of recipes
      */
+    @Operation(summary = "Get all recipes", description = "Get all recipes with optional search by name and pagination")
     @GetMapping
     public ResponseEntity<RecipeListResponse> getAll(
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -73,6 +76,7 @@ public class RecipeController {
      * @param size page size
      * @return paginated recipe response
      */
+    @Operation(summary = "Get paginated recipes", description = "Get recipes with simple pagination")
     @GetMapping("/paginated")
     public ResponseEntity<RecipeListResponse> getPaginated(
         @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -86,6 +90,7 @@ public class RecipeController {
      * @param id recipe ID
      * @return recipe details
      */
+    @Operation(summary = "Get recipe by ID", description = "Fetch a single recipe by its internal or TheMealDB ID")
     @GetMapping("/{id}")
     public ResponseEntity<Recipe> getById(@PathVariable Long id) {
         return ResponseEntity.ok(recipeService.findByIdOrThrow(id));
@@ -98,6 +103,7 @@ public class RecipeController {
      * @param recipeId the recipe ID (TheMealDB ID or internal recipe identifier)
      * @return list of steps for the recipe, sorted by stepNumber
      */
+    @Operation(summary = "Get recipe steps", description = "Get all steps for a specific recipe, sorted by step number")
     @GetMapping("/{recipeId}/steps")
     public ResponseEntity<List<StepDTO>> getRecipeSteps(@PathVariable String recipeId) {
         List<StepDTO> steps = stepService.getStepsByRecipeId(recipeId);
@@ -112,6 +118,7 @@ public class RecipeController {
      * @param size page size
      * @return paginated list of user's custom recipes
      */
+    @Operation(summary = "Get my custom recipes", description = "Fetch custom recipes created by the authenticated user")
     @GetMapping("/my")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<RecipeListResponse> getMyRecipes(
@@ -129,6 +136,7 @@ public class RecipeController {
      * @param jwt authenticated user token
      * @return created recipe
      */
+    @Operation(summary = "Create custom recipe", description = "Create a new custom recipe for the authenticated user")
     @PostMapping
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Recipe> create(@Valid @RequestBody RecipeCreateRequest request, @AuthenticationPrincipal Jwt jwt) {
@@ -150,6 +158,7 @@ public class RecipeController {
      * @param jwt authenticated user token
      * @return updated recipe
      */
+    @Operation(summary = "Update custom recipe", description = "Update an existing custom recipe owned by the user")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Recipe> update(
@@ -183,6 +192,7 @@ public class RecipeController {
      * @param jwt authenticated user token
      * @return no content if successful
      */
+    @Operation(summary = "Delete custom recipe", description = "Delete a custom recipe owned by the user")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {

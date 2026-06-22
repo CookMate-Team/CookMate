@@ -9,11 +9,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/recipes")
+@Tag(name = "Favorite Recipes", description = "Endpoints for managing user favorite recipes")
 @Validated
 public class FavoriteRecipeController {
 
@@ -23,6 +26,7 @@ public class FavoriteRecipeController {
         this.favoriteRecipeService = favoriteRecipeService;
     }
 
+    @Operation(summary = "Get user favorites", description = "Get a paginated list of the user's favorite recipes")
     @GetMapping("/favorites")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Page<FavoriteRecipeDTO>> getFavorites(
@@ -34,6 +38,7 @@ public class FavoriteRecipeController {
         return ResponseEntity.ok(favoriteRecipeService.getUserFavorites(userId, page, size));
     }
 
+    @Operation(summary = "Add favorite recipe", description = "Add a recipe to the user's favorites")
     @PostMapping("/{recipeId}/favorite")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<FavoriteRecipeDTO> addFavorite(
@@ -46,6 +51,7 @@ public class FavoriteRecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(favorite);
     }
 
+    @Operation(summary = "Check if favorite", description = "Check if a recipe is in the user's favorites")
     @GetMapping("/{recipeId}/favorite/check")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Boolean> checkFavorite(
@@ -57,6 +63,7 @@ public class FavoriteRecipeController {
         return ResponseEntity.ok(isFavorite);
     }
 
+    @Operation(summary = "Remove favorite recipe", description = "Remove a recipe from the user's favorites")
     @DeleteMapping("/{recipeId}/favorite")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Void> removeFavorite(

@@ -1,6 +1,6 @@
 # Simulator Service
 
-Lekki serwis do symulacji gotowania krok po kroku dla urządzenia wielofunkcyjnego.
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/simulator-service.md](../../docs/simulator-service.md)
 
 ## Założenia
 

@@ -1,4 +1,4 @@
-# Simulation Flow
+Szczegółowa dokumentacja znajduje się w głównym katalogu projektu: [docs/simulator-service.md](../../docs/simulator-service.md)
 
 ## Cel
 

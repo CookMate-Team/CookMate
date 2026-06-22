@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -27,10 +29,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cooking-sessions")
 @RequiredArgsConstructor
+@Tag(name = "Cooking Sessions", description = "Endpoints for tracking active cooking sessions and step progress")
 public class CookingSessionController {
 
     private final CookingSessionService cookingSessionService;
 
+    @Operation(summary = "Receive step progress", description = "Record completion of a specific cooking step")
     @PostMapping("/progress")
     @PreAuthorize("hasRole('ROLE_USER')")
     public Mono<ResponseEntity<CookingSessionProgressDto>> receiveProgress(
@@ -44,6 +48,7 @@ public class CookingSessionController {
         });
     }
 
+    @Operation(summary = "Get cooking history", description = "Get full cooking progress history for a recipe")
     @GetMapping("/recipes/{recipeId}/history")
     public Mono<ResponseEntity<List<CookingSessionProgressDto>>> getHistory(
             @PathVariable String recipeId,
@@ -54,6 +59,7 @@ public class CookingSessionController {
         );
     }
 
+    @Operation(summary = "Get latest progress", description = "Get latest completed step for a specific recipe")
     @GetMapping("/recipes/{recipeId}/latest")
     public Mono<ResponseEntity<CookingSessionProgressDto>> getLatest(
             @PathVariable String recipeId,
@@ -65,6 +71,7 @@ public class CookingSessionController {
         });
     }
 
+    @Operation(summary = "Get active session by recipe", description = "Get details of an active cooking session for a specific recipe")
     @GetMapping("/recipes/{recipeId}/active")
     public Mono<ResponseEntity<ActiveCookingSessionDto>> getActiveSession(
             @PathVariable String recipeId,
@@ -77,6 +84,7 @@ public class CookingSessionController {
         );
     }
 
+    @Operation(summary = "Get global active session", description = "Get details of the currently active cooking session for the user across all recipes")
     @GetMapping("/active")
     public Mono<ResponseEntity<ActiveCookingSessionDto>> getActiveSessionGlobal(
             @AuthenticationPrincipal Jwt jwt
@@ -88,6 +96,7 @@ public class CookingSessionController {
         );
     }
 
+    @Operation(summary = "Complete session", description = "Mark an active cooking session as complete")
     @PostMapping("/sessions/{sessionId}/complete")
     @PreAuthorize("hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> completeSession(
@@ -98,6 +107,7 @@ public class CookingSessionController {
                 .thenReturn(ResponseEntity.ok().build());
     }
 
+    @Operation(summary = "Stream session progress", description = "SSE stream for real-time cooking progress updates")
     @GetMapping(value = "/recipes/{recipeId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<CookingSessionProgressDto>> streamProgress(
             @PathVariable String recipeId,
