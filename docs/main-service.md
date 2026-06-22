@@ -26,3 +26,10 @@ Odpowiada za standardowe operacje CRUD na lokalnych przepisach użytkowników, z
 `StepService` pozwala wysłać zlecenie wygenerowania ustrukturyzowanych kroków przygotowania potrawy na bazie jej opisu przez model sztucznej inteligencji (Groq). Kroki te są następnie zapisywane i mogą zostać użyte przez *Simulator Service*.
 
 Wszystkie błędy domenowe (np. `RECIPE_NOT_FOUND`) podlegają ujednoliconej globalnej obsłudze wyjątków (`GlobalExceptionHandler`), co gwarantuje stały format błędów `ApiErrorResponse`.
+
+## Główne Biblioteki i Zastosowanie (Jak to działa)
+- **`spring-boot-starter-web` (Spring WebMVC)**: Używany do budowy tradycyjnych endpointów REST (np. `RecipeController`). Pozwala na obsługę zapytań HTTP w trybie blokującym (thread-per-request).
+- **`spring-boot-starter-webflux` (WebClient)**: Mimo że projekt jest głównie oparty o Spring MVC, dodano paczkę WebFlux, aby móc używać `WebClient` w `MealDbClient`. Dzięki niemu zapytania do zewnętrznego API TheMealDB są wykonywane asynchronicznie (non-blocking HTTP client).
+- **`spring-boot-starter-data-jpa`**: Używany do mapowania obiektów na relacyjną bazę danych (PostgreSQL). Pozwala na łatwe deklarowanie interfejsów (np. `RecipeRepository`), które automatycznie tłumaczą wywołania na zapytania SQL, obsługując operacje CRUD i paginację.
+- **`springdoc-openapi-starter-webmvc-ui`**: Odpowiada za generowanie wizualnej dokumentacji API pod `/swagger-ui.html`. Skanuje adnotacje takie jak `@Tag` czy `@Operation` i wystawia plik OpenAPI, który ułatwia testowanie endpointów.
+- **`spring-boot-starter-oauth2-resource-server` & `spring-boot-starter-security`**: Chronią endpointy wymagające logowania. Odpowiadają za parsowanie nadesłanego przez bramę (Gateway) tokenu JWT z formatu Keycloak i sprawdzanie, czy użytkownik posiada odpowiednie role i uprawnienia.

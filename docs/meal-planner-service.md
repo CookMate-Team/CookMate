@@ -27,3 +27,8 @@ Działa w oparciu o ustalone "sloty" posiłków dla wybranej ilości dań na dzi
 2. Serwis przechodzi przez każde danie, wyciąga jego dokładne składniki (`strIngredient`) oraz ich miary (`strMeasure`).
 3. Algorytm **deduplikuje** listę, wykorzystując słownik (mapę) do zliczania wystąpień i konsolidacji powielonych składników.
 4. Finalnie powstaje zbiorcza lista produktów, na której poszczególne miary (np. "1 szklanka", "2 łyżki") są skondensowane w jedno miejsce wraz z wymienioną nazwą składnika oraz listą przepisów z jakich pochodzą. Wynik jest zapisywany w `shopping_lists`.
+
+## Główne Biblioteki i Zastosowanie (Jak to działa)
+- **`spring-boot-starter-web`**: Odpowiada za tworzenie logiki kontrolerów (`MealPlannerController`, `ShoppingListController`) i odbieranie standardowych żądań sieciowych HTTP dla procesów planowania posiłków.
+- **`spring-cloud-starter-openfeign`**: Główne narzędzie serwisu do komunikacji z innymi mikroserwisami. Umożliwia synchroniczne odpytywanie `main-service` (np. pobieranie kategorii czy list posiłków), zastępując konieczność pisania manualnego kodu na kliencie HTTP (RestTemplate) dzięki dynamicznemu proxy interfejsów w Springu.
+- **`spring-boot-starter-data-jpa`**: Warstwa mapowania bazodanowego (ORM) wspierająca skomplikowane powiązania `OneToMany` i `ElementCollection`, co jest kluczowe ze względu na wielowymiarowość generowanych planów tygodniowych. Umożliwia prawidłowe odzwierciedlenie drzewa powiązań między planem, dniami, a posiłkami bezpośrednio na tabele `weekly_plans` i `shopping_lists` w bazie PostgreSQL.

@@ -42,7 +42,10 @@ Szczegółowe przeznaczenie, kluczowe funkcjonalności oraz detale integracyjne 
 - [Cooking Session Service](docs/cooking-session-service.md)
 - [Simulator Service](docs/simulator-service.md)
 - [Meal Planner Service](docs/meal-planner-service.md)
-- [Infrastruktura (Gateway, Config, Discovery)](docs/infrastructure-services.md)
+- [Gateway Service](docs/gateway-service.md)
+- [Discovery Service (Eureka)](docs/discovery-service.md)
+- [Config Service](docs/config-service.md)
+- [Keycloak](docs/keycloak.md)
 
 ## Serwisy i porty
 
