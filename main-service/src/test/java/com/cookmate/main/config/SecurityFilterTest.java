@@ -81,16 +81,6 @@ class SecurityFilterTest {
 
     // ─── 403 Forbidden (wrong role) ────────────────────────────
 
-    @Test
-    @DisplayName("DELETE /api/recipes/1 as ROLE_USER (not ADMIN) → 403")
-    void deleteRecipe_asUser_returns403() throws Exception {
-        mockMvc.perform(delete("/api/recipes/{id}", 1L)
-                        .with(jwt().authorities(List.of(
-                                new SimpleGrantedAuthority("ROLE_USER")
-                        ))))
-                .andExpect(status().isForbidden());
-    }
-
     // ─── Public endpoints ──────────────────────────────────────
 
     @Test

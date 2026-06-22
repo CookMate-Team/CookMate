@@ -18,6 +18,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.core.MethodParameter;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.ModelAndViewContainer;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;
 
@@ -45,7 +51,23 @@ public class RecipeSteps {
         when(stepService.getStepsByRecipeId(any())).thenReturn(List.of());
 
         RecipeController controller = new RecipeController(recipeService, stepService);
+        HandlerMethodArgumentResolver principalResolver = new HandlerMethodArgumentResolver() {
+            @Override
+            public boolean supportsParameter(MethodParameter parameter) {
+                return parameter.getParameterType().isAssignableFrom(Jwt.class);
+            }
+            @Override
+            public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                          NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+                return Jwt.withTokenValue("mock-token")
+                        .header("alg", "none")
+                        .claim("sub", "test-user-id")
+                        .build();
+            }
+        };
+
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setCustomArgumentResolvers(principalResolver)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -80,7 +102,7 @@ public class RecipeSteps {
         when(recipeService.findByIdOrThrow(anyLong()))
                 .thenThrow(new RecipeNotFoundException(99999L));
         doThrow(new RecipeNotFoundException(99999L))
-                .when(recipeService).deleteByIdOrThrow(anyLong());
+                .when(recipeService).deleteCustomByIdOrThrow(anyLong(), any());
         when(recipeService.findPaginated(0, 10))
                 .thenReturn(new com.cookmate.main.dto.RecipeListResponse(List.of(), 0, 10, 0, 0));
     }
@@ -97,7 +119,7 @@ public class RecipeSteps {
         if (!body.contains("\"name\": \"\"")) {
             var recipe = new Recipe("Spaghetti Bolognese", "Classic Italian pasta dish",
                     "spaghetti, minced meat, tomato sauce", "Cook pasta, prepare sauce, combine", 45);
-            when(recipeService.save(any())).thenReturn(recipe);
+            when(recipeService.saveCustom(any(), any())).thenReturn(recipe);
         }
 
         lastResult = mockMvc.perform(post(path)

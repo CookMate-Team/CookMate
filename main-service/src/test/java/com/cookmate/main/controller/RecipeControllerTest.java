@@ -172,7 +172,7 @@ class RecipeControllerTest {
     @Test
     void shouldReturn404ContractForUnknownRecipeOnDelete() throws Exception {
         mockMvc.perform(delete("/api/recipes/{id}", 999999L)
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value("RECIPE_NOT_FOUND"))
